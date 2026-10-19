@@ -19,6 +19,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/mcsim/gomc/internal/buildinfo"
 	"github.com/mcsim/gomc/internal/exec"
 	"github.com/mcsim/gomc/internal/parser"
 	"github.com/mcsim/gomc/internal/version/v1_12_2"
@@ -34,6 +35,7 @@ Usage:
   gomc run   <world> <function>         run a function (default: 1 tick)
   gomc tick  <world> [ticks]            advance the world by N ticks
   gomc commands                         list the supported commands
+  gomc version                          print the version
 
   gomc difftest run    <world> <case>   print what a case does
   gomc difftest check  <world> <case>   compare a case with its golden file
@@ -92,6 +94,9 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		return runCommands(stdout)
 	case "difftest":
 		return runDifftest(args[1:], stdout, stderr)
+	case "version", "--version", "-v":
+		fmt.Fprintln(stdout, buildinfo.String())
+		return 0
 	case "help", "-h", "--help":
 		Usage(stdout)
 		return 0
