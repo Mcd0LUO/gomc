@@ -513,6 +513,11 @@ say @a（无匹配） → Selector '@a' found nothing
   `There is no such block with name minecraft:<名字>`；gomc 现在不校验方块名。
   消息里方块的**显示名**已经对齐（语言文件的 `tile.<id>.name`，比如 `Stone`、
   `Grass Block`），但变种方块（石头系、染色方块）走的是可读化近似。
+  > 这条没做的原因：方块注册名在 1.12.2 的 `Block.class` 常量池里不是
+  > `minecraft:<名字>` 形式的字符串（只有裸名），而语言文件里的两级键
+  > （`tile.stone.graniteSmooth.name`）推不出注册名（`polished_granite`）。
+  > 猜错会误报"方块不存在"，所以宁可先不校验。
+  > 要补的话得反编译 `Block` 的静态初始化块，把 `register(id, name, ...)` 逐个读出来。
 - **需要玩家在线的命令**（give / effect / title / tp / tell / xp / clear / enchant /
   trigger / gamemode / spawnpoint）：真服在控制台执行时的报错文本与 gomc 不同。
 - **Paper 的扩展**：实测真服（Paper 1.12.2）允许 `gamerule <不存在的规则> <值>`，
