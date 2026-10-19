@@ -381,8 +381,11 @@ func registerWorld(reg *exec.Registry) {
 }
 
 // describeBlocks renders a block for messages.
+//
+// 1.12.2 shows the translated name ("Stone"), not the registry id
+// ("stone"), and it does not include the data value.
 func describeBlocks(s world.BlockState) string {
-	return fmt.Sprintf("%s", s.String())
+	return world.BlockDisplayName(s.Name)
 }
 
 // blockPos renders a block position the way 1.12.2 does in its messages:

@@ -509,8 +509,10 @@ say @a（无匹配） → Selector '@a' found nothing
 
 **还没对齐的**（下一批）：
 
-- **方块的显示名**：真服用语言文件里的 `block.<id>.name`（`Stone`、`Grass Block`），
-  gomc 现在用注册名（`stone`）。影响 `testforblock` 这类把方块名写进消息的地方。
+- **方块的注册表**：真服有 390 个方块注册名，名字写错会报
+  `There is no such block with name minecraft:<名字>`；gomc 现在不校验方块名。
+  消息里方块的**显示名**已经对齐（语言文件的 `tile.<id>.name`，比如 `Stone`、
+  `Grass Block`），但变种方块（石头系、染色方块）走的是可读化近似。
 - **需要玩家在线的命令**（give / effect / title / tp / tell / xp / clear / enchant /
   trigger / gamemode / spawnpoint）：真服在控制台执行时的报错文本与 gomc 不同。
 - **Paper 的扩展**：实测真服（Paper 1.12.2）允许 `gamerule <不存在的规则> <值>`，
