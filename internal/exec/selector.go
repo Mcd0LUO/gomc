@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/mcsim/gomc/internal/ast"
@@ -27,8 +28,13 @@ import (
 //   - `dx`/`dy`/`dz` select entities whose bounding box intersects the
 //     volume, not entities whose position falls inside it.
 //   - `c` limits the result. It defaults to one entity for `@p`, `@r` and
-//     `@s` and to no limit for `@a` and `@e`. A negative value reverses the
-//     order before truncating.
+//     `@s` and to no limit for `@a` and `@e`. A count that is not an
+//     integer falls back to that default instead of being an error, and a
+//     negative value reverses the order before truncating.
+//   - A `type` argument naming a type the server does not know makes the
+//     whole selector match nothing.
+//   - `name=` compares the name 1.12.2 reports for the entity, which is
+//     the user name for a player and the custom name for anything else.
 //   - `@p` and `@a` are ordered by distance to the reference position, and
 //     when exactly one entity is asked for the executing entity wins.
 type SelectorResolver struct {
@@ -68,18 +74,11 @@ func (r *SelectorResolver) Resolve(src *Source, sel *ast.Selector) ([]*world.Ent
 		}
 	}
 
-	limit, hasLimit, err := parser.SelectorInt(sel, "c")
-	if err != nil {
-		return nil, err
-	}
-	if !hasLimit {
-		// @a and @e default to no limit, the others to a single entity.
-		if sel.Base == "a" || sel.Base == "e" {
-			limit = 0
-		} else {
-			limit = 1
-		}
-	}
+	// 1.12.2 reads the count with `MathHelper.a(String, int)`, which is
+	// `Integer.parseInt` with the default as the fallback. A count that is
+	// not an integer is therefore not an error: it falls back to the
+	// default of the base.
+	limit := parser.SelectorIntDefault(sel, "c", defaultCount(sel.Base))
 
 	switch sel.Base {
 	case "p", "a", "e":
@@ -141,6 +140,18 @@ func onlyPlayers(entities []*world.Entity) []*world.Entity {
 	return out
 }
 
+// defaultCount returns the count a selector falls back to.
+//
+// 1.12.2 counts no limit for @a and @e and a single entity for @p, @r and
+// @s. The count is also the fallback for a `c` argument that is not an
+// integer.
+func defaultCount(base string) int {
+	if base == "a" || base == "e" {
+		return 0
+	}
+	return 1
+}
+
 // typeFilterApplies reports whether the `type` argument filters the
 // entities of a selector base.
 //
@@ -153,6 +164,16 @@ func typeFilterApplies(base string) bool {
 
 // filter applies the selector's filters to the world's entities.
 func (r *SelectorResolver) filter(src *Source, sel *ast.Selector) []*world.Entity {
+	// 1.12.2 checks the type argument before anything else: a type the
+	// entity registry does not know makes the whole selector match
+	// nothing, whatever the base is. The server also says the type is
+	// invalid, but the result is an empty one and not a failure.
+	if v, ok := parser.SelectorString(sel, "type"); ok {
+		if !world.IsRegisteredEntityType(strings.TrimPrefix(v, "!")) {
+			return nil
+		}
+	}
+
 	candidates := r.World.EntityList()
 
 	// A `type` filter restricts to one entity type. The negation form
@@ -170,6 +191,10 @@ func (r *SelectorResolver) filter(src *Source, sel *ast.Selector) []*world.Entit
 		typeFilter = world.NormalizeEntityType(strings.TrimPrefix(v, "!"))
 	}
 
+	// The `name` filter compares the name 1.12.2 reports for the entity,
+	// which is `Entity.getName`: the user name for a player — a player
+	// with a custom name is still known by its user name — and the custom
+	// name for anything else.
 	nameFilter, hasName := parser.SelectorString(sel, "name")
 	nameNegated := strings.HasPrefix(nameFilter, "!")
 	nameFilter = strings.TrimPrefix(nameFilter, "!")
@@ -509,6 +534,22 @@ func matchScores(w *world.World, e *world.Entity, filters []parser.ScoreFilter) 
 	return true
 }
 
+// gameMode is a 1.12.2 game mode.
+//
+// The "not set" mode is the one 1.12.2 falls back to when a game mode
+// argument names no mode at all. No player is in it, so it is what makes
+// an unknown mode match nobody — and everybody, when the filter is
+// negated.
+type gameMode int
+
+const (
+	gameModeNotSet    gameMode = -1
+	gameModeSurvival  gameMode = 0
+	gameModeCreative  gameMode = 1
+	gameModeAdventure gameMode = 2
+	gameModeSpectator gameMode = 3
+)
+
 // parseGamemode parses the `m=` game mode filter.
 //
 // 1.12.2 accepts the numeric id or the name, plus the one-letter
@@ -525,65 +566,72 @@ func parseGamemode(sel *ast.Selector) (string, bool) {
 //
 // The filter only ever matches players: 1.12.2 reads the game mode from
 // the player's interact manager, and any other entity fails the test.
+//
+// A mode the server does not know resolves to "not set", which no player
+// is in. The filter therefore matches nobody, and the negated filter
+// matches everybody.
 func matchGamemode(e *world.Entity, mode string) bool {
 	if !e.IsPlayer {
 		return false
 	}
 	negated := strings.HasPrefix(mode, "!")
-	value := strings.TrimPrefix(mode, "!")
-	want, known := normalizeGameMode(value)
-	if !known {
-		// 1.12.2 resolves an unknown mode to "not set", which never
-		// equals a player's mode.
-		return false
-	}
-	current := int32(0)
-	if v, ok := e.NBTValue("playerGameType").(nbt.Int); ok {
-		current = int32(v)
-	}
-	name, known := gameModeName(int(current))
-	if !known {
-		return false
-	}
+	want := resolveGameMode(strings.TrimPrefix(mode, "!"))
+	current := playerGameMode(e)
 	if negated {
-		return name != want
+		return current != want
 	}
-	return name == want
+	return current == want
 }
 
-// normalizeGameMode resolves a game mode argument to its canonical name.
+// resolveGameMode resolves a game mode argument to the mode it selects.
 //
-// 1.12.2 accepts the numeric id, the full name and the one-letter
-// abbreviation, and the match is case sensitive.
-func normalizeGameMode(v string) (string, bool) {
+// 1.12.2 parses the argument as a number first and falls back to the name,
+// and the names are matched case sensitively. An argument that names no
+// mode at all resolves to "not set".
+func resolveGameMode(v string) gameMode {
+	if n, err := strconv.ParseInt(v, 10, 32); err == nil {
+		return gameModeByID(int(n))
+	}
 	switch v {
-	case "survival", "s", "0":
-		return "survival", true
-	case "creative", "c", "1":
-		return "creative", true
-	case "adventure", "a", "2":
-		return "adventure", true
-	case "spectator", "sp", "3":
-		return "spectator", true
+	case "survival", "s":
+		return gameModeSurvival
+	case "creative", "c":
+		return gameModeCreative
+	case "adventure", "a":
+		return gameModeAdventure
+	case "spectator", "sp":
+		return gameModeSpectator
 	}
-	return "", false
+	return gameModeNotSet
 }
 
-// gameModeName maps a 1.12.2 game mode id to its name.
+// playerGameMode returns the game mode a player is in.
 //
-// The second result reports whether the id is a known game mode.
-func gameModeName(id int) (string, bool) {
-	switch id {
-	case 0:
-		return "survival", true
-	case 1:
-		return "creative", true
-	case 2:
-		return "adventure", true
-	case 3:
-		return "spectator", true
+// 1.12.2 reads the mode from the player's data, and a mode the server
+// does not know falls back to survival.
+func playerGameMode(e *world.Entity) gameMode {
+	id := 0
+	if v, ok := e.NBTValue("playerGameType").(nbt.Int); ok {
+		id = int(v)
 	}
-	return "", false
+	return gameModeByID(id)
+}
+
+// gameModeByID maps a 1.12.2 game mode id to the mode.
+func gameModeByID(id int) gameMode {
+	switch id {
+	case -1:
+		return gameModeNotSet
+	case 0:
+		return gameModeSurvival
+	case 1:
+		return gameModeCreative
+	case 2:
+		return gameModeAdventure
+	case 3:
+		return gameModeSpectator
+	}
+	return gameModeSurvival
 }
 
 // matchLevel applies the `l`/`lm` level filter.

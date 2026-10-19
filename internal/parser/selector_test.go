@@ -157,3 +157,52 @@ func TestIsSelector(t *testing.T) {
 		}
 	}
 }
+
+// TestSelectorIntDefaultFallsBack covers the numeric selector arguments.
+//
+// 1.12.2 reads them with `MathHelper.a(String, int)`, which is
+// `Integer.parseInt` with the default as the fallback. A value that is not
+// a Java `int` is therefore not a number at all: the argument falls back
+// to its default instead of raising an error.
+//
+// Measured on a real 1.12.2 server: `say @e[c=abc]` expands to every
+// entity, the same as `say @e` — the count is not an error.
+func TestSelectorIntDefaultFallsBack(t *testing.T) {
+	sel, err := ParseSelector("@e[c=abc]")
+	if err != nil {
+		t.Fatalf("ParseSelector: %v", err)
+	}
+	if got := SelectorIntDefault(sel, "c", 0); got != 0 {
+		t.Errorf("c = %d, want the default 0", got)
+	}
+	if got := SelectorIntDefault(sel, "c", 1); got != 1 {
+		t.Errorf("c = %d, want the default 1", got)
+	}
+
+	// A value that is not a number at all falls back as well.
+	sel, err = ParseSelector("@e[c=1.0]")
+	if err != nil {
+		t.Fatalf("ParseSelector: %v", err)
+	}
+	if got := SelectorIntDefault(sel, "c", 0); got != 0 {
+		t.Errorf("c = %d, want the default 0", got)
+	}
+
+	// A value that does not fit into a Java `int` falls back too.
+	sel, err = ParseSelector("@e[c=99999999999999]")
+	if err != nil {
+		t.Fatalf("ParseSelector: %v", err)
+	}
+	if got := SelectorIntDefault(sel, "c", 0); got != 0 {
+		t.Errorf("c = %d, want the default 0", got)
+	}
+
+	// A count that is an integer is used as it is.
+	sel, err = ParseSelector("@e[c=2]")
+	if err != nil {
+		t.Fatalf("ParseSelector: %v", err)
+	}
+	if got := SelectorIntDefault(sel, "c", 0); got != 2 {
+		t.Errorf("c = %d, want 2", got)
+	}
+}

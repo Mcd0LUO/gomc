@@ -77,14 +77,20 @@ func (a AABB) Intersects(b AABB) bool {
 
 // DisplayName returns the name 1.12.2 reports for the entity.
 //
-// `Entity.getName` prefers the custom name, then the player name for
-// players, and finally the type's registered name.
+// `Entity.getName` prefers the custom name, then the type's translated
+// name. `EntityHuman` overrides it and returns the name of the game
+// profile instead, so a player is always known by its user name and never
+// by its custom name.
+//
+// The custom name is returned as it is stored: 1.12.2 keeps it in the data
+// watcher as a plain string and hands it out unchanged, so the quotes of a
+// name like `"Bob"` are part of the name.
 func (e *Entity) DisplayName() string {
-	if v, ok := e.NBTValue("CustomName").(nbt.String); ok {
-		return strings.Trim(string(v), "\"")
-	}
 	if e.IsPlayer && e.PlayerName != "" {
 		return e.PlayerName
+	}
+	if v, ok := e.NBTValue("CustomName").(nbt.String); ok && string(v) != "" {
+		return string(v)
 	}
 	return EntityTypeMeta(e.Type).DisplayName
 }
@@ -325,43 +331,19 @@ func compoundWith(key string, v nbt.Value) *nbt.Compound {
 
 // NormalizeEntityType maps a 1.12.2 entity type name to its canonical form.
 //
-// 1.12.2 registers entity types under a lowercase key, but a lot of older
-// material still uses the legacy CamelCase names, so those are mapped onto
-// the registered key as well.
+// 1.12.2 registers the entity types under a lower-case key, so the name is
+// lower-cased and the namespace is dropped.
+//
+// The spellings of the older versions are deliberately *not* mapped: 1.12.2
+// renamed them — a "pig zombie" is a `zombie_pigman` there, and "pigzombie"
+// is not a type the server knows at all. Mapping the old spellings would
+// make a type the server rejects look like a valid one.
 func NormalizeEntityType(name string) string {
 	name = strings.ToLower(name)
 	if i := strings.IndexByte(name, ':'); i >= 0 {
 		name = name[i+1:]
 	}
-	if alias, ok := legacyEntityTypeNames[name]; ok {
-		return alias
-	}
 	return name
-}
-
-// legacyEntityTypeNames maps the pre-1.13 spellings onto the 1.12.2 keys.
-var legacyEntityTypeNames = map[string]string{
-	"pigzombie":             "zombie_pigman",
-	"zombievillager":        "zombie_villager",
-	"mushroomcow":           "mooshroom",
-	"snowman":               "snowman",
-	"lavaslime":             "magma_cube",
-	"enderdragon":           "ender_dragon",
-	"witherboss":            "wither",
-	"primedtnt":             "tnt",
-	"fallingsand":           "falling_block",
-	"armorstand":            "armor_stand",
-	"itemframe":             "item_frame",
-	"egg":                   "egg",
-	"experienceorb":         "xp_orb",
-	"xp":                    "xp_orb",
-	"thrownegg":             "egg",
-	"thrownenderpearl":      "ender_pearl",
-	"thrownpotion":          "potion",
-	"thrownexpbottle":       "xp_bottle",
-	"fireworksrocketentity": "fireworks_rocket",
-	"villagergolem":         "villager_golem",
-	"endercrystal":          "ender_crystal",
 }
 
 // ParseEntityTypeName resolves a possibly namespaced entity type.

@@ -1,5 +1,7 @@
 package world
 
+import "strings"
+
 // Entity type metadata for Minecraft 1.12.2.
 //
 // Two properties are needed to reproduce the real server's selector
@@ -19,9 +21,15 @@ package world
 //
 // The names come from `en_US.lang` in the 1.12.2 client assets; the sizes
 // come from the 1.12 entity data.
+//
+// The keys are the names 1.12.2 registers the entity types under, which
+// are the same names the `type=` argument of a selector takes. The table
+// holds every one of them, so it doubles as the list of the types the
+// server knows: see IsRegisteredEntityType.
 var entityTypeMeta = map[string]entityMeta{
 	"item":                  {"Item", 0.25, 0.25},
 	"xp_orb":                {"Experience Orb", 0.5, 0.5},
+	"area_effect_cloud":     {"Area Effect Cloud", 6, 0.5},
 	"elder_guardian":        {"Elder Guardian", 1.9975, 1.9975},
 	"wither_skeleton":       {"Wither Skeleton", 0.7, 2.4},
 	"stray":                 {"Stray", 0.6, 1.99},
@@ -102,6 +110,7 @@ var entityTypeMeta = map[string]entityMeta{
 	"parrot":                {"Parrot", 0.5, 0.9},
 	"villager":              {"Villager", 0.6, 1.95},
 	"ender_crystal":         {"entity.EnderCrystal.name", 2, 2},
+	"lightning_bolt":        {"Lightning Bolt", 0.6, 1.95},
 	"player":                {"Player", 0.6, 1.8},
 }
 
@@ -124,4 +133,41 @@ func EntityTypeMeta(name string) entityMeta {
 		return m
 	}
 	return entityMeta{Width: 0.6, Height: 1.95}
+}
+
+// EntityTypeKey splits an entity type name into its namespace and its
+// name.
+//
+// 1.12.2 builds a `MinecraftKey` from the name: both parts are lower-cased,
+// a name without a namespace means "minecraft", and the namespace is only
+// taken from the text when the colon is neither the first nor the second
+// character. So "zombie" and "minecraft:zombie" are the same key, and so
+// are "a:zombie" and ":zombie" — but "foo:zombie" is a key of the "foo"
+// namespace.
+func EntityTypeKey(name string) (namespace, key string) {
+	namespace, key = "minecraft", name
+	if i := strings.IndexByte(name, ':'); i >= 0 {
+		key = name[i+1:]
+		if i > 1 {
+			namespace = name[:i]
+		}
+	}
+	return strings.ToLower(namespace), strings.ToLower(key)
+}
+
+// IsRegisteredEntityType reports whether the name is an entity type 1.12.2
+// knows.
+//
+// The registry holds the "minecraft" namespace only, so a name in another
+// namespace is not a type the server knows: 1.12.2 reports it as invalid
+// and matches nothing. The same is true for a name the registry does not
+// have at all, which is why the old spellings of the renamed types —
+// "pigzombie" for the `zombie_pigman` of 1.12.2 — are not types.
+func IsRegisteredEntityType(name string) bool {
+	namespace, key := EntityTypeKey(name)
+	if namespace != "minecraft" {
+		return false
+	}
+	_, ok := entityTypeMeta[key]
+	return ok
 }

@@ -473,3 +473,183 @@ func TestSelectorSelf(t *testing.T) {
 		t.Errorf("error = %q, want it to mention the missing executor", err.Error())
 	}
 }
+
+// TestSelectorCountFallsBackToDefault covers a `c` argument that is not an
+// integer.
+//
+// 1.12.2 reads the count with `MathHelper.a(String, int)`, which is
+// `Integer.parseInt` with the default as the fallback. A count that is not
+// an integer is therefore not an error, it falls back to the default of
+// the base: no limit for @a and @e, a single entity for the others.
+//
+// Measured on a real 1.12.2 server: `say @e[c=abc]` expands to every
+// entity, the same as `say @e`.
+func TestSelectorCountFallsBackToDefault(t *testing.T) {
+	w := testWorld(t)
+	src := &Source{Name: "Server", World: "world", PermissionLevel: 4}
+
+	all := []string{"p1", "p2", "z1", "a1"}
+	for _, text := range []string{"@e[c=abc]", "@e[c=1.0]", "@e[c=~]", "@e[c=99999999999999]"} {
+		got := resolve(t, w, src, text)
+		if !sameSet(got, all) {
+			t.Errorf("%s = %v, want every entity", text, got)
+		}
+	}
+
+	// A count that *is* an integer still limits the result.
+	got := resolve(t, w, src, "@e[c=2]")
+	if len(got) != 2 {
+		t.Errorf("@e[c=2] = %v, want two entities", got)
+	}
+}
+
+// TestSelectorNameUsesUserName covers the `name` filter of a player.
+//
+// 1.12.2's `EntityHuman.getName` overrides `Entity.getName` and returns
+// the name of the game profile, so a player is matched by its user name
+// and never by its custom name.
+func TestSelectorNameUsesUserName(t *testing.T) {
+	w := testWorld(t)
+	src := &Source{Name: "Server", World: "world", PermissionLevel: 4}
+	// A selector argument may not contain a space, so the custom name of
+	// the test player has to be a single word.
+	w.Entities["p1"].NBT.Set("CustomName", nbt.String("SteveTheGreat"))
+
+	// The user name matches.
+	got := resolve(t, w, src, "@e[name=Steve]")
+	if !sameSet(got, []string{"p1"}) {
+		t.Errorf("@e[name=Steve] = %v, want p1", got)
+	}
+
+	// The custom name of a player does not.
+	got = resolve(t, w, src, "@e[name=SteveTheGreat]")
+	if len(got) != 0 {
+		t.Errorf("@e[name=SteveTheGreat] = %v, want no match", got)
+	}
+}
+
+// TestSelectorCustomNameIsRaw covers the custom name of a non-player.
+//
+// 1.12.2 keeps the custom name in the data watcher as a plain string and
+// hands it out unchanged, so the quotes of a name like `"Bob"` are part of
+// the name. Measured on a real 1.12.2 server: an entity with the custom
+// name `"Bob"` is printed as `"Bob"`, and it is matched by
+// `@e[name="Bob"]` and not by `@e[name=Bob]`.
+func TestSelectorCustomNameIsRaw(t *testing.T) {
+	w := testWorld(t)
+	src := &Source{Name: "Server", World: "world", PermissionLevel: 4}
+	w.Entities["a1"].NBT.Set("CustomName", nbt.String(`"Bob"`))
+
+	// The name with the quotes matches.
+	got := resolve(t, w, src, `@e[name="Bob"]`)
+	if !sameSet(got, []string{"a1"}) {
+		t.Errorf(`@e[name="Bob"] = %v, want a1`, got)
+	}
+
+	// The name without the quotes does not.
+	got = resolve(t, w, src, `@e[name=Bob]`)
+	if len(got) != 0 {
+		t.Errorf(`@e[name=Bob] = %v, want no match`, got)
+	}
+}
+
+// TestSelectorUnknownTypeMatchesNothing covers a `type` argument the
+// server does not know.
+//
+// 1.12.2 checks the type against the entity registry before it looks at
+// anything else. A type the registry does not have — the old spelling of a
+// renamed type, say — is reported as invalid and the selector matches
+// nothing. The command itself does not fail.
+//
+// Measured on a real 1.12.2 server: `kill @e[type=pigzombie]` prints
+// "Entity type 'minecraft:pigzombie' is invalid" and kills nothing.
+func TestSelectorUnknownTypeMatchesNothing(t *testing.T) {
+	w := testWorld(t)
+	src := &Source{Name: "Server", World: "world", PermissionLevel: 4}
+	// The type 1.12.2 registers the zombie pigman under. The old
+	// spelling of it, "pigzombie", is not a type the server knows.
+	w.AddEntity(&world.Entity{
+		ID: "z2", Type: "zombie_pigman",
+		Pos: world.Vec{X: 4, Y: 0, Z: 0},
+		NBT: nbt.NewCompound(), Width: 0.6, Height: 1.95,
+	})
+
+	for _, text := range []string{
+		"@e[type=pigzombie]",
+		"@e[type=!pigzombie]",
+		"@e[type=nosuchtype]",
+		"@e[type=foo:zombie]",
+	} {
+		got := resolve(t, w, src, text)
+		if len(got) != 0 {
+			t.Errorf("%s = %v, want no match", text, got)
+		}
+	}
+
+	// The check applies to every base: 1.12.2 rejects the type before it
+	// decides what the base selects.
+	got := resolve(t, w, src, "@a[type=pigzombie]")
+	if len(got) != 0 {
+		t.Errorf("@a[type=pigzombie] = %v, want no match", got)
+	}
+
+	// The registered name still selects the entity.
+	got = resolve(t, w, src, "@e[type=zombie_pigman]")
+	if !sameSet(got, []string{"z2"}) {
+		t.Errorf("@e[type=zombie_pigman] = %v, want z2", got)
+	}
+}
+
+// TestSelectorKnownTypeSpellings covers the spellings 1.12.2 accepts.
+//
+// The registry keys are lower-case and the namespace is "minecraft", but
+// 1.12.2 lower-cases both parts, so the case does not matter. Measured on
+// a real 1.12.2 server: `type=Zombie` and `type=MINECRAFT:ZOMBIE` both
+// select the zombie.
+func TestSelectorKnownTypeSpellings(t *testing.T) {
+	w := testWorld(t)
+	src := &Source{Name: "Server", World: "world", PermissionLevel: 4}
+
+	for _, text := range []string{
+		"@e[type=zombie]",
+		"@e[type=Zombie]",
+		"@e[type=ZOMBIE]",
+		"@e[type=minecraft:zombie]",
+		"@e[type=MINECRAFT:ZOMBIE]",
+	} {
+		got := resolve(t, w, src, text)
+		if !sameSet(got, []string{"z1"}) {
+			t.Errorf("%s = %v, want z1", text, got)
+		}
+	}
+}
+
+// TestSelectorGameModeNotSet covers a game mode the server does not know.
+//
+// 1.12.2 resolves an unknown game mode to "not set", and no player is in
+// that mode. The filter therefore matches nobody, and the negated filter
+// matches everybody.
+func TestSelectorGameModeNotSet(t *testing.T) {
+	w := testWorld(t)
+	src := &Source{Name: "Server", World: "world", PermissionLevel: 4}
+	w.Entities["p1"].NBT.Set("playerGameType", nbt.Int(1))
+	w.Entities["p2"].NBT.Set("playerGameType", nbt.Int(0))
+
+	// An unknown mode matches no player.
+	got := resolve(t, w, src, "@e[m=abc]")
+	if len(got) != 0 {
+		t.Errorf("@e[m=abc] = %v, want no match", got)
+	}
+
+	// The negated form of an unknown mode matches every player.
+	got = resolve(t, w, src, "@e[m=!abc]")
+	if !sameSet(got, []string{"p1", "p2"}) {
+		t.Errorf("@e[m=!abc] = %v, want the two players", got)
+	}
+
+	// A mob is still never matched by the game mode filter.
+	got = resolve(t, w, src, "@e[m=!abc,type=zombie]")
+	if len(got) != 0 {
+		t.Errorf("@e[m=!abc,type=zombie] = %v, want no match", got)
+	}
+}
