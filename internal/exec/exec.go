@@ -99,6 +99,9 @@ type Result struct {
 }
 
 // Error is an execution failure carrying an optional source position.
+//
+// Msg is what 1.12.2 would say. The remaining fields are gomc's own
+// addition and are only rendered when the enhanced output is on.
 type Error struct {
 	// Msg explains the failure.
 	Msg string
@@ -106,6 +109,14 @@ type Error struct {
 	Line int
 	// Col is the 1-based column of the failing command, or 0.
 	Col int
+	// Path is the file the failing command came from, when known.
+	Path string
+	// Source is the text of the failing line, when known.
+	Source string
+	// Usage is the usage line of the command that failed, when known.
+	Usage string
+	// Hint is an extra suggestion.
+	Hint string
 }
 
 func (e *Error) Error() string { return e.Msg }

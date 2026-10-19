@@ -204,17 +204,31 @@ cd tools\probe
 所有解析/执行错误统一为 `*parser.Error`，携带：
 
 - `Line` / `Col`：1-based，指向 mcfunction 文件内位置
-- `Msg`：人类可读描述
+- `Msg`：**1.12.2 会怎么说**（原文照抄，不改一个字）
 - `Kind`：`Syntax` | `Unknown` | `Runtime`
+- `Path` / `Source`：文件路径与出错的那一行
+- `Usage`：该命令的用法行（来自语言文件）
+- `Hint`：额外建议，比如 `did you mean 'setblock'?`
 
-CLI 输出格式对齐 rustc/TS：
+**消息本身永远是 1.12.2 的原文**，增强的部分都是附加的：位置、用法、建议。
+这样既保持了"对着真服复现"，又能多指出真服不会指出的东西。
+
+CLI 默认输出编译器风格（rustc/TS）：
 
 ```
 error[Syntax]: data/functions/ns/f.mcfunction:12:5
   scoreboard players set @a obj = 5
       ^
   expected integer, got '='
+  usage: /scoreboard players set <player> <objective> <score> [dataTag]
+  hint: did you mean 'setblock'?
 ```
+
+`--plain-errors` 关掉增强，只留一行 `error[Kind]: line:col: msg`，给要解析输出的脚本用。
+开关可以放在子命令前后的任何位置。
+
+增强只发生在 CLI 的渲染层，**不进对拍 golden**：difftest 记录的错误仍然是
+1.12.2 的原文。
 
 ## 扩展指引
 

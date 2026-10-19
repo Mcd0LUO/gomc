@@ -15,11 +15,42 @@ gomc difftest run    <world> <case>    # 打印一个用例的执行观察
 gomc difftest check  <world> <case>    # 与 golden 文件比对
 gomc difftest update <world> <case>    # 重写 golden 文件
 gomc difftest probe  <case>            # 生成给真实服务端用的探针函数
+
+gomc --plain-errors check <world>      # 只输出一行错误（给脚本用）
 ```
 
 `check` 做两件事：一是查**命令名**未注册（1.12.2 加载函数时就会拒绝的），
 二是 lint **参数**（1.12.2 要等函数真跑了才会暴露的问题，比如
 `scoreboard players add s obj notanumber`）。第二项是 gomc 自己加的。
+
+## 错误输出
+
+报错**默认是增强的**：指出文件、行、列、那一行原文、正确的用法，以及可能的建议。
+
+```
+error[Unknown]: data/functions/demo/f.mcfunction:2:1
+  setblok 1 2 3 stone
+  ^
+  Unknown or invalid command 'setblok'
+  hint: did you mean 'setblock'?
+
+error[Syntax]: data/functions/demo/f.mcfunction:1:31
+  scoreboard players set @a obj = 5
+                                ^
+  expected an integer, got "="
+  usage: /scoreboard players set <player> <objective> <score> [dataTag]
+```
+
+关键在于**消息本身一个字没改**：那仍然是 1.12.2 会说的话（真服也这么说），
+位置、用法、建议都是 gomc **附加**的。增强只发生在显示层，不进对拍 golden。
+
+不想要这些附加信息时用 `--plain-errors`，只留一行：
+
+```
+error[Syntax]: 1:31: expected an integer, got "="
+```
+
+开关放在子命令前后的任何位置都行。
 
 ## 文档
 

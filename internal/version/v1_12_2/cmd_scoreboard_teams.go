@@ -71,7 +71,7 @@ func parseTeams(p *parser.Parser) ([]ast.Arg, error) {
 			&ast.StringArg{Value: value},
 		}, nil
 	}
-	return nil, p.Errorf("expected add, remove, join, leave, empty, list or option, got %q", action)
+	return nil, usageError(p, "scoreboard teams", "expected add, remove, join, leave, empty, list or option, got %q", action)
 }
 
 // runTeams executes the `scoreboard teams` subtree.

@@ -74,6 +74,10 @@ type FunctionLoadError struct {
 	Line int
 	// Msg explains the failure.
 	Msg string
+	// Source is the text of the offending line.
+	Source string
+	// Hint is an extra suggestion, such as "did you mean 'setblock'?".
+	Hint string
 }
 
 func (e *FunctionLoadError) Error() string {
@@ -234,7 +238,7 @@ func (e *Engine) loadFunctionFile(id, path string) (*Function, error) {
 		fields := strings.SplitN(line, " ", 2)
 		name := fields[0]
 		if _, ok := e.Registry.Get(name); !ok {
-			return nil, e.functionLoadError(id, path, lineNo, name)
+			return nil, e.functionLoadError(id, path, lineNo, name, line)
 		}
 		fn.Lines = append(fn.Lines, line)
 		fn.LineNumbers = append(fn.LineNumbers, lineNo)
@@ -244,7 +248,7 @@ func (e *Engine) loadFunctionFile(id, path string) (*Function, error) {
 
 // functionLoadError builds the error message 1.12.2 produces for an
 // unknown command inside a function.
-func (e *Engine) functionLoadError(id, path string, line int, name string) error {
+func (e *Engine) functionLoadError(id, path string, line int, name, source string) error {
 	var msg string
 	switch {
 	case strings.HasPrefix(name, "//"):
@@ -254,7 +258,11 @@ func (e *Engine) functionLoadError(id, path string, line int, name string) error
 	default:
 		msg = fmt.Sprintf("Unknown or invalid command '%s'", name)
 	}
-	return &FunctionLoadError{ID: id, Path: path, Line: line, Msg: msg}
+	loadErr := &FunctionLoadError{ID: id, Path: path, Line: line, Msg: msg, Source: source}
+	if suggestion, found := ClosestName(name, e.Registry.Names()); found {
+		loadErr.Hint = fmt.Sprintf("did you mean '%s'?", suggestion)
+	}
+	return loadErr
 }
 
 // ParseCommand parses a command line into an AST command.
@@ -286,17 +294,34 @@ func (e *Engine) ParseCommand(line string, lineNo int) (*ast.Command, error) {
 	name := toks[0].Text
 	handler, ok := e.Registry.Get(name)
 	if !ok {
-		return nil, &parser.Error{
-			Kind: parser.KindUnknown,
-			Msg:  fmt.Sprintf("Unknown or invalid command '%s'", name),
-			Line: lineNo, Col: 1,
+		err := &parser.Error{
+			Kind:   parser.KindUnknown,
+			Msg:    fmt.Sprintf("Unknown or invalid command '%s'", name),
+			Line:   lineNo,
+			Col:    1,
+			Source: trimmed,
 		}
+		// A typo in the command name is the most common mistake in a
+		// function file, so point at the command that was probably meant.
+		if suggestion, found := ClosestName(name, e.Registry.Names()); found {
+			err.Hint = fmt.Sprintf("did you mean '%s'?", suggestion)
+		}
+		return nil, err
 	}
 	rest := toks[1:]
 	p := parser.New(rest, lineNo, trimmed)
 	args, err := handler.Parse(p)
 	if err != nil {
-		return nil, parser.Positioned(err, lineNo, 1, 0)
+		perr := parser.Positioned(err, lineNo, 1, 0)
+		if pe, ok := perr.(*parser.Error); ok {
+			if pe.Source == "" {
+				pe.Source = trimmed
+			}
+			if pe.Usage == "" {
+				pe.Usage = handler.Usage()
+			}
+		}
+		return nil, perr
 	}
 	return &ast.Command{
 		Name: name,
@@ -322,6 +347,11 @@ func (e *Engine) Execute(cmd *ast.Command, src *Source) (int, error) {
 	}
 	count, err := handler.Run(ctx, cmd.Args)
 	if err != nil {
+		// The command failed while running; the usage of the command is
+		// still worth showing.
+		if ee, ok := err.(*Error); ok && ee.Usage == "" {
+			ee.Usage = handler.Usage()
+		}
 		return 0, err
 	}
 	return count, nil
@@ -372,7 +402,7 @@ func (e *Engine) RunFunction(fn *Function, src *Source) (int, error) {
 		count, err := e.ExecuteLine(item.line, item.lineNo, item.src)
 		if err != nil {
 			// The command failed, but the function keeps going.
-			e.Errors = append(e.Errors, err)
+			e.Errors = append(e.Errors, e.decorate(err, item.lineNo, item.line, fn.Path))
 			continue
 		}
 		if count > 0 {
@@ -380,6 +410,37 @@ func (e *Engine) RunFunction(fn *Function, src *Source) (int, error) {
 		}
 	}
 	return executed, nil
+}
+
+// decorate adds the source context to an error.
+//
+// The engine knows which file and which line a command came from, so a
+// failure inside a function can point at it. Errors that already carry a
+// position keep it.
+func (e *Engine) decorate(err error, lineNo int, source, path string) error {
+	switch t := err.(type) {
+	case *parser.Error:
+		if t.Line == 0 {
+			t.Line = lineNo
+		}
+		if t.Source == "" {
+			t.Source = source
+		}
+		if t.Path == "" {
+			t.Path = path
+		}
+	case *Error:
+		if t.Line == 0 {
+			t.Line = lineNo
+		}
+		if t.Source == "" {
+			t.Source = source
+		}
+		if t.Path == "" {
+			t.Path = path
+		}
+	}
+	return err
 }
 
 // FunctionLintError describes a command of a function that does not parse.

@@ -67,7 +67,7 @@ func parseObjectives(p *parser.Parser) ([]ast.Arg, error) {
 			&ast.StringArg{Value: name},
 		}, nil
 	}
-	return nil, p.Errorf("expected add, remove, list or setdisplay, got %q", action)
+	return nil, usageError(p, "scoreboard objectives", "expected add, remove, list or setdisplay, got %q", action)
 }
 
 // runObjectives executes the `scoreboard objectives` subtree.

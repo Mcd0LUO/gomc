@@ -45,19 +45,49 @@ loaded from <world>/data/functions/<namespace>/<name>.mcfunction.
 `)
 }
 
+// options holds the global switches.
+type options struct {
+	// plainErrors turns off the enhanced error output, leaving the
+	// compact one-liner that scripts can parse.
+	plainErrors bool
+}
+
+// parseOptions takes the global switches out of the argument list.
+//
+// The switches are accepted anywhere, so both "gomc --plain-errors check
+// world" and "gomc check world --plain-errors" work.
+func parseOptions(args []string) (options, []string) {
+	var opts options
+	rest := make([]string, 0, len(args))
+	for _, a := range args {
+		switch a {
+		case "--plain-errors":
+			opts.plainErrors = true
+		default:
+			rest = append(rest, a)
+		}
+	}
+	return opts, rest
+}
+
 // Run dispatches a command line and returns the process exit code.
 func Run(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		Usage(stdout)
 		return 2
 	}
+	opts, args := parseOptions(args)
+	if len(args) == 0 {
+		Usage(stdout)
+		return 2
+	}
 	switch args[0] {
 	case "check":
-		return runCheck(args[1:], stdout, stderr)
+		return runCheck(args[1:], stdout, stderr, opts)
 	case "run":
-		return runRun(args[1:], stdout, stderr)
+		return runRun(args[1:], stdout, stderr, opts)
 	case "tick":
-		return runTick(args[1:], stdout, stderr)
+		return runTick(args[1:], stdout, stderr, opts)
 	case "commands":
 		return runCommands(stdout)
 	case "difftest":
@@ -77,7 +107,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 // command name, which 1.12.2 also rejects) and commands that do not parse
 // (a mistake in the arguments, which 1.12.2 only reveals when the function
 // runs).
-func runCheck(args []string, stdout, stderr io.Writer) int {
+func runCheck(args []string, stdout, stderr io.Writer, opts options) int {
 	if len(args) < 1 {
 		fmt.Fprintln(stderr, "check requires a world directory")
 		return 2
@@ -94,17 +124,17 @@ func runCheck(args []string, stdout, stderr io.Writer) int {
 		return 0
 	}
 	for _, e := range errs {
-		reportError(stderr, e)
+		reportError(stderr, e, opts)
 	}
 	for _, e := range lint {
-		reportError(stderr, e)
+		reportError(stderr, e, opts)
 	}
 	fmt.Fprintf(stderr, "%d error(s)\n", len(errs)+len(lint))
 	return 1
 }
 
 // runRun executes a function in a world.
-func runRun(args []string, stdout, stderr io.Writer) int {
+func runRun(args []string, stdout, stderr io.Writer, opts options) int {
 	if len(args) < 2 {
 		fmt.Fprintln(stderr, "run requires a world directory and a function id")
 		return 2
@@ -123,14 +153,14 @@ func runRun(args []string, stdout, stderr io.Writer) int {
 		// The target itself did not load. Re-resolve it alone so the
 		// failure names the real cause instead of "unknown function".
 		if err := engine.LoadFunction(id); err != nil {
-			reportError(stderr, err)
+			reportError(stderr, err, opts)
 			return 1
 		}
 		fmt.Fprintf(stderr, "error: unknown function %q\n", id)
 		return 1
 	}
 	for _, e := range loadErrs {
-		reportWarning(stderr, e)
+		reportWarning(stderr, e, opts)
 	}
 	src := &exec.Source{
 		Name:            "Server",
@@ -141,14 +171,14 @@ func runRun(args []string, stdout, stderr io.Writer) int {
 	}
 	count, err := engine.RunFunctionByID(id, src)
 	if err != nil {
-		reportError(stderr, err)
+		reportError(stderr, err, opts)
 		return 1
 	}
 	// A command that fails inside a function does not stop the function,
 	// so the failures are collected and reported here.
 	failed := false
 	for _, e := range engine.TakeErrors() {
-		reportError(stderr, e)
+		reportError(stderr, e, opts)
 		failed = true
 	}
 	for _, msg := range engine.Logs {
@@ -165,7 +195,7 @@ func runRun(args []string, stdout, stderr io.Writer) int {
 }
 
 // runTick advances the world by N ticks.
-func runTick(args []string, stdout, stderr io.Writer) int {
+func runTick(args []string, stdout, stderr io.Writer, opts options) int {
 	if len(args) < 1 {
 		fmt.Fprintln(stderr, "tick requires a world directory")
 		return 2
@@ -187,7 +217,7 @@ func runTick(args []string, stdout, stderr io.Writer) int {
 	// A broken function is skipped rather than fatal, so the tick loop keeps
 	// going exactly as it does on a real server.
 	for _, e := range engine.LoadFunctions() {
-		reportWarning(stderr, e)
+		reportWarning(stderr, e, opts)
 	}
 	src := &exec.Source{
 		Name:            "Server",
@@ -197,7 +227,7 @@ func runTick(args []string, stdout, stderr io.Writer) int {
 	}
 	for i := 0; i < ticks; i++ {
 		if _, err := engine.Tick(src); err != nil {
-			reportError(stderr, err)
+			reportError(stderr, err, opts)
 			return 1
 		}
 	}
@@ -239,8 +269,19 @@ func newEngine(root string) (*exec.Engine, error) {
 	return engine, nil
 }
 
-// reportError prints an error in a compiler-style format.
-func reportError(w io.Writer, err error) {
+// reportError prints an error.
+//
+// The enhanced form is the one a compiler would print: the path and
+// position, the offending line with a caret under the column, what went
+// wrong, and then the usage of the command and a suggestion when there is
+// one. The plain form is a single compact line, for scripts that parse
+// the output.
+//
+// The message itself is never changed: it stays what 1.12.2 would say.
+func reportError(w io.Writer, err error, opts options) {
+	if !opts.plainErrors && reportDetailed(w, err) {
+		return
+	}
 	switch e := err.(type) {
 	case *parser.Error:
 		fmt.Fprintf(w, "error[%s]: %d:%d: %s\n", e.Kind, e.Line, e.Col, e.Msg)
@@ -257,11 +298,124 @@ func reportError(w io.Writer, err error) {
 	}
 }
 
+// errorDetail is the context an error can carry.
+type errorDetail struct {
+	// kind is the error class shown in brackets.
+	kind string
+	// path is the file the command came from.
+	path string
+	// line is the 1-based line number.
+	line int
+	// col is the 1-based column number.
+	col int
+	// source is the text of the offending line.
+	source string
+	// msg is what went wrong.
+	msg string
+	// usage is the usage line of the command that failed.
+	usage string
+	// hint is an extra suggestion.
+	hint string
+}
+
+// detailOf extracts the context from an error.
+//
+// It reports false for the errors that carry no context worth showing,
+// such as a file that could not be read.
+func detailOf(err error) (errorDetail, bool) {
+	switch e := err.(type) {
+	case *parser.Error:
+		return errorDetail{
+			kind: e.Kind.String(), path: e.Path, line: e.Line, col: e.Col,
+			source: e.Source, msg: e.Msg, usage: e.Usage, hint: e.Hint,
+		}, true
+	case *exec.Error:
+		return errorDetail{
+			kind: "Runtime", path: e.Path, line: e.Line, col: e.Col,
+			source: e.Source, msg: e.Msg, usage: e.Usage, hint: e.Hint,
+		}, true
+	case *exec.FunctionLoadError:
+		return errorDetail{
+			kind: "Unknown", path: e.Path, line: e.Line, col: 1,
+			source: e.Source, msg: e.Msg, hint: e.Hint,
+		}, true
+	case *exec.FunctionLintError:
+		d, ok := detailOf(e.Err)
+		if !ok {
+			return errorDetail{}, false
+		}
+		d.kind = "Syntax"
+		if d.path == "" {
+			d.path = e.Path
+		}
+		if d.line == 0 {
+			d.line = e.Line
+		}
+		return d, true
+	}
+	return errorDetail{}, false
+}
+
+// reportDetailed prints the enhanced form of an error.
+//
+// It reports false when the error carries nothing to show, so the caller
+// can fall back to the compact form.
+func reportDetailed(w io.Writer, err error) bool {
+	return reportDetailedKind(w, err, "error")
+}
+
+// reportDetailedKind prints the enhanced form of an error with the given
+// prefix, "error" or "warning".
+func reportDetailedKind(w io.Writer, err error, prefix string) bool {
+	d, ok := detailOf(err)
+	if !ok || d.msg == "" {
+		return false
+	}
+	loc := ""
+	switch {
+	case d.path != "" && d.line > 0 && d.col > 0:
+		loc = fmt.Sprintf("%s:%d:%d", d.path, d.line, d.col)
+	case d.path != "" && d.line > 0:
+		loc = fmt.Sprintf("%s:%d", d.path, d.line)
+	case d.path != "":
+		loc = d.path
+	case d.line > 0 && d.col > 0:
+		loc = fmt.Sprintf("%d:%d", d.line, d.col)
+	}
+	if loc == "" {
+		fmt.Fprintf(w, "%s[%s]: %s\n", prefix, d.kind, d.msg)
+	} else {
+		fmt.Fprintf(w, "%s[%s]: %s\n", prefix, d.kind, loc)
+	}
+	if d.source != "" {
+		fmt.Fprintf(w, "  %s\n", d.source)
+		if d.col > 0 {
+			// The caret sits under the offending column.
+			caret := strings.Repeat(" ", d.col-1)
+			if d.col-1 > len(d.source) {
+				caret = strings.Repeat(" ", len(d.source))
+			}
+			fmt.Fprintf(w, "  %s^\n", caret)
+		}
+	}
+	fmt.Fprintf(w, "  %s\n", d.msg)
+	if d.usage != "" {
+		fmt.Fprintf(w, "  usage: %s\n", d.usage)
+	}
+	if d.hint != "" {
+		fmt.Fprintf(w, "  hint: %s\n", d.hint)
+	}
+	return true
+}
+
 // reportWarning prints a non-fatal problem.
 //
 // 1.12.2 logs a function that fails to load and keeps every other function
 // registered, so a broken file is a warning for everything except `check`.
-func reportWarning(w io.Writer, err error) {
+func reportWarning(w io.Writer, err error, opts options) {
+	if !opts.plainErrors && reportDetailedKind(w, err, "warning") {
+		return
+	}
 	switch e := err.(type) {
 	case *exec.FunctionLoadError:
 		fmt.Fprintf(w, "warning[Unknown]: %s:%d: %s\n", e.Path, e.Line, e.Msg)

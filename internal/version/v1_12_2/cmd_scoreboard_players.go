@@ -16,6 +16,17 @@ func parsePlayers(p *parser.Parser) ([]ast.Arg, error) {
 	if err != nil {
 		return nil, err
 	}
+	args, err := parsePlayersAction(p, action)
+	if err != nil {
+		// The usage of the subcommand is more helpful than the usage of
+		// the whole tree.
+		return nil, withUsage(err, "scoreboard players "+action)
+	}
+	return args, nil
+}
+
+// parsePlayersAction parses the action of `scoreboard players`.
+func parsePlayersAction(p *parser.Parser, action string) ([]ast.Arg, error) {
 	switch action {
 	case "set", "add", "remove":
 		holder, err := parseScoreHolder(p)
@@ -157,7 +168,7 @@ func parsePlayers(p *parser.Parser) ([]ast.Arg, error) {
 			}
 		case "list":
 		default:
-			return nil, p.Errorf("expected add, remove or list, got %q", sub)
+			return nil, usageError(p, "scoreboard players tag", "expected add, remove or list, got %q", sub)
 		}
 		return []ast.Arg{
 			&ast.StringArg{Value: "players"},
@@ -167,7 +178,7 @@ func parsePlayers(p *parser.Parser) ([]ast.Arg, error) {
 			&ast.StringArg{Value: tag},
 		}, nil
 	}
-	return nil, p.Errorf("expected set, add, remove, reset, operation, enable, test, tag or list, got %q", action)
+	return nil, usageError(p, "scoreboard players", "expected set, add, remove, reset, operation, enable, test, tag or list, got %q", action)
 }
 
 // parseScoreHolder parses a score holder, which is a player name or a
@@ -175,7 +186,7 @@ func parsePlayers(p *parser.Parser) ([]ast.Arg, error) {
 func parseScoreHolder(p *parser.Parser) (ast.Arg, error) {
 	t, ok := p.Peek()
 	if !ok {
-		return nil, p.Errorf("expected a player or target")
+		return nil, usageError(p, "scoreboard players set", "expected a player or target")
 	}
 	if parser.IsSelector(t.Text) {
 		sel, err := p.Selector()

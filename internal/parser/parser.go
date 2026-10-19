@@ -40,6 +40,10 @@ func (k Kind) String() string {
 }
 
 // Error is a parse or execution error carrying a source position.
+//
+// The first five fields are what 1.12.2 would say. The rest is gomc's own
+// addition: they carry the context needed to point at the problem in the
+// file, and they are only rendered when the enhanced output is on.
 type Error struct {
 	// Kind classifies the error.
 	Kind Kind
@@ -51,6 +55,14 @@ type Error struct {
 	Col int
 	// Offset is the byte offset within the line.
 	Offset int
+	// Path is the file the command came from, when known.
+	Path string
+	// Source is the text of the offending line, when known.
+	Source string
+	// Usage is the usage line of the command that failed, when known.
+	Usage string
+	// Hint is an extra suggestion, such as "did you mean 'setblock'?".
+	Hint string
 }
 
 func (e *Error) Error() string {

@@ -34,13 +34,16 @@ func (c *scoreboardCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	}
 	switch sub {
 	case "objectives":
-		return parseObjectives(p)
+		args, err := parseObjectives(p)
+		return args, withUsage(err, "scoreboard objectives")
 	case "players":
-		return parsePlayers(p)
+		args, err := parsePlayers(p)
+		return args, withUsage(err, "scoreboard players")
 	case "teams":
-		return parseTeams(p)
+		args, err := parseTeams(p)
+		return args, withUsage(err, "scoreboard teams")
 	}
-	return nil, p.Errorf("expected objectives, players or teams, got %q", sub)
+	return nil, usageError(p, "scoreboard", "expected objectives, players or teams, got %q", sub)
 }
 
 // Run implements exec.Handler.
