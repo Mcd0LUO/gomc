@@ -16,7 +16,10 @@ package buildinfo
 //
 // It follows semantic versioning: the first release of a tool whose
 // behaviour is still being aligned with a moving target is 0.x.y.
-const Version = "0.1.0"
+//
+// It is a variable, not a constant, because the linker can only replace
+// variables: `-X` on a constant is silently ignored.
+var Version = "0.1.0"
 
 // Commit is the git commit the binary was built from, when the build
 // system passed one in.
