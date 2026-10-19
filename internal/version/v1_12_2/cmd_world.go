@@ -209,6 +209,18 @@ func (c *fillCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		data = 0
 	}
 	min, max := orderCorners(from, to)
+	// 1.12.2 refuses a fill that is too big and a fill that reaches out
+	// of the world, before it changes anything.
+	sizeX := max.X - min.X + 1
+	sizeY := max.Y - min.Y + 1
+	sizeZ := max.Z - min.Z + 1
+	volume := sizeX * sizeY * sizeZ
+	if volume > 32768 {
+		return 0, exec.Errorf("Too many blocks in the specified area (%d > 32768)", volume)
+	}
+	if min.Y < 0 || max.Y >= 256 {
+		return 0, exec.Errorf("Cannot place blocks outside of the world")
+	}
 	count := 0
 	for x := min.X; x <= max.X; x++ {
 		for y := min.Y; y <= max.Y; y++ {

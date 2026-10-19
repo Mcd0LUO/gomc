@@ -71,7 +71,10 @@ func ParseSelector(text string) (*ast.Selector, error) {
 		key, value, _ := strings.Cut(part, "=")
 		key = strings.TrimSpace(key)
 		if !isSelectorOption(key) {
-			return nil, fmt.Errorf("invalid selector argument %q", part)
+			// 1.12.2 reports the whole argument segment, not just the
+			// name: "commands.generic.selector_argument" is
+			// "Invalid selector argument: '%s'".
+			return nil, fmt.Errorf("Invalid selector argument: '%s'", part)
 		}
 		sel.Args = append(sel.Args, ast.SelectorArg{Key: key, Value: strings.TrimSpace(value)})
 	}
@@ -152,6 +155,29 @@ func SelectorFloat(sel *ast.Selector, key string) (float64, bool, error) {
 	return f, true, nil
 }
 
+// SelectorIntDefault returns the integer value of a selector argument, or
+// def when the argument is missing or is not a Java `int`.
+//
+// 1.12.2 reads the numeric selector arguments with
+// `MathHelper.a(String, int)`, which is `Integer.parseInt` with the
+// default as the fallback. A value that is not an integer — "1.5" or
+// "abc" — is therefore not a number at all: the argument silently falls
+// back to its default instead of raising an error.
+//
+// The parse is limited to 32 bits because a Java `int` is 32 bits, so a
+// value that does not fit falls back as well.
+func SelectorIntDefault(sel *ast.Selector, key string, def int) int {
+	v, ok := SelectorString(sel, key)
+	if !ok {
+		return def
+	}
+	n, err := strconv.ParseInt(v, 10, 32)
+	if err != nil {
+		return def
+	}
+	return int(n)
+}
+
 // SelectorString returns the string value of a selector argument.
 //
 // A repeated argument keeps its last value, matching the flat map 1.12.2
@@ -205,6 +231,12 @@ type ScoreFilter struct {
 //
 // The value of a `score_` argument is an integer, defaulting to 1 when it
 // is missing or unparsable, exactly as `MathHelper.a(String, int)` does.
+//
+// 1.12.2 builds a map keyed by the *raw* suffix of the argument, so
+// `score_kills` and `score_kills_min` are two independent entries and
+// both bounds apply at the same time. Only a repeated argument — the
+// same name twice — collapses into one, because the selector arguments
+// themselves form a flat map.
 func SelectorScoreFilters(sel *ast.Selector) []ScoreFilter {
 	if sel == nil {
 		return nil
@@ -216,22 +248,25 @@ func SelectorScoreFilters(sel *ast.Selector) []ScoreFilter {
 		if !strings.HasPrefix(a.Key, scorePrefix) || len(a.Key) <= len(scorePrefix) {
 			continue
 		}
-		name := a.Key[len(scorePrefix):]
+		// The raw suffix is the key of 1.12.2's map, so the `_min`
+		// form is a separate entry from the plain one.
+		raw := a.Key[len(scorePrefix):]
+		name := raw
 		isMin := false
 		if strings.HasSuffix(name, "_min") && len(name) > len("_min") {
 			isMin = true
 			name = strings.TrimSuffix(name, "_min")
 		}
-		n, err := strconv.Atoi(a.Value)
+		n, err := strconv.ParseInt(a.Value, 10, 32)
 		if err != nil {
 			n = 1
 		}
-		f := ScoreFilter{Objective: name, Value: n, IsMin: isMin}
-		if i, ok := seen[name]; ok {
+		f := ScoreFilter{Objective: name, Value: int(n), IsMin: isMin}
+		if i, ok := seen[raw]; ok {
 			out[i] = f
 			continue
 		}
-		seen[name] = len(out)
+		seen[raw] = len(out)
 		out = append(out, f)
 	}
 	return out

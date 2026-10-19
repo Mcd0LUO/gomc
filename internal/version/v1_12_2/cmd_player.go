@@ -174,6 +174,14 @@ func (c *giveCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		}
 		list.Append(stack)
 		e.NBT.Set("Inventory", list)
+		// 1.12.2 confirms the gift with the item, the amount and the
+		// player who got it.
+		name := e.PlayerName
+		if name == "" {
+			name = e.DisplayName()
+		}
+		ctx.Engine.Feedback = append(ctx.Engine.Feedback,
+			fmt.Sprintf("Given %s * %d to %s", item.Name, count, name))
 	}
 	return len(entities), nil
 }

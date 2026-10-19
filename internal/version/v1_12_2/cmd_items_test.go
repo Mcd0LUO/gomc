@@ -106,11 +106,15 @@ func TestTestForBlocks(t *testing.T) {
 	e := newTestEngine(t)
 	e.World.Blocks.Set(world.Pos{X: 0, Y: 0, Z: 0}, world.BlockState{Name: "stone"})
 	e.World.Blocks.Set(world.Pos{X: 1, Y: 0, Z: 0}, world.BlockState{Name: "stone"})
-	if err := runLine(e, "testforblocks 0 0 0 1 0 0 stone"); err != nil {
+	e.World.Blocks.Set(world.Pos{X: 10, Y: 0, Z: 0}, world.BlockState{Name: "stone"})
+	e.World.Blocks.Set(world.Pos{X: 11, Y: 0, Z: 0}, world.BlockState{Name: "stone"})
+	// 1.12.2 compares two regions of the same size, so the last three
+	// arguments are the origin of the destination region.
+	if err := runLine(e, "testforblocks 0 0 0 1 0 0 10 0 0"); err != nil {
 		t.Fatalf("testforblocks: %v", err)
 	}
-	e.World.Blocks.Set(world.Pos{X: 1, Y: 0, Z: 0}, world.BlockState{Name: "dirt"})
-	if err := runLine(e, "testforblocks 0 0 0 1 0 0 stone"); err == nil {
+	e.World.Blocks.Set(world.Pos{X: 11, Y: 0, Z: 0}, world.BlockState{Name: "dirt"})
+	if err := runLine(e, "testforblocks 0 0 0 1 0 0 10 0 0"); err == nil {
 		t.Fatal("expected the test to fail")
 	}
 }

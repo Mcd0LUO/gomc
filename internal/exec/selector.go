@@ -141,16 +141,30 @@ func onlyPlayers(entities []*world.Entity) []*world.Entity {
 	return out
 }
 
+// typeFilterApplies reports whether the `type` argument filters the
+// entities of a selector base.
+//
+// 1.12.2 adds the type predicate for @e, @r and @s only. For @a and @p
+// it adds the "must be a player" predicate instead, so the type
+// argument is silently ignored.
+func typeFilterApplies(base string) bool {
+	return base == "e" || base == "r" || base == "s"
+}
+
 // filter applies the selector's filters to the world's entities.
 func (r *SelectorResolver) filter(src *Source, sel *ast.Selector) []*world.Entity {
 	candidates := r.World.EntityList()
 
 	// A `type` filter restricts to one entity type. The negation form
 	// `type=!zombie` excludes that type.
+	//
+	// 1.12.2 only applies the argument to @e, @r and @s: for @a and @p
+	// the type is ignored and the "must be a player" filter is used
+	// instead, so `@a[type=zombie]` still selects every player.
 	typeFilter := ""
 	typeNegated := false
 	hasType := false
-	if v, ok := parser.SelectorString(sel, "type"); ok {
+	if v, ok := parser.SelectorString(sel, "type"); ok && typeFilterApplies(sel.Base) {
 		hasType = true
 		typeNegated = strings.HasPrefix(v, "!")
 		typeFilter = world.NormalizeEntityType(strings.TrimPrefix(v, "!"))
@@ -177,7 +191,7 @@ func (r *SelectorResolver) filter(src *Source, sel *ast.Selector) []*world.Entit
 
 	ref := r.referenceVec(src, sel)
 	volume, hasVolume := r.parseVolume(sel, src)
-	radius, hasRadius := r.parseRadius(sel, ref)
+	radius, hasRadius := r.parseRadius(sel)
 	pitch, hasPitch := r.parseRotation(sel, "rx", "rxm")
 	yaw, hasYaw := r.parseRotation(sel, "ry", "rym")
 
@@ -197,7 +211,7 @@ func (r *SelectorResolver) filter(src *Source, sel *ast.Selector) []*world.Entit
 		if hasTeam {
 			// An entity that is on no team reports an empty team name,
 			// so `team=!red` still matches it.
-			name := r.World.Scoreboard.TeamNameOf(e.ID)
+			name := r.World.Scoreboard.TeamNameOf(ScoreboardHolder(e))
 			if (name == teamFilter) == teamNegated {
 				continue
 			}
@@ -301,51 +315,51 @@ type volume struct {
 
 // parseVolume computes the volume from the `dx`/`dy`/`dz` arguments.
 //
-// The volume is a block range: a negative size extends the volume backwards
-// from the anchor, and the box is one block larger on the far side, which is
-// what 1.12.2's `AxisAlignedBB` construction does.
+// The volume is a block range anchored at the reference block. A negative
+// size reaches backwards from the anchor, a positive one forwards, and
+// the far end is always one block past the last block of the range. An
+// axis without a size argument counts as a size of zero, so the box
+// still covers the anchor block.
 func (r *SelectorResolver) parseVolume(sel *ast.Selector, src *Source) (world.AABB, bool) {
-	dx, hasDX, _ := parser.SelectorInt(sel, "dx")
-	dy, hasDY, _ := parser.SelectorInt(sel, "dy")
-	dz, hasDZ, _ := parser.SelectorInt(sel, "dz")
+	// 1.12.2 checks whether the arguments are present, not whether
+	// they parse, so an unparsable size still builds a volume.
+	_, hasDX := parser.SelectorString(sel, "dx")
+	_, hasDY := parser.SelectorString(sel, "dy")
+	_, hasDZ := parser.SelectorString(sel, "dz")
 	if !hasDX && !hasDY && !hasDZ {
 		return world.AABB{}, false
 	}
+	dx := float64(parser.SelectorIntDefault(sel, "dx", 0))
+	dy := float64(parser.SelectorIntDefault(sel, "dy", 0))
+	dz := float64(parser.SelectorIntDefault(sel, "dz", 0))
 	anchor := r.referenceBlock(src, sel)
-	minX, maxX := anchor.X, anchor.X
-	minY, maxY := anchor.Y, anchor.Y
-	minZ, maxZ := anchor.Z, anchor.Z
-	if hasDX {
-		if dx < 0 {
-			minX = anchor.X + float64(dx)
-		} else {
-			maxX = anchor.X + float64(dx) + 1
-		}
-	}
-	if hasDY {
-		if dy < 0 {
-			minY = anchor.Y + float64(dy)
-		} else {
-			maxY = anchor.Y + float64(dy) + 1
-		}
-	}
-	if hasDZ {
-		if dz < 0 {
-			minZ = anchor.Z + float64(dz)
-		} else {
-			maxZ = anchor.Z + float64(dz) + 1
-		}
-	}
+	minX, maxX := volumeAxis(anchor.X, dx)
+	minY, maxY := volumeAxis(anchor.Y, dy)
+	minZ, maxZ := volumeAxis(anchor.Z, dz)
 	return world.AABB{
 		MinX: minX, MinY: minY, MinZ: minZ,
 		MaxX: maxX, MaxY: maxY, MaxZ: maxZ,
 	}, true
 }
 
+// volumeAxis computes the two ends of one axis of the selection volume.
+//
+// This mirrors `PlayerSelector.a(BlockPosition, int, int, int)`: a
+// negative size moves the near end backwards and leaves the far end one
+// block past the anchor, a positive size moves the far end out and
+// leaves the near end at the anchor.
+func volumeAxis(anchor, size float64) (float64, float64) {
+	if size < 0 {
+		return anchor + size, anchor + 1
+	}
+	return anchor, anchor + size + 1
+}
+
 // radiusRange holds the `r`/`rm` distance bounds.
 //
 // In 1.12.2 `r` is the maximum distance and `rm` the minimum, so an entity
-// must satisfy both when both are given.
+// must satisfy both when both are given. A bound that does not apply is
+// left out instead of being set to a meaningless value.
 type radiusRange struct {
 	min    float64
 	max    float64
@@ -354,13 +368,29 @@ type radiusRange struct {
 }
 
 // parseRadius computes the distance bounds from the `r`/`rm` arguments.
-func (r *SelectorResolver) parseRadius(sel *ast.Selector, ref world.Vec) (radiusRange, bool) {
-	maxR, hasMax, _ := parser.SelectorFloat(sel, "r")
-	minR, hasMin, _ := parser.SelectorFloat(sel, "rm")
-	if !hasMax && !hasMin {
+//
+// 1.12.2 parses both as integers, so a value such as "1.5" is not a
+// number at all: the argument falls back to the default of -1. A bound
+// below -0.5 is then dropped rather than applied, which means that
+// `@e[rm=-1]` does not ask for "at least one block away" but for no
+// lower bound whatsoever.
+func (r *SelectorResolver) parseRadius(sel *ast.Selector) (radiusRange, bool) {
+	maxR := parser.SelectorIntDefault(sel, "r", -1)
+	minR := parser.SelectorIntDefault(sel, "rm", -1)
+	out := radiusRange{}
+	// The bounds below -0.5 do not take part in the test.
+	if maxR >= 0 {
+		out.max = math.Max(float64(maxR), 1e-4)
+		out.hasMax = true
+	}
+	if minR >= 0 {
+		out.min = math.Max(float64(minR), 1e-4)
+		out.hasMin = true
+	}
+	if !out.hasMax && !out.hasMin {
 		return radiusRange{}, false
 	}
-	return radiusRange{min: minR, max: maxR, hasMin: hasMin, hasMax: hasMax}, true
+	return out, true
 }
 
 // angleRange is a rotation window.
@@ -436,13 +466,35 @@ func matchTag(e *world.Entity, tag string, negated bool) bool {
 	return e.HasTag(tag) != negated
 }
 
+// ScoreboardHolder returns the name the scoreboard tracks an entity under.
+//
+// 1.12.2 keeps a player's scoreboard entry under the player's name and
+// every other entity's under its UUID (`Entity.bn()`), which is what
+// `scoreboard players set <name> ...` and the `team=` and `score_...`
+// selector arguments refer to.
+//
+// The runtime does not model UUIDs, so a non-player entity is tracked
+// under its internal id instead. That is a known gap: a score written
+// for such an entity is only reachable through the same id, never
+// through a UUID.
+func ScoreboardHolder(e *world.Entity) string {
+	if e == nil {
+		return ""
+	}
+	if e.IsPlayer && e.PlayerName != "" {
+		return e.PlayerName
+	}
+	return e.ID
+}
+
 // matchScores applies the scoreboard conditions of a selector.
 //
 // 1.12.2 spells these as `score_<objective>` and `score_<objective>_min`.
 // The objective has to exist and the entity has to have a score in it.
 func matchScores(w *world.World, e *world.Entity, filters []parser.ScoreFilter) bool {
+	holder := ScoreboardHolder(e)
 	for _, f := range filters {
-		score, ok := w.Scoreboard.Score(e.ID, f.Objective)
+		score, ok := w.Scoreboard.Score(holder, f.Objective)
 		if !ok {
 			return false
 		}

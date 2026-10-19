@@ -55,7 +55,21 @@ java.lang.IllegalArgumentException: Unknown or invalid command 'tag'
 
 - 命令逆序压栈、正序弹出（`CustomFunctionData.a` 的 `for j = len-1; j >= 0; --j`）。
 - `maxCommandChainLength` gamerule 限制单次调用的命令总数，默认 65536。
-- 函数重入时命令入队而不是内联执行，调用者拿到 0。
+- 函数重入时命令**入队**而不是内联执行，调用者拿到 0（回显是
+  `Executed 0 command(s) from function '...'`）。被调函数的命令被
+  `addFirst` 塞进共享队列，所以在**当前这条命令之后立刻**执行，排在调用者
+  剩下的命令**前面**（`CustomFunctionData.a` 的 `this.h` 分支 +
+  `CustomFunction$d.a`）。
+- 函数里的命令以**权限等级 2** 执行：`CommandFunction.execute` 用
+  `CommandListenerWrapper.a(2)` 压住执行者的等级，而
+  `CommandListenerWrapper.a(level, name)` 取两者里**较低**的那个。
+  所以需要更高权限的命令在函数里会被拒——`/reload` 需要等级 3
+  （`CommandReload.a()`），原版 1.12.2 会报
+  `You do not have permission to use this command`
+  （`commands.generic.permission`），而不是真的重载。
+  > Paper 把这条改成了**静默忽略**，见第 10 节。
+  > 原版 1.12.2 里，同样的道理适用于 `op` / `deop` / `stop` / `save-*` /
+  > `ban*` / `kick` / `whitelist` / `setidletimeout` 这些等级 3 的命令。
 
 ### 1.3.1 一条命令失败不会中止函数 [读]
 
@@ -118,8 +132,23 @@ execute <实体> <x> <y> <z> [detect <x2> <y2> <z2> <方块> <数据值>] <命�
   数据值缺失或不是数字都会让命令失败——1.12.2 的 `detect` 只有在参数数够时才进入
   检查分支（`astring.length > 10`），而方块状态（`state`）在 1.12.2 会被当成方块名解析。
 
-**坐标基准（实测）**：`execute` 设定的执行位置 = 目标实体的位置 + 坐标偏移；
+**坐标基准（实测 + 源码）**：`execute` 设定的执行位置 = 目标实体的位置 + 坐标偏移；
 `detect` 的相对坐标以**执行位置**为基准（不是目标实体的位置），绝对坐标按世界原点算。
+
+源码里的顺序是固定的（`CommandExecute.execute`）：
+
+```
+d0 = b(entity.locX, astring[1], false)   // 执行位置 X
+d1 = b(entity.locY, astring[2], false)   // 执行位置 Y
+d2 = b(entity.locZ, astring[3], false)   // 执行位置 Z
+...
+d3 = b(d0, astring[5], false)            // detect 位置 X
+d4 = b(d1, astring[6], false)            // detect 位置 Y
+d5 = b(d2, astring[7], false)            // detect 位置 Z
+```
+
+`b(base, s, false)`（`CommandAbstract.b`）的语义是：参数以 `~` 开头 = `base + 数字`，
+否则就是**绝对坐标**；第三个参数 `false` 表示不加块中心的 `0.5`。
 
 验证方法：实体在 (0, 10, 0)，只有 (0, 11, 0) 有石头。
 
@@ -129,9 +158,9 @@ execute <实体> <x> <y> <z> [detect <x2> <y2> <z2> <方块> <数据值>] <命�
 | `execute @e ~ ~1 ~ detect ~ ~-1 ~ stone 0` | (0, 10, 0) | 失败 |
 | `execute @e ~ ~ ~ detect ~ ~1 ~ stone 0` | (0, 11, 0) | 通过 |
 
-> 这里的偏移**只能加一次**。1.12.2 先算执行位置 `d0 = b(entity.locX, ...)`，
-> 再算 detect 位置 `d3 = b(d0, ...)`；如果 detect 的坐标在解析期就按执行坐标
-> 折算一遍，运行期再折算一遍，偏移就会被加两次。
+> **偏移只能加一次。** detect 的相对坐标是在**执行位置**上再折算一遍的，
+> 不是在实体的原始位置上折算。如果 detect 的坐标在解析期就按执行坐标折算一遍、
+> 运行期再折算一遍，偏移就会被加两次（`~ ~1 ~` 会变成 +2）。
 
 ### 2.2 多实体 [读][验]
 
@@ -214,7 +243,8 @@ execute <实体> <x> <y> <z> [detect <x2> <y2> <z2> <方块> <数据值>] <命�
 - 用 `Splitter.on(',')` 切分参数表（忽略空段）。
 - 每一段用 `Splitter.on('=').limit(2)` 切分，得到 key 和 value。
 - **重复的参数名后者覆盖前者**：`@e[tag=a,tag=b]` 等价于 `@e[tag=b]`。
-- key 不在白名单里 → 报错 `Invalid selector argument '<整段>'`。
+- key 不在白名单里 → 报错 `Invalid selector argument: '<逗号分隔的那一段>'`
+  （注意有冒号；引号里是整段，比如 `nbt={...}`，不是 key 本身）。
 
 ### 3.3 参数清单 [读]
 
@@ -258,7 +288,7 @@ execute <实体> <x> <y> <z> [detect <x2> <y2> <z2> <方块> <数据值>] <命�
 | 等级 | `$9` | 只对玩家生效。`l` 是上限、`lm` 是下限 |
 | 游戏模式 | `$10` | 只对玩家生效。支持 `!` 取反 |
 | 分数 | `$12` | 目标必须存在，且实体必须在该目标下有分数 |
-| 名称 | `$13` | `Entity.getName()`：自定义名 → 玩家名 → 类型注册名 |
+| 名称 | `$13` | `Entity.getName()`：自定义名 → 玩家名 → 类型的**翻译名**（见 3.9） |
 | 标签 | `$14` | 空标签名表示"没有标签" |
 
 **角度区间支持环绕**：下界大于上界时，区间跨北展开。
@@ -335,17 +365,6 @@ scoreboard players test <持有者> <目标> <最小值> [<最大值>]
 scoreboard players tag <目标> <add|remove|list> [标签]
 ```
 
-### 4.6.1 只读目标 [验][读]
-
-有些目标是**只读**的，命令改不了：`health`、`xp`、`level`、`food`、`air`、`armor`。
-往这些目标里写分数会报：
-
-```
-The objective '<名字>' is read-only and cannot be set
-```
-
-`dummy`、`trigger`、`deathCount`、`playerKillCount`、`totalKillCount` 可以写。
-
 ### 4.5 `list` 的输出 [验]
 
 真实服务端**从控制台**执行时的输出：
@@ -368,7 +387,8 @@ Showing 3 tracked objective(s) for Steve:
 
 ### 4.6 输出文本 [验][读]
 
-计分板各子命令的回显文字全部来自语言文件，逐条对齐：
+计分板各子命令的回显文字全部来自语言文件，逐条对齐（`<目标>` 一律指
+**目标名**，`<显示名>` 指目标的显示名）：
 
 | 命令 | 输出 |
 |---|---|
@@ -378,26 +398,66 @@ Showing 3 tracked objective(s) for Steve:
 | `objectives setdisplay <槽> <名字>` | `Set the display objective in slot '<槽>' to '<名字>'` |
 | `objectives setdisplay <槽>` | `Cleared objective display slot '<槽>'` |
 | `players set` | `Set score of <目标> for player <持有者> to <分数>` |
-| `players add` / `players remove` | **没有输出**（1.12.2 静默成功） |
-| `players reset` | `Reset score <目标> of player <持有者>` |
+| `players add` / `players remove` | **有回显**，和 `set` 共用同一条：`Set score of <目标> for player <持有者> to <分数>`（分数是**操作之后**的值） |
+| `players reset <持有者> <目标>` | `Reset score <目标> of player <持有者>` |
+| `players reset <持有者>` | `Reset scores of player <持有者>`（注意是复数 `scores`） |
 | `players operation` | `Operation applied successfully` |
+| `players enable` | `Enabled trigger <目标> for <持有者>` |
 | `players test`（通过） | `Score <分数> is in range <下限> to <上限>` |
 | `players test`（不通过） | `Score <分数> is NOT in range <下限> to <上限>` |
-| `players list <持有者>` | `Showing <n> tracked objective(s) for <持有者>:`，每行 `- <目标>: <分数> (<类型>)` |
+| `players list <持有者>` | `Showing <n> tracked objective(s) for <持有者>:`，每行 `- <显示名>: <分数> (<目标名>)` |
+| `players list`（不带持有者） | `Showing <n> tracked players on the scoreboard:` |
 | `players tag ... add` | `Tag <标签> added` |
 | `players tag ... remove` | `Tag <标签> removed` |
 | `players tag ... list` | `Tags on entity <实体> are:`，下一行是标签，多个用 ` and ` 连接 |
+| `teams add` | `Added new team '<名字>' successfully` |
+| `teams remove` | `Removed team <名字>` |
+| `teams join` | `Added <n> player(s) to team <队伍>: <玩家列表>` |
+| `teams leave` | `Removed <n> player(s) from their teams: <玩家列表>` |
+| `teams empty` | `Removed all <n> player(s) from team <队伍>` |
+| `teams list` | `Showing <n> teams on the scoreboard:`，每行 `- <队伍名>: '<显示名>' has <n> players` |
+| `teams option` | `Set option <选项> for team <队伍> to <值>` |
+
+**`players list` 每行的三段分别是什么**（`CommandScoreboard` 传的参数是
+`{分数, 目标的显示名, 目标名}`，语言键 `commands.scoreboard.players.list.player.entry`
+的格式是 `- %2$s: %1$s (%3$s)`）：
+
+| 位置 | 含义 |
+|---|---|
+| `- <显示名>` | 目标的**显示名**（`ScoreboardObjective.getDisplayName()`） |
+| `<分数>` | 该持有者在这个目标下的分数 |
+| `(<目标名>)` | 目标的**名字**（`getName()`），**不是**计分标准类型 |
+
+所以目标 `counter`（计分标准 `dummy`）在真服里是 `- counter: 20 (counter)`，
+不是 `- counter: 20 (dummy)`——`(dummy)` 是 `objectives list` 那行才有的东西
+（`- <名字>: displays as '<显示名>' and is type '<类型>'`）。
+
+注意 `players set` 那条用的是**目标名**（源码传的是 `getName()`），
+而 `players list` 的第一段用的是**显示名**——两者不一样，不要混。
 
 错误文本：
 
-| 场景 | 文本 |
-|---|---|
-| 目标不存在 | `No objective was found by the name '<名字>'` |
-| 持有者在该目标下没有分数 | `No <目标> score for <持有者> found` |
-| 要删的标签不存在 | `Entity didn't have the <标签> tag` |
+| 场景 | 文本 | 语言键 |
+|---|---|---|
+| 目标不存在 | `No objective was found by the name '<名字>'` | `commands.scoreboard.objectiveNotFound` |
+| 持有者在该目标下没有分数 | `No <目标> score for <持有者> found` | `commands.scoreboard.players.test.notFound` |
+| 要删的标签不存在 | `Entity didn't have the <标签> tag` | `commands.scoreboard.players.tag.notFound` |
 
 `players tag ... list` 里的实体标识符，真服用的是 UUID；gomc 用内部 id
 （已知简化，见"还没搞清楚的"）。
+
+### 4.6.1 只读目标 [验][读]
+
+有些目标是**只读**的，命令改不了：`health`、`xp`、`level`、`food`、`air`、`armor`。
+往这些目标里写分数会报：
+
+```
+The objective '<名字>' is read-only and cannot be set
+```
+
+（语言键 `commands.scoreboard.objectiveReadOnly`。）
+
+`dummy`、`trigger`、`deathCount`、`playerKillCount`、`totalKillCount` 可以写。
 
 ---
 
@@ -504,12 +564,38 @@ say @a（无匹配） → Selector '@a' found nothing
 |---|---|---|
 | 选择器没匹配到 | `Selector '@e[type=zombie]' found nothing` | `commands.generic.selector.notFound` |
 | 玩家名不在 | `Player 'Steve' cannot be found` | `commands.generic.player.notFound` |
+| 实体目标找不到 | `Entity 'Steve' cannot be found` | `commands.generic.entity.notFound` |
+| 选择器参数不认识 | `Invalid selector argument: 'nbt={...}'` | `commands.generic.selector_argument` |
+| 数字参数不合法 | `'abc' is not a valid number` | `commands.generic.num.invalid` |
+| 布尔参数不合法 | `'yes' is not true or false` | `commands.generic.boolean.invalid` |
+| 没指定玩家 | `You must specify which player you wish to perform this action on.` | `commands.generic.player.unspecified` |
+| 目标只读 | `The objective 'health' is read-only and cannot be set` | `commands.scoreboard.objectiveReadOnly` |
+| 目标不存在 | `No objective was found by the name 'counter'` | `commands.scoreboard.objectiveNotFound` |
+| 持有者在该目标下没有分数 | `No counter score for Steve found` | `commands.scoreboard.players.test.notFound` |
+| 实体没有那个标签 | `Entity didn't have the w tag` | `commands.scoreboard.players.tag.notFound` |
+| gamerule 不存在 | `No game rule called 'foo' is available` | `commands.gamerule.norule` |
+| 函数不存在 | `Unknown function 'minecraft:mcns'` | `commands.function.unknown` |
+| 函数的 if/unless 条件不满足 | `Skipped execution of function 'probe:mcns'` | `commands.function.skipped` |
 | `execute` 的 detect 没过 | `Failed to execute 'detect' as <实体名>` | `commands.execute.failed` |
 | 子命令一次都没成功 | `All invocations failed: '<命令>'` | `commands.execute.allInvocationsFailed` |
 
 选择器没匹配到这条是**分发层**抛的，所以它不只出现在 `execute`：凡是
 `isListStart` 为真的命令（execute、kill、give、effect、tp、title、tell、……）
 表现都一样。玩家名那条则是命令自己抛的。
+
+引号里包的是**用户写的原文**：
+
+- `Unknown function '...'` 里是**规范化之后**的 id——`MinecraftKey` 会把命名空间
+  和路径都小写化，没写命名空间时补 `minecraft:`。所以 `function mcns` 找不到时
+  报的是 `Unknown function 'minecraft:mcns'`。
+- `Invalid selector argument: '...'` 里是**逗号分隔的那一段**
+  （`@e[nbt={...}]` 报的是 `'nbt={...}'`），不是 key 本身，也不是整个 `@e[...]`。
+- `Skipped execution of function '...'` 里也是规范化之后的 id。
+
+`No game rule called '%s' is available` 在 1.12.2 里**只在查询分支**抛
+（`gamerule <规则>` 不带值、而规则不存在时）。设置分支
+（`gamerule <规则> <值>`）不查存在性——`GameRules.set` 遇到未知规则会**把它加进去**
+（类型 `ANY_VALUE`）。gomc 的设置分支目前也用这条报错，见第 10 节。
 
 > 消息里引号包的是**用户写的原文**，所以 `@e[tag=a,tag=b]` 报的是
 > `Selector '@e[tag=a,tag=b]' found nothing`（保留重复参数，不折叠）。
@@ -525,6 +611,7 @@ say @a（无匹配） → Selector '@a' found nothing
 |---|---|
 | `summon` | `Object successfully summoned` |
 | `kill` | `Killed <实体名>` |
+| `give` | `Given <物品> * <数量> to <玩家名>` |
 | `setblock` | `Block placed` |
 | `fill` | `<n> blocks filled` |
 | `clone` | `<n> blocks cloned` |
@@ -540,12 +627,16 @@ say @a（无匹配） → Selector '@a' found nothing
 | `worldborder` | `World border is currently <n> blocks wide`、`Set world border to <n> blocks wide (from <m> blocks)` 等 6 条 |
 | `particle` | `Playing effect <名> for <n> times` |
 | `list` | `There are <n>/<max> players online:` |
-| `function` | `Executed <n> command(s) from function '<名>'` |
+| `function` | `Executed <n> command(s) from function '<规范化 id>'` |
 | `debug` | `Started debug profiling` / `Stopped debug profiling after <n> seconds (<n> ticks)` |
 | `title` | `Title command successfully executed` |
 | `playsound` | `Played sound '<名>' to <目标>` |
 | `stopsound` | `Stopped sound '<名>' with source '<源>' for <目标>` |
 | `gamemode` | `Set own game mode to <模式>` / `Set <谁>'s game mode to <模式>`（模式名带 " Mode" 后缀） |
+
+消息里的**实体名**一律是**翻译名**（"Armor Stand"、"Zombie Pigman"），
+不是注册名（`armor_stand`）——见 3.9。`function` 的名字是**规范化之后**的 id
+（命名空间和路径都小写化，见 1.1）。
 
 **还没对齐的**（下一批）：
 
@@ -562,11 +653,27 @@ say @a（无匹配） → Selector '@a' found nothing
   > `setRegistryName` 调用前最近的 `ldc` 字符串常量。1.12.2 的注册名是
   > **下划线风格**（`acacia_door`、`crafting_table`、`sandstone`、`stonebrick`……），
   > 和 gomc 现在用的命名一致；驼峰那批（`acaciaFence`）是物品/模型名，不是方块名。
+- **实体重力**：真服的实体会落到地面上（见 2.5），所以"实体的位置"通常是落地后的
+  位置，而不是 `/summon` 时给的那个。gomc 明确**不模拟**重力（见第 11 节），
+  `/summon` 的实体留在给定坐标上——凡是依赖"落地后位置"的相对坐标，两边会差一格。
+- **实体 UUID**：真服用 UUID 指定非玩家实体，计分板持有者也是 UUID
+  （`scoreboard players tag <UUID> ...`）。gomc 用内部 id（`entity-N`）代替，
+  这类写法还不支持（见第 12 节）。
 - **需要玩家在线的命令**（give / effect / title / tp / tell / xp / clear / enchant /
   trigger / gamemode / spawnpoint）：真服在控制台执行时的报错文本与 gomc 不同。
-- **Paper 的扩展**：实测真服（Paper 1.12.2）允许 `gamerule <不存在的规则> <值>`，
-  回显 `Game rule ... has been updated to ...`；gomc 按 vanilla 1.12.2 报
-  `No game rule called '...' is available`。
+- **Paper 私有扩展：函数里的管理命令被静默忽略**。Paper 给
+  `CommandBlockListenerAbstract.executeCommand` 打了补丁：从命令方块或
+  **函数**里执行命令时走的是
+  `CustomFunction$b` → `CommandBlockListenerAbstract.executeSafely` →
+  `executeCommand`，而这条路径上，下面的命令**直接 `return 0`**——不执行、
+  也不给任何提示：
+  `stop` / `kick` / `op` / `deop` / `ban` / `ban-ip` / `pardon` /
+  `pardon-ip` / `reload`。
+  > 所以真服（Paper 1.12.2）上，函数里的 `reload` 是**被静默忽略**的：
+  > 日志里什么也没有，函数也不会重载。
+  > 原版 1.12.2 没有这个补丁，走的是权限检查，函数里的 `reload` 会报
+  > `You do not have permission to use this command`（见 1.3）。
+  > gomc 现在按**原版**处理：权限不足就报错。
 
 ---
 

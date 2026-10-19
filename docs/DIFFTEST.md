@@ -73,14 +73,33 @@ gomc difftest run testdata/demo-world testdata/cases/scoreboard.difftest --full
 # case: scoreboard basics
 step 1: scoreboard objectives add counter dummy
   count: 1
-  feedback: Added objective counter
+  feedback: Added new objective 'counter' successfully
 step 2: scoreboard players set Steve counter 1
   count: 1
+  feedback: Set score of counter for player Steve to 1
 step 3: scoreboard players add Steve counter 2
   count: 1
+  feedback: Set score of counter for player Steve to 3
+step 4: scoreboard players set Steve counter 10
+  count: 1
+  feedback: Set score of counter for player Steve to 10
+step 5: scoreboard players operation Steve counter += Steve counter
+  count: 1
+  feedback: Operation applied successfully
+step 6: scoreboard players test Steve counter 20
+  count: 1
+  feedback: Score 20 is in range 20 to 2147483647
+step 7: scoreboard players list Steve
+  count: 1
+  feedback: Showing 1 tracked objective(s) for Steve:
+  feedback: - counter: 20 (counter)
 ```
 
 每一步记录：命令原文、返回码（失败时是错误文本）、以及 feedback。
+`feedback` 是 1.12.2 的**原文**（语言文件里逐字抄的）。
+
+> 注意 **`step N` 把 `setup:` 里的命令也算进去**——上面例子里 step 1、step 2
+> 是两条 setup 命令，`run:` 的第一条才是 step 3。详见 4.3。
 
 ### 顺序是稳定的
 
@@ -116,14 +135,21 @@ gomc difftest probe testdata/cases/scoreboard.difftest
 
 ```
 # Probe for the differential case "scoreboard basics".
+# Run this on a 1.12.2 server and compare the log with
+# `gomc difftest run <world> <case>`.
 say ## setup: scoreboard objectives add counter dummy
 scoreboard objectives add counter dummy
+say ## setup: scoreboard players set Steve counter 1
+scoreboard players set Steve counter 1
 say ## step 1: scoreboard players add Steve counter 2
 scoreboard players add Steve counter 2
 ...
 ```
 
 `say ## ...` 是**分隔标记**，用来把服务端的日志切段，好和 gomc 的步骤对齐。
+
+标记有两种：setup 段的命令标成 `## setup: <命令原文>`（**不带编号**），
+run 段的命令标成 `## step <N>: <命令原文>`，N 从 1 开始，**只数 run 段**。
 
 ### 4.2 在真服上跑
 
@@ -143,6 +169,26 @@ scoreboard players add Steve counter 2
 | 真服多出 `Executed N command(s) from function '...'` | 去掉 |
 | gomc 的 `step N:` 标题 | 对应真服的 `## step N:` 标记 |
 | 错误文本 | 1.12.2 用本地化消息，gomc 用英文原文，需要人工对应 |
+
+> **两边的 `N` 不是同一个数，别按 N 对齐。**
+>
+> | | 编号方式 |
+> |---|---|
+> | gomc 的观察记录 / golden | `step N` 从 **1** 开始数，**setup 段的命令也算进去**（`Case.Commands()` 返回 setup + run 的拼接） |
+> | 探针函数 | setup 段的标记是 `## setup: <命令>`，**没有编号**；只有 run 段才是 `## step 1..N`，N **只数 run 段** |
+>
+> 举例：用例有 2 条 setup、5 条 run 时——
+>
+> | 观察记录 | 探针 |
+> |---|---|
+> | `step 1: <setup 第 1 条>` | `## setup: <setup 第 1 条>` |
+> | `step 2: <setup 第 2 条>` | `## setup: <setup 第 2 条>` |
+> | `step 3: <run 第 1 条>` | `## step 1: <run 第 1 条>` |
+> | `step 4: <run 第 2 条>` | `## step 2: <run 第 2 条>` |
+> | … | … |
+>
+> 所以对齐时要按**命令原文**配对（或者把观察记录的编号减去 setup 的条数），
+> 按 `N` 一一对上会错位。
 
 > `server` scope 只能覆盖**命令的输出**。命令**改了什么状态**（方块、实体、
 > 分数）在真服上无法用命令导出，所以那部分只能靠 `full` scope 自证。

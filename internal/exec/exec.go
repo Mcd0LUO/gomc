@@ -58,6 +58,19 @@ func (s *Source) WithEntity(e *world.Entity) *Source {
 	return cp
 }
 
+// WithPermissionLevel returns a copy of the source with the given
+// permission level.
+//
+// 1.12.2 caps the permission level of a listener with
+// `CommandListenerWrapper.a(int)`, which keeps the *lower* of the two
+// levels. A function therefore runs its commands at level 2, even when
+// the caller is the console.
+func (s *Source) WithPermissionLevel(level int) *Source {
+	cp := s.Clone()
+	cp.PermissionLevel = level
+	return cp
+}
+
 // Context carries the state of a single command execution.
 type Context struct {
 	// Source is who is running the command.
@@ -142,11 +155,16 @@ type Handler interface {
 type Registry struct {
 	handlers map[string]Handler
 	order    []string
+	// permissions holds the minimum permission level a command needs.
+	permissions map[string]int
 }
 
 // NewRegistry returns an empty registry.
 func NewRegistry() *Registry {
-	return &Registry{handlers: map[string]Handler{}}
+	return &Registry{
+		handlers:    map[string]Handler{},
+		permissions: map[string]int{},
+	}
 }
 
 // Register adds a command handler.
@@ -155,6 +173,25 @@ func (r *Registry) Register(h Handler) {
 		r.order = append(r.order, h.Name())
 	}
 	r.handlers[h.Name()] = h
+}
+
+// SetRequiredPermission declares the minimum permission level a command
+// needs.
+//
+// 1.12.2 asks a command whether a source may run it (`ICommand.canUse`),
+// and the command answers with the level it declares. A command without a
+// declared level can be run by anybody.
+func (r *Registry) SetRequiredPermission(name string, level int) {
+	if r.permissions == nil {
+		r.permissions = map[string]int{}
+	}
+	r.permissions[name] = level
+}
+
+// RequiredPermission returns the minimum permission level the command
+// needs, or 0 when it has none.
+func (r *Registry) RequiredPermission(name string) int {
+	return r.permissions[name]
 }
 
 // Get returns the handler for a command name.

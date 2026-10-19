@@ -50,6 +50,10 @@ error[Syntax]: data/functions/demo/f.mcfunction:1:31
 error[Syntax]: 1:31: expected an integer, got "="
 ```
 
+上面是**解析错误**的格式（`line:col`）。**函数加载错误**的行格式不一样——
+它带路径、没有列号：`error[Unknown]: <路径>:<行>: <消息>`。脚本不能按一种格式
+吃全部错误。
+
 开关放在子命令前后的任何位置都行。
 
 ## 文档
@@ -57,8 +61,8 @@ error[Syntax]: 1:31: expected an integer, got "="
 | 文档 | 内容 |
 |---|---|
 | [`docs/SPEC-1.12.2.md`](docs/SPEC-1.12.2.md) | **行为基准**：每条语义都标注了是"读"（反编译）、"验"（真服实测）还是"推"出来的 |
-| [`docs/COMMANDS.md`](docs/COMMANDS.md) | 命令支持矩阵：1.12.2 全部 65 条，已实现 46 条，含 1.12.2 真实语法与已知偏差 |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 架构、依赖方向、29 条核心不变量、权威规格的来源与实测流程 |
+| [`docs/COMMANDS.md`](docs/COMMANDS.md) | 命令支持矩阵：1.12.2 专用服务器 64 条（`CommandDispatcher` 注册 65 次，三个分支互斥），已实现 46 条，含 1.12.2 真实语法与已知偏差 |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 架构、依赖方向、31 条核心不变量、权威规格的来源与实测流程 |
 | [`docs/DIFFTEST.md`](docs/DIFFTEST.md) | 对拍层使用手册：写用例、跑 golden、和真服对齐 |
 | [`docs/DEV.md`](docs/DEV.md) | 开发指南：目录结构、怎么加一条命令、测试纪律、怎么确认 1.12.2 行为 |
 
@@ -174,22 +178,32 @@ $ gomc difftest run testdata/demo-world testdata/cases/scoreboard.difftest
 # case: scoreboard basics
 step 1: scoreboard objectives add counter dummy
   count: 1
-  feedback: Added objective counter
+  feedback: Added new objective 'counter' successfully
 step 2: scoreboard players set Steve counter 1
   count: 1
+  feedback: Set score of counter for player Steve to 1
 step 3: scoreboard players add Steve counter 2
   count: 1
+  feedback: Set score of counter for player Steve to 3
 step 4: scoreboard players set Steve counter 10
   count: 1
+  feedback: Set score of counter for player Steve to 10
 step 5: scoreboard players operation Steve counter += Steve counter
   count: 1
+  feedback: Operation applied successfully
 step 6: scoreboard players test Steve counter 20
   count: 1
-  feedback: Test passed: 20 is in the range 20..20
+  feedback: Score 20 is in range 20 to 2147483647
 step 7: scoreboard players list Steve
   count: 1
-  feedback: Steve: 20 (counter)
+  feedback: Showing 1 tracked objective(s) for Steve:
+  feedback: - counter: 20 (counter)
 ```
+
+回显文字是 1.12.2 的**原文**（语言文件里逐字抄的），比如
+`Added new objective 'counter' successfully`、`Score 20 is in range 20 to 2147483647`
+（只给一个值时上限是 `Integer.MAX_VALUE`），`players list` 的每行是
+`- <显示名>: <分数> (<目标名>)`。
 
 观察记录分两个 scope：
 
@@ -216,6 +230,11 @@ scoreboard players add Steve counter 2
 
 把它丢进真服的 `data/functions/` 里跑一遍，再把服务端日志和
 `gomc difftest run` 的输出对齐，就完成了一次真正的对拍。
+
+注意两边的编号**不是同一个 N**：观察记录里的 `step N` 把 `setup:` 的命令也数进去
+（所以 setup 的两条是 step 1、step 2），而探针里 setup 段的标记是 `## setup:`
+（不带编号），只有 `run` 段才是 `## step 1..N`。对齐要按**命令原文**对，
+不能按 N 对。
 
 golden 文件则用来锁住行为：
 
@@ -281,7 +300,9 @@ lexer 里有一个专门防死循环的回归测试（`TestTokenizeOffsetsAdvanc
 - 只做 1.12.2。1.13+ 的 `execute as/at/run`、`scores={...}`、datapack 布局都不支持，
   因为它们和 1.12.2 的语义是**冲突**的，不是加个开关就能兼容的。
 - 不模拟实体 AI、寻路、重力、区块生成、渲染和网络协议。
-- 1.12.2 完整命令表 65 条，当前实现了 46 条，优先覆盖写函数时最常用的那些。
+- 1.12.2 专用服务器的命令表是 **64 条**（`CommandDispatcher` 里注册了 65 次，但
+  专用服分支 15 条、客户端分支 1 条是互斥的），当前实现了 **46 条**，
+  优先覆盖写函数时最常用的那些。
   `docs/COMMANDS.md` 记录了完整矩阵（`CommandDispatcher.java`）。
 - 实体没有建模 UUID，所以 1.12.2 那种"用 UUID 指定非玩家实体"的目标写法还不行；
   非玩家实体目前只能用选择器指定。

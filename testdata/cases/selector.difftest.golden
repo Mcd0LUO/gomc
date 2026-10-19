@@ -66,4 +66,4 @@ step 20: say --- unknown arguments ---
   count: 1
   feedback: [Server] --- unknown arguments ---
 step 21: scoreboard players tag @e[nbt={OnGround:1b}] list
-  error: Syntax:1:24: invalid selector argument "nbt={OnGround:1b}"
+  error: Syntax:1:24: Invalid selector argument: 'nbt={OnGround:1b}'

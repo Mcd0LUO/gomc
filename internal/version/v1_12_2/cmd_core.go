@@ -2,11 +2,13 @@ package v1_12_2
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/mcsim/gomc/internal/ast"
 	"github.com/mcsim/gomc/internal/exec"
 	"github.com/mcsim/gomc/internal/parser"
+	"github.com/mcsim/gomc/internal/world"
 )
 
 // sayCmd implements `/say`.
@@ -138,6 +140,10 @@ func (c *gameruleCmd) Usage() string { return "/gamerule <rule> [<value>]" }
 
 // Parse implements exec.Handler.
 func (c *gameruleCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
+	// 1.12.2 lists every rule when the command has no argument.
+	if !p.More() {
+		return nil, nil
+	}
 	rule, err := p.String()
 	if err != nil {
 		return nil, err
@@ -152,19 +158,49 @@ func (c *gameruleCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 // Run implements exec.Handler.
 func (c *gameruleCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	rules := ctx.World.Rules
+	if len(args) == 0 {
+		// 1.12.2 keeps the rules in a sorted map, so the list is in
+		// the alphabetical order of the names, and it is joined into a
+		// single line.
+		names := rules.Names()
+		sort.Strings(names)
+		ctx.Engine.Feedback = append(ctx.Engine.Feedback, joinVanillaList(names))
+		return 1, nil
+	}
 	rule := args[0].(*ast.StringArg).Value
+	r := rules.Get(rule)
+	if r == nil && len(args) == 1 {
+		// 1.12.2 only reports an unknown rule when it is *queried*.
+		// Setting a rule that does not exist creates it.
+		return 0, exec.Errorf("No game rule called '%s' is available", rule)
+	}
 	if len(args) == 1 {
-		r := rules.Get(rule)
-		if r == nil {
-			return 0, exec.Errorf("No game rule called '%s' is available", rule)
-		}
 		ctx.Engine.Feedback = append(ctx.Engine.Feedback, fmt.Sprintf("%s = %s", rule, r.Display()))
 		return 1, nil
 	}
 	value := args[1].(*ast.StringArg).Value
+	// 1.12.2 only accepts "true" and "false" for a boolean rule, and it
+	// compares them case sensitively.
+	if r != nil && r.Type == world.RuleBoolean && value != "true" && value != "false" {
+		return 0, exec.Errorf("'%s' is not true or false", value)
+	}
 	if err := rules.Set(rule, value); err != nil {
 		return 0, exec.Errorf("%v", err)
 	}
 	ctx.Engine.Feedback = append(ctx.Engine.Feedback, fmt.Sprintf("Game rule %s has been updated to %s", rule, value))
 	return 1, nil
+}
+
+// joinVanillaList joins names the way 1.12.2 does.
+//
+// `CommandAbstract.a(Object[])` separates the entries with ", " and puts
+// " and " in front of the last one.
+func joinVanillaList(names []string) string {
+	switch len(names) {
+	case 0:
+		return ""
+	case 1:
+		return names[0]
+	}
+	return strings.Join(names[:len(names)-1], ", ") + " and " + names[len(names)-1]
 }

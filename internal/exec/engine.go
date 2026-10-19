@@ -113,8 +113,17 @@ type Engine struct {
 	Logs []string
 	// Root is the world's data directory, used to load functions.
 	Root string
-	// maxDepth bounds recursive function calls.
-	maxDepth int
+	// queue holds the pending entries of the running function call chain.
+	//
+	// 1.12.2 keeps a single deque in `CustomFunctionData.g` and shares it
+	// with every function of the chain, so a nested call is queued in the
+	// same deque instead of getting a stack of its own.
+	queue []pendingEntry
+	// running reports whether a function call chain is active.
+	//
+	// It is `CustomFunctionData.h`: while it is set, a call to
+	// `CustomFunctionData.a` queues the function and reports 0.
+	running bool
 }
 
 // NewEngine creates an engine.
@@ -123,7 +132,6 @@ func NewEngine(reg *Registry, w *world.World) *Engine {
 		Registry:  reg,
 		World:     w,
 		Functions: NewFunctionStore(),
-		maxDepth:  256,
 	}
 }
 
@@ -338,6 +346,13 @@ func (e *Engine) Execute(cmd *ast.Command, src *Source) (int, error) {
 	if !ok {
 		return 0, Errorf("unknown command %q", cmd.Name)
 	}
+	// 1.12.2 asks the command whether the source may run it before it
+	// runs it (`ICommand.canUse`, which is `listener.a(level, name)`).
+	// A source that is not high enough is refused with
+	// `commands.generic.permission`.
+	if level := e.Registry.RequiredPermission(cmd.Name); level > src.PermissionLevel {
+		return 0, Errorf("You do not have permission to use this command")
+	}
 	ctx := &Context{
 		Source:  src,
 		World:   e.World,
@@ -370,46 +385,116 @@ func (e *Engine) ExecuteLine(line string, lineNo int, src *Source) (int, error) 
 //
 // The execution model follows `CustomFunctionData.a`:
 //
-//   - The function's commands are pushed onto a stack in reverse order and
+//   - The function's commands are pushed onto a queue in reverse order and
 //     popped from the front, so they run top to bottom.
-//   - The total number of commands executed in one call is bounded by the
-//     `maxCommandChainLength` gamerule.
-//   - A function invoked from inside another function is queued rather than
-//     executed inline, and the caller receives a success count of 0.
+//   - A function called from inside a running function is queued in that
+//     same queue instead of being executed inline, and the caller is told
+//     that 0 commands ran.
+//   - The `maxCommandChainLength` game rule is the budget of the whole
+//     call chain, not of a single call: the loop runs at most that many
+//     times, and a queued function only contributes the commands that
+//     still fit in the budget. The rest are dropped.
+//   - The commands of a function run at permission level 2, because
+//     `CommandFunction.execute` caps the listener with `.a(2)` and the
+//     game loop function's listener answers `i <= 2`.
+//
+// The budget is spent by the loop counter, and the loop of
+// `CustomFunctionData.a` is a do-while, so a limit of 0 still runs one
+// command.
 //
 // A command that fails does **not** stop the function: 1.12.2 catches the
-// error per command (`CommandBlockListenerAbstract.executeCommand`) and
-// carries on with the next one. The failures are collected in Engine.Errors.
+// error per command (`CommandBlockListenerAbstract.executeSafely`) and
+// carries on with the next one. The failures are collected in
+// Engine.Errors.
 func (e *Engine) RunFunction(fn *Function, src *Source) (int, error) {
 	limit := e.World.Rules.Int("maxCommandChainLength")
-	if limit <= 0 {
-		limit = 65536
+	// The commands of a function run at permission level 2. The cap is
+	// the lower of the two levels, so a source that is already lower
+	// keeps its own level.
+	inner := src.WithPermissionLevel(2)
+	if e.running {
+		// A nested call: 1.12.2 queues the function when the queue is
+		// not full yet and reports 0 commands to the caller.
+		if len(e.queue) < limit {
+			e.queue = append(e.queue, pendingEntry{fn: fn, src: inner})
+		}
+		return 0, nil
 	}
-	// The stack holds pending command lines. The lines are pushed in
-	// reverse order and taken from the back, so they run top to bottom.
-	// This mirrors `CustomFunctionData.a`, which pushes with `addFirst`
-	// and pops with `removeFirst`.
-	var stack []pendingLine
-	for i := len(fn.Lines) - 1; i >= 0; i-- {
-		stack = append(stack, pendingLine{line: fn.Lines[i], lineNo: fn.LineNumbers[i], src: src})
-	}
-
+	e.running = true
+	defer func() {
+		// The queue belongs to the chain, so it is dropped when the chain
+		// ends. `CustomFunctionData.a` clears the deque in a finally
+		// block.
+		e.queue = nil
+		e.running = false
+	}()
+	e.pushFunction(fn, inner)
 	executed := 0
-	for len(stack) > 0 && executed < limit {
-		item := stack[len(stack)-1]
-		stack = stack[:len(stack)-1]
-		executed++
-		count, err := e.ExecuteLine(item.line, item.lineNo, item.src)
-		if err != nil {
-			// The command failed, but the function keeps going.
-			e.Errors = append(e.Errors, e.decorate(err, item.lineNo, item.line, fn.Path))
-			continue
+	for {
+		if len(e.queue) == 0 {
+			return executed, nil
 		}
-		if count > 0 {
-			executed += count - 1
+		item := e.queue[len(e.queue)-1]
+		e.queue = e.queue[:len(e.queue)-1]
+		if item.fn != nil {
+			e.expandFunction(item, limit)
+		} else {
+			e.runEntry(item)
+		}
+		executed++
+		// The counter is the number of entries that were popped, which is
+		// what `CustomFunctionData.a` reports.
+		if executed >= limit {
+			return executed, nil
 		}
 	}
-	return executed, nil
+}
+
+// pushFunction queues the commands of a function.
+//
+// The commands are pushed in reverse order so that the first one is
+// popped first: `CustomFunctionData.a` pushes with `addFirst` and pops
+// with `removeFirst`.
+func (e *Engine) pushFunction(fn *Function, src *Source) {
+	for i := len(fn.Lines) - 1; i >= 0; i-- {
+		e.queue = append(e.queue, pendingEntry{
+			line:   fn.Lines[i],
+			lineNo: fn.LineNumbers[i],
+			path:   fn.Path,
+			src:    src,
+		})
+	}
+}
+
+// expandFunction queues the commands of a function that was popped from
+// the queue.
+//
+// `CustomFunction.d` only contributes the commands that still fit in the
+// budget of the chain: the rest are dropped.
+func (e *Engine) expandFunction(item pendingEntry, limit int) {
+	remaining := limit - len(e.queue)
+	n := len(item.fn.Lines)
+	if remaining < n {
+		n = remaining
+	}
+	for i := n - 1; i >= 0; i-- {
+		e.queue = append(e.queue, pendingEntry{
+			line:   item.fn.Lines[i],
+			lineNo: item.fn.LineNumbers[i],
+			path:   item.fn.Path,
+			src:    item.src,
+		})
+	}
+}
+
+// runEntry runs one queued command line.
+//
+// A command that fails does not stop the function: the failure is
+// collected and the next entry runs.
+func (e *Engine) runEntry(item pendingEntry) {
+	if _, err := e.ExecuteLine(item.line, item.lineNo, item.src); err != nil {
+		e.Errors = append(e.Errors, e.decorate(err, item.lineNo, item.line, item.path))
+	}
 }
 
 // decorate adds the source context to an error.
@@ -497,11 +582,21 @@ func (e *Engine) TakeErrors() []error {
 	return out
 }
 
-// pendingLine is a queued command line inside a function execution.
-type pendingLine struct {
-	line   string
+// pendingEntry is a queued item of a function call chain.
+//
+// It is either a command line or a function that is expanded when it is
+// popped, which is what `CustomFunctionData.a` keeps in its deque.
+type pendingEntry struct {
+	// line is the command line to run. It is empty for a function entry.
+	line string
+	// lineNo is the source line of the command line.
 	lineNo int
-	src    *Source
+	// path is the file the command line came from.
+	path string
+	// fn is the function to expand. It is nil for a command entry.
+	fn *Function
+	// src is the source the entry runs under.
+	src *Source
 }
 
 // RunFunctionByID runs a function by its namespaced id.

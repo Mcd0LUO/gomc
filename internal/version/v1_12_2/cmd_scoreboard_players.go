@@ -238,11 +238,11 @@ func runPlayers(ctx *exec.Context, args []ast.Arg) (int, error) {
 				next = current - value
 			}
 			sb.SetScore(h, objective, next)
-			if action == "set" {
-				// 1.12.2 confirms every holder separately.
-				ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-					fmt.Sprintf("Set score of %s for player %s to %d", objective, h, next))
-			}
+			// 1.12.2 confirms every holder separately, and the score
+			// it reports is the one *after* the change. The message is
+			// the same for set, add and remove.
+			ctx.Engine.Feedback = append(ctx.Engine.Feedback,
+				fmt.Sprintf("Set score of %s for player %s to %d", objective, h, next))
 		}
 		return len(holders), nil
 	case "reset":
@@ -253,6 +253,13 @@ func runPlayers(ctx *exec.Context, args []ast.Arg) (int, error) {
 		objective := args[3].(*ast.StringArg).Value
 		for _, h := range holders {
 			sb.ResetScore(h, objective)
+			if objective == "" {
+				// Without an objective every score of the holder is
+				// reset, and 1.12.2 says so in the plural.
+				ctx.Engine.Feedback = append(ctx.Engine.Feedback,
+					fmt.Sprintf("Reset scores of player %s", h))
+				continue
+			}
 			ctx.Engine.Feedback = append(ctx.Engine.Feedback,
 				fmt.Sprintf("Reset score %s of player %s", objective, h))
 		}
@@ -329,7 +336,9 @@ func runPlayers(ctx *exec.Context, args []ast.Arg) (int, error) {
 		}
 		for _, h := range holders {
 			// 1.12.2 prints a heading and then one line per tracked
-			// objective, as "- <objective>: <score> (<criterion>)".
+			// objective. The line shows the *display name* of the
+			// objective, the score and the name of the objective; the
+			// criterion is not part of it.
 			tracked := 0
 			for _, o := range sb.Objectives() {
 				if _, ok := sb.Score(h, o.Name); ok {
@@ -341,7 +350,7 @@ func runPlayers(ctx *exec.Context, args []ast.Arg) (int, error) {
 			for _, o := range sb.Objectives() {
 				if v, ok := sb.Score(h, o.Name); ok {
 					ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-						fmt.Sprintf("- %s: %d (%s)", o.Name, v, o.Criteria))
+						fmt.Sprintf("- %s: %d (%s)", objectiveDisplayName(o), v, o.Name))
 				}
 			}
 		}

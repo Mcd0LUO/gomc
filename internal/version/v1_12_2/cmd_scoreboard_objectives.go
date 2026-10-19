@@ -70,6 +70,17 @@ func parseObjectives(p *parser.Parser) ([]ast.Arg, error) {
 	return nil, usageError(p, "scoreboard objectives", "expected add, remove, list or setdisplay, got %q", action)
 }
 
+// objectiveDisplayName returns the name 1.12.2 shows for an objective.
+//
+// `ScoreboardObjective.getDisplayName()` falls back to the name of the
+// objective when no display name was set.
+func objectiveDisplayName(o *world.Objective) string {
+	if o.DisplayName == "" {
+		return o.Name
+	}
+	return o.DisplayName
+}
+
 // runObjectives executes the `scoreboard objectives` subtree.
 func runObjectives(ctx *exec.Context, args []ast.Arg) (int, error) {
 	sb := ctx.World.Scoreboard
@@ -99,12 +110,9 @@ func runObjectives(ctx *exec.Context, args []ast.Arg) (int, error) {
 		ctx.Engine.Feedback = append(ctx.Engine.Feedback,
 			fmt.Sprintf("Showing %d objective(s) on scoreboard:", len(objectives)))
 		for _, o := range objectives {
-			display := o.DisplayName
-			if display == "" {
-				display = o.Name
-			}
 			ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-				fmt.Sprintf("- %s: displays as '%s' and is type '%s'", o.Name, display, o.Criteria))
+				fmt.Sprintf("- %s: displays as '%s' and is type '%s'",
+					o.Name, objectiveDisplayName(o), o.Criteria))
 		}
 		return 1, nil
 	case "setdisplay":

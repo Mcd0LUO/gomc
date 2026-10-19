@@ -154,8 +154,27 @@ func (c *difficultyCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	}
 	ctx.World.Difficulty = d
 	ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-		fmt.Sprintf("Set game difficulty to %s", d))
+		fmt.Sprintf("Set game difficulty to %s", difficultyName(d)))
 	return 1, nil
+}
+
+// difficultyName returns the name 1.12.2 shows for a difficulty.
+//
+// The name comes from the language file: `options.difficulty.hard` is
+// "Hard", and the message of the command shows the translated name and
+// not the lower case name of the argument.
+func difficultyName(d world.Difficulty) string {
+	switch d {
+	case world.DifficultyPeaceful:
+		return "Peaceful"
+	case world.DifficultyEasy:
+		return "Easy"
+	case world.DifficultyNormal:
+		return "Normal"
+	case world.DifficultyHard:
+		return "Hard"
+	}
+	return "Normal"
 }
 
 // parseDifficulty resolves a difficulty argument.

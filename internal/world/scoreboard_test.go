@@ -149,8 +149,13 @@ func TestGameruleSetRejectsBadValues(t *testing.T) {
 	if err := r.Set("maxCommandChainLength", "many"); err == nil {
 		t.Error("expected an error for a non-numeric value")
 	}
-	if err := r.Set("nosuchrule", "1"); err == nil {
-		t.Error("expected an error for an unknown rule")
+	// 1.12.2 creates a rule that does not exist yet: `GameRules.set`
+	// falls back to ANY_VALUE and adds it.
+	if err := r.Set("nosuchrule", "1"); err != nil {
+		t.Errorf("setting an unknown rule: %v", err)
+	}
+	if got := r.String("nosuchrule"); got != "1" {
+		t.Errorf("nosuchrule = %q, want %q", got, "1")
 	}
 	if err := r.Set("maxCommandChainLength", "10"); err != nil {
 		t.Fatalf("Set: %v", err)

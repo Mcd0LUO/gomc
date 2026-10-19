@@ -19,6 +19,11 @@ const (
 	RuleString
 	// RuleFunction is a gamerule holding a function reference.
 	RuleFunction
+	// RuleAny is a gamerule that holds any value as text.
+	//
+	// 1.12.2 creates one of these when a rule that does not exist yet
+	// is set: `GameRules.set` falls back to `ANY_VALUE`.
+	RuleAny
 )
 
 // Gamerule is one game rule.
@@ -45,7 +50,7 @@ func (g *Gamerule) Display() string {
 		return "false"
 	case RuleInt:
 		return strconv.Itoa(g.Int)
-	case RuleString, RuleFunction:
+	case RuleString, RuleFunction, RuleAny:
 		return g.String
 	}
 	return ""
@@ -75,10 +80,16 @@ func (g *GameRules) Get(name string) *Gamerule { return g.rules[name] }
 func (g *GameRules) Has(name string) bool { _, ok := g.rules[name]; return ok }
 
 // Set stores a gamerule value from its textual form.
+//
+// A rule that does not exist yet is created: 1.12.2's `GameRules.set` falls
+// back to `ANY_VALUE` and adds the rule, so `gamerule <new> <value>`
+// succeeds on a real server.
 func (g *GameRules) Set(name, value string) error {
 	r, ok := g.rules[name]
 	if !ok {
-		return fmt.Errorf("unknown game rule %q", name)
+		g.rules[name] = &Gamerule{Name: name, Type: RuleAny, String: value}
+		g.order = append(g.order, name)
+		return nil
 	}
 	switch r.Type {
 	case RuleBoolean:

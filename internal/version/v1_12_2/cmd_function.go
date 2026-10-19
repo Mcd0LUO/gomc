@@ -82,22 +82,31 @@ func (c *functionCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 			hasMatch = len(entities) > 0
 		}
 		if (a.condition == "if") != hasMatch {
-			// The condition was not met; the function is skipped.
-			return 0, nil
+			// The condition was not met. 1.12.2 reports that the
+			// function was skipped instead of running it silently.
+			return 0, exec.Errorf("Skipped execution of function '%s'", a.id)
 		}
 	}
 	fn := ctx.Engine.Functions.Get(a.id)
 	if fn == nil {
 		return 0, exec.Errorf("Unknown function '%s'", a.id)
 	}
-	// The function inherits the caller's execution context.
+	// The function is queued rather than run inline when it is called
+	// from inside another function, and `CustomFunctionData.a` then
+	// reports 0 commands to the caller. The engine runs the function's
+	// commands at permission level 2, exactly like the listener
+	// `CommandFunction.execute` builds.
 	count, err := ctx.Engine.RunFunction(fn, ctx.Source)
 	if err != nil {
 		return 0, err
 	}
 	ctx.Engine.Feedback = append(ctx.Engine.Feedback,
 		fmt.Sprintf("Executed %d command(s) from function '%s'", count, a.id))
-	return count, nil
+	// The command itself did not fail, so it counts as one success. The
+	// number of commands the function ran is only part of the message:
+	// 1.12.2 reports it through `commands.function.success` and leaves
+	// the success count of the command at one.
+	return 1, nil
 }
 
 // reloadCmd implements `/reload`.
@@ -135,4 +144,78 @@ func (c *reloadCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 func registerFunction(reg *exec.Registry) {
 	reg.Register(&functionCmd{})
 	reg.Register(&reloadCmd{})
+	registerPermissions(reg)
+}
+
+// commandPermissions is the permission level every 1.12.2 command needs.
+//
+// 1.12.2 asks the command whether the source may run it
+// (`ICommand.canUse`, which is `listener.a(level, name)`), and the command
+// answers with the level it declares. `CommandAbstract` declares 4 and the
+// commands that need less override it, so the table below holds the
+// declarations of the 1.12.2 commands gomc implements.
+//
+// The levels matter for functions: a function runs its commands at level
+// 2, so a level 3 command such as `/reload` is refused inside a function,
+// exactly as it is on a real server.
+var commandPermissions = map[string]int{
+	// Level 0: everybody may run them.
+	"help":    0,
+	"list":    0,
+	"me":      0,
+	"trigger": 0,
+	// Level 1: `say` only has to be able to talk.
+	"say": 1,
+	// Level 2: the commands an operator may use.
+	"blockdata":       2,
+	"clear":           2,
+	"clone":           2,
+	"defaultgamemode": 2,
+	"difficulty":      2,
+	"effect":          2,
+	"enchant":         2,
+	"entitydata":      2,
+	"execute":         2,
+	"fill":            2,
+	"function":        2,
+	"gamemode":        2,
+	"gamerule":        2,
+	"give":            2,
+	"kill":            2,
+	"particle":        2,
+	"playsound":       2,
+	"replaceitem":     2,
+	"scoreboard":      2,
+	"seed":            2,
+	"setblock":        2,
+	"setworldspawn":   2,
+	"spawnpoint":      2,
+	"stopsound":       2,
+	"summon":          2,
+	"tellraw":         2,
+	"testfor":         2,
+	"testforblock":    2,
+	"testforblocks":   2,
+	"time":            2,
+	"title":           2,
+	"toggledownfall":  2,
+	"weather":         2,
+	"worldborder":     2,
+	"xp":              2,
+	// Level 3: the administrative commands.
+	"debug":          3,
+	"reload":         3,
+	"setidletimeout": 3,
+}
+
+// registerPermissions declares the permission level of every command.
+//
+// The table is registered from here because the permission model belongs
+// with the function model: a function runs its commands at level 2, so
+// the level a command needs decides whether it may run inside a
+// function.
+func registerPermissions(reg *exec.Registry) {
+	for name, level := range commandPermissions {
+		reg.SetRequiredPermission(name, level)
+	}
 }

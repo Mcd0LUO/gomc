@@ -7,6 +7,7 @@ step 2: scoreboard players set Steve counter 1
   feedback: Set score of counter for player Steve to 1
 step 3: scoreboard players add Steve counter 2
   count: 1
+  feedback: Set score of counter for player Steve to 3
 step 4: scoreboard players set Steve counter 10
   count: 1
   feedback: Set score of counter for player Steve to 10
@@ -19,4 +20,4 @@ step 6: scoreboard players test Steve counter 20
 step 7: scoreboard players list Steve
   count: 1
   feedback: Showing 1 tracked objective(s) for Steve:
-  feedback: - counter: 20 (dummy)
+  feedback: - counter: 20 (counter)

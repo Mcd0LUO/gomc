@@ -67,7 +67,8 @@
 7. **tick 驱动**：`gameLoopFunction` gamerule 指向的函数每 tick 执行一次；
    该值变化时重新解析函数引用。
 8. **execute 旧语法**：`execute <entity> <x> <y> <z> [detect <x2> <y2> <z2> <block> <dataValue>] <cmd>`。
-   坐标相对于**目标实体**而非执行者。无 `as`/`at`/`run`。
+   坐标相对于**目标实体**而非执行者；`detect` 的相对坐标以**执行位置**
+   （实体位置 + 偏移）为基准，偏移**只加一次**。无 `as`/`at`/`run`。
 9. **execute 多实体**：`execute <selector> ...` 对**每个匹配实体各执行一次**。
    展开发生在**命令分发层**（`CommandHandler`），不在 execute 内部。
    顺序 = 选择器返回的顺序 = **距离升序**（`PlayerSelector` 按距离平方稳定排序），
@@ -219,12 +220,22 @@ CLI 默认输出编译器风格（rustc/TS）：
 error[Syntax]: data/functions/ns/f.mcfunction:12:5
   scoreboard players set @a obj = 5
       ^
-  expected integer, got '='
+  expected an integer, got "="
   usage: /scoreboard players set <player> <objective> <score> [dataTag]
   hint: did you mean 'setblock'?
 ```
 
-`--plain-errors` 关掉增强，只留一行 `error[Kind]: line:col: msg`，给要解析输出的脚本用。
+`--plain-errors` 关掉增强，只留一行，给要解析输出的脚本用。
+**但两类错误的行格式不一样**，脚本不能按一种格式吃全部错误：
+
+| 错误种类 | `--plain-errors` 的输出 |
+|---|---|
+| 解析错误（`parser.Error`） | `error[Kind]: line:col: msg` —— 有行号**和列号**，**不带路径** |
+| 函数加载错误（`exec.FunctionLoadError`） | `error[Unknown]: <路径>:<行>: <消息>` —— 带**路径**，**没有列号** |
+| lint 错误（`exec.FunctionLintError`） | `error[Syntax]: <路径>:<行>: <消息>` |
+| 运行期错误（`exec.Error`） | `error[Runtime]: <消息>` |
+
+也就是说：解析错误看 `line:col`，函数加载错误看 `path:line`。
 开关可以放在子命令前后的任何位置。
 
 增强只发生在 CLI 的渲染层，**不进对拍 golden**：difftest 记录的错误仍然是
