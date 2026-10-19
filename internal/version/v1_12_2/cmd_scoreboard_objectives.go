@@ -83,23 +83,40 @@ func runObjectives(ctx *exec.Context, args []ast.Arg) (int, error) {
 		}
 		display := args[4].(*ast.StringArg).Value
 		sb.AddObjective(name, criteria, display)
-		ctx.Engine.Feedback = append(ctx.Engine.Feedback, fmt.Sprintf("Added objective %s", name))
+		ctx.Engine.Feedback = append(ctx.Engine.Feedback,
+			fmt.Sprintf("Added new objective '%s' successfully", name))
 		return 1, nil
 	case "remove":
 		name := args[2].(*ast.StringArg).Value
 		if !sb.RemoveObjective(name) {
-			return 0, exec.Errorf("unknown objective %q", name)
+			return 0, exec.Errorf("No objective was found by the name '%s'", name)
 		}
-		ctx.Engine.Feedback = append(ctx.Engine.Feedback, fmt.Sprintf("Removed objective %s", name))
+		ctx.Engine.Feedback = append(ctx.Engine.Feedback,
+			fmt.Sprintf("Removed objective '%s' successfully", name))
 		return 1, nil
 	case "list":
-		for _, o := range sb.Objectives() {
+		objectives := sb.Objectives()
+		ctx.Engine.Feedback = append(ctx.Engine.Feedback,
+			fmt.Sprintf("Showing %d objective(s) on scoreboard:", len(objectives)))
+		for _, o := range objectives {
+			display := o.DisplayName
+			if display == "" {
+				display = o.Name
+			}
 			ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-				fmt.Sprintf("%s (%s)", o.Name, o.Criteria))
+				fmt.Sprintf("- %s: displays as '%s' and is type '%s'", o.Name, display, o.Criteria))
 		}
 		return 1, nil
 	case "setdisplay":
-		ctx.Engine.Feedback = append(ctx.Engine.Feedback, "Objective display slot updated")
+		slot := args[2].(*ast.StringArg).Value
+		name := args[3].(*ast.StringArg).Value
+		if name == "" {
+			ctx.Engine.Feedback = append(ctx.Engine.Feedback,
+				fmt.Sprintf("Cleared objective display slot '%s'", slot))
+			return 1, nil
+		}
+		ctx.Engine.Feedback = append(ctx.Engine.Feedback,
+			fmt.Sprintf("Set the display objective in slot '%s' to '%s'", slot, name))
 		return 1, nil
 	}
 	return 0, exec.Errorf("unknown action %q", action)

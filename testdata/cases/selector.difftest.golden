@@ -7,30 +7,35 @@ step 2: summon armor_stand 5 0 0
   feedback: Summoned new armor_stand at 5.00, 0.00, 0.00
 step 3: scoreboard objectives add kills dummy
   count: 1
-  feedback: Added objective kills
+  feedback: Added new objective 'kills' successfully
 step 4: scoreboard players set @e[type=zombie] kills 5
   count: 1
+  feedback: Set score of kills for player entity-1 to 5
 step 5: scoreboard players tag @e[type=zombie] add marked
   count: 1
-  feedback: Successfully added tag marked
+  feedback: Tag marked added
 step 6: say --- type ---
   count: 1
   feedback: [Server] --- type ---
 step 7: scoreboard players tag @e[type=zombie] list
   count: 1
-  feedback: Tags for entity-1: marked
+  feedback: Tags on entity entity-1 are:
+  feedback: marked
 step 8: scoreboard players tag @e[type=!zombie] list
   count: 1
-  feedback: Tags for entity-2: 
+  feedback: Tags on entity entity-2 are:
+  feedback: 
 step 9: say --- tag ---
   count: 1
   feedback: [Server] --- tag ---
 step 10: scoreboard players tag @e[tag=marked] list
   count: 1
-  feedback: Tags for entity-1: marked
+  feedback: Tags on entity entity-1 are:
+  feedback: marked
 step 11: scoreboard players tag @e[tag=!marked] list
   count: 1
-  feedback: Tags for entity-2: 
+  feedback: Tags on entity entity-2 are:
+  feedback: 
 step 12: scoreboard players tag @e[tag=marked,tag=other] list
   error: Selector '@e[tag=marked,tag=other]' found nothing
 step 13: say --- score ---
@@ -38,13 +43,16 @@ step 13: say --- score ---
   feedback: [Server] --- score ---
 step 14: scoreboard players tag @e[score_kills=5] list
   count: 1
-  feedback: Tags for entity-1: marked
+  feedback: Tags on entity entity-1 are:
+  feedback: marked
 step 15: scoreboard players tag @e[score_kills=9] list
   count: 1
-  feedback: Tags for entity-1: marked
+  feedback: Tags on entity entity-1 are:
+  feedback: marked
 step 16: scoreboard players tag @e[score_kills_min=5] list
   count: 1
-  feedback: Tags for entity-1: marked
+  feedback: Tags on entity entity-1 are:
+  feedback: marked
 step 17: scoreboard players tag @e[score_kills_min=6] list
   error: Selector '@e[score_kills_min=6]' found nothing
 step 18: say --- volume ---
@@ -52,7 +60,8 @@ step 18: say --- volume ---
   feedback: [Server] --- volume ---
 step 19: scoreboard players tag @e[dx=1,dy=1,dz=1] list
   count: 1
-  feedback: Tags for entity-1: marked
+  feedback: Tags on entity entity-1 are:
+  feedback: marked
 step 20: say --- unknown arguments ---
   count: 1
   feedback: [Server] --- unknown arguments ---

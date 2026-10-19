@@ -9,10 +9,11 @@ step 3: execute @e[type=armor_stand] ~ ~1 ~ setblock ~ ~ ~ stone
   count: 1
 step 4: scoreboard players tag @e[type=zombie] add marked
   count: 1
-  feedback: Successfully added tag marked
+  feedback: Tag marked added
 step 5: scoreboard players tag @e[tag=marked] list
   count: 1
-  feedback: Tags for entity-2: marked
+  feedback: Tags on entity entity-2 are:
+  feedback: marked
 step 6: execute @e[type=zombie] ~ ~ ~ detect ~ ~-1 ~ air 0 say ground is clear
   count: 1
   feedback: [Zombie] ground is clear

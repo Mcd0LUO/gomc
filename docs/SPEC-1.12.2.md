@@ -301,7 +301,9 @@ scoreboard players test <持有者> <目标> <最小值> [<最大值>]
 ```
 
 - 最小值可以是 `*`（无下限），最大值也可以是 `*`（无上限）。
-- 只给一个值时，上下限相等，即相等判断。
+- **只给一个值时，上限是 `2147483647`（Integer.MAX_VALUE），不是等于下限**：
+  `players test Steve t 6` 的意思是"至少 6"，不是"恰好 6"。
+  实测：真服回 `Score 5 is NOT in range 6 to 2147483647`。
 - 目标不存在、或持有者在该目标下没有分数 → 报错。
 - 分数不在区间内 → 报错（是**失败**不是静默）。
 
@@ -332,6 +334,39 @@ Showing 3 tracked objective(s) for Steve:
 
 所以自动化对拍时，如果要校验 `scoreboard players list`，得从控制台跑，
 不能放在函数里。
+
+### 4.6 输出文本 [验][读]
+
+计分板各子命令的回显文字全部来自语言文件，逐条对齐：
+
+| 命令 | 输出 |
+|---|---|
+| `objectives add` | `Added new objective '<名字>' successfully` |
+| `objectives remove` | `Removed objective '<名字>' successfully` |
+| `objectives list` | `Showing <n> objective(s) on scoreboard:`，每行 `- <名字>: displays as '<显示名>' and is type '<类型>'` |
+| `objectives setdisplay <槽> <名字>` | `Set the display objective in slot '<槽>' to '<名字>'` |
+| `objectives setdisplay <槽>` | `Cleared objective display slot '<槽>'` |
+| `players set` | `Set score of <目标> for player <持有者> to <分数>` |
+| `players add` / `players remove` | **没有输出**（1.12.2 静默成功） |
+| `players reset` | `Reset score <目标> of player <持有者>` |
+| `players operation` | `Operation applied successfully` |
+| `players test`（通过） | `Score <分数> is in range <下限> to <上限>` |
+| `players test`（不通过） | `Score <分数> is NOT in range <下限> to <上限>` |
+| `players list <持有者>` | `Showing <n> tracked objective(s) for <持有者>:`，每行 `- <目标>: <分数> (<类型>)` |
+| `players tag ... add` | `Tag <标签> added` |
+| `players tag ... remove` | `Tag <标签> removed` |
+| `players tag ... list` | `Tags on entity <实体> are:`，下一行是标签，多个用 ` and ` 连接 |
+
+错误文本：
+
+| 场景 | 文本 |
+|---|---|
+| 目标不存在 | `No objective was found by the name '<名字>'` |
+| 持有者在该目标下没有分数 | `No <目标> score for <持有者> found` |
+| 要删的标签不存在 | `Entity didn't have the <标签> tag` |
+
+`players tag ... list` 里的实体标识符，真服用的是 UUID；gomc 用内部 id
+（已知简化，见"还没搞清楚的"）。
 
 ---
 

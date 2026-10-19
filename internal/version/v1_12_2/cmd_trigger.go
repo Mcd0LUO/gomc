@@ -46,7 +46,7 @@ func (c *triggerCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	objective := args[0].(*ast.StringArg).Value
 	o := sb.Objective(objective)
 	if o == nil {
-		return 0, exec.Errorf("unknown objective %q", objective)
+		return 0, exec.Errorf("No objective was found by the name '%s'", objective)
 	}
 	if o.Criteria != world.CriteriaTrigger {
 		return 0, exec.Errorf("objective %q is not a trigger", objective)

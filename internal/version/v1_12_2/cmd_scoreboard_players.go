@@ -203,7 +203,7 @@ func runPlayers(ctx *exec.Context, args []ast.Arg) (int, error) {
 		}
 		objective := args[3].(*ast.StringArg).Value
 		if sb.Objective(objective) == nil {
-			return 0, exec.Errorf("unknown objective %q", objective)
+			return 0, exec.Errorf("No objective was found by the name '%s'", objective)
 		}
 		value := args[4].(*ast.IntArg).Value
 		for _, h := range holders {
@@ -221,6 +221,11 @@ func runPlayers(ctx *exec.Context, args []ast.Arg) (int, error) {
 				next = current - value
 			}
 			sb.SetScore(h, objective, next)
+			if action == "set" {
+				// 1.12.2 confirms every holder separately.
+				ctx.Engine.Feedback = append(ctx.Engine.Feedback,
+					fmt.Sprintf("Set score of %s for player %s to %d", objective, h, next))
+			}
 		}
 		return len(holders), nil
 	case "reset":
@@ -231,6 +236,8 @@ func runPlayers(ctx *exec.Context, args []ast.Arg) (int, error) {
 		objective := args[3].(*ast.StringArg).Value
 		for _, h := range holders {
 			sb.ResetScore(h, objective)
+			ctx.Engine.Feedback = append(ctx.Engine.Feedback,
+				fmt.Sprintf("Reset score %s of player %s", objective, h))
 		}
 		return len(holders), nil
 	case "operation":
@@ -249,17 +256,17 @@ func runPlayers(ctx *exec.Context, args []ast.Arg) (int, error) {
 		}
 		sourceObj := args[6].(*ast.StringArg).Value
 		if sb.Objective(targetObj) == nil {
-			return 0, exec.Errorf("unknown objective %q", targetObj)
+			return 0, exec.Errorf("No objective was found by the name '%s'", targetObj)
 		}
 		if sb.Objective(sourceObj) == nil {
-			return 0, exec.Errorf("unknown objective %q", sourceObj)
+			return 0, exec.Errorf("No objective was found by the name '%s'", sourceObj)
 		}
 		for _, t := range targets {
 			for _, s := range sources {
 				targetVal, _ := sb.Score(t, targetObj)
 				sourceVal, ok := sb.Score(s, sourceObj)
 				if !ok {
-					return 0, exec.Errorf("holder %q has no score for %q", s, sourceObj)
+					return 0, exec.Errorf("No %s score for %s found", sourceObj, s)
 				}
 				next, err := world.Apply(op, targetVal, sourceVal)
 				if err != nil {
@@ -268,6 +275,7 @@ func runPlayers(ctx *exec.Context, args []ast.Arg) (int, error) {
 				sb.SetScore(t, targetObj, next)
 			}
 		}
+		ctx.Engine.Feedback = append(ctx.Engine.Feedback, "Operation applied successfully")
 		return len(targets), nil
 	case "enable":
 		holders, err := resolveHolders(ctx, args[2])
@@ -277,10 +285,14 @@ func runPlayers(ctx *exec.Context, args []ast.Arg) (int, error) {
 		trigger := args[3].(*ast.StringArg).Value
 		o := sb.Objective(trigger)
 		if o == nil {
-			return 0, exec.Errorf("unknown objective %q", trigger)
+			return 0, exec.Errorf("No objective was found by the name '%s'", trigger)
 		}
 		if o.Criteria != world.CriteriaTrigger {
-			return 0, exec.Errorf("objective %q is not a trigger", trigger)
+			return 0, exec.Errorf("Objective %s is not a trigger", trigger)
+		}
+		for _, h := range holders {
+			ctx.Engine.Feedback = append(ctx.Engine.Feedback,
+				fmt.Sprintf("Enabled trigger %s for %s", trigger, h))
 		}
 		return len(holders), nil
 	case "list":
@@ -289,10 +301,20 @@ func runPlayers(ctx *exec.Context, args []ast.Arg) (int, error) {
 			return 0, err
 		}
 		for _, h := range holders {
+			// 1.12.2 prints a heading and then one line per tracked
+			// objective, as "- <objective>: <score> (<criterion>)".
+			tracked := 0
+			for _, o := range sb.Objectives() {
+				if _, ok := sb.Score(h, o.Name); ok {
+					tracked++
+				}
+			}
+			ctx.Engine.Feedback = append(ctx.Engine.Feedback,
+				fmt.Sprintf("Showing %d tracked objective(s) for %s:", tracked, h))
 			for _, o := range sb.Objectives() {
 				if v, ok := sb.Score(h, o.Name); ok {
 					ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-						fmt.Sprintf("%s: %d (%s)", h, v, o.Name))
+						fmt.Sprintf("- %s: %d (%s)", o.Name, v, o.Criteria))
 				}
 			}
 		}
@@ -304,7 +326,7 @@ func runPlayers(ctx *exec.Context, args []ast.Arg) (int, error) {
 		}
 		objective := args[3].(*ast.StringArg).Value
 		if sb.Objective(objective) == nil {
-			return 0, exec.Errorf("unknown objective %q", objective)
+			return 0, exec.Errorf("No objective was found by the name '%s'", objective)
 		}
 		low, high, err := parseTestRange(args[4].(*ast.StringArg).Value, args[5].(*ast.StringArg).Value)
 		if err != nil {
@@ -313,13 +335,13 @@ func runPlayers(ctx *exec.Context, args []ast.Arg) (int, error) {
 		for _, h := range holders {
 			score, tracked := sb.Score(h, objective)
 			if !tracked {
-				return 0, exec.Errorf("%q has no score for the objective %q", h, objective)
+				return 0, exec.Errorf("No %s score for %s found", objective, h)
 			}
 			if score < low || score > high {
-				return 0, exec.Errorf("the score %d of %q is not in the range %d..%d", score, h, low, high)
+				return 0, exec.Errorf("Score %d is NOT in range %d to %d", score, low, high)
 			}
 			ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-				fmt.Sprintf("Test passed: %d is in the range %d..%d", score, low, high))
+				fmt.Sprintf("Score %d is in range %d to %d", score, low, high))
 		}
 		return len(holders), nil
 	case "tag":
@@ -338,10 +360,18 @@ func runPlayers(ctx *exec.Context, args []ast.Arg) (int, error) {
 				if e == nil {
 					continue
 				}
+				if action == "remove" && !e.HasTag(tag) {
+					return 0, exec.Errorf("Entity didn't have the %s tag", tag)
+				}
 				e.SetTag(tag, action == "add")
+				if action == "add" {
+					ctx.Engine.Feedback = append(ctx.Engine.Feedback,
+						fmt.Sprintf("Tag %s added", tag))
+				} else {
+					ctx.Engine.Feedback = append(ctx.Engine.Feedback,
+						fmt.Sprintf("Tag %s removed", tag))
+				}
 			}
-			ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-				fmt.Sprintf("Successfully added tag %s", tag))
 			return len(holders), nil
 		case "list":
 			for _, h := range holders {
@@ -349,9 +379,13 @@ func runPlayers(ctx *exec.Context, args []ast.Arg) (int, error) {
 				if e == nil {
 					continue
 				}
+				// 1.12.2 prints a heading and then the tags joined
+				// with " and " on the next line.
 				tags := e.TagList()
 				ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-					fmt.Sprintf("Tags for %s: %s", h, strings.Join(tags, ", ")))
+					fmt.Sprintf("Tags on entity %s are:", h))
+				ctx.Engine.Feedback = append(ctx.Engine.Feedback,
+					strings.Join(tags, " and "))
 			}
 			return len(holders), nil
 		}
@@ -363,9 +397,12 @@ func runPlayers(ctx *exec.Context, args []ast.Arg) (int, error) {
 // parseTestRange parses the bounds of `scoreboard players test`.
 //
 // 1.12.2 accepts a `*` wildcard for either bound: a `*` lower bound means
-// "no lower limit" and a `*` upper bound means "no upper limit". When only
-// one bound is given the other one mirrors it, so the test is an equality
-// check.
+// "no lower limit" and a `*` upper bound means "no upper limit".
+//
+// When only one bound is given, the other one is **not** a mirror of it:
+// the missing upper bound is Integer.MAX_VALUE, so `players test Steve t 6`
+// means "at least 6", not "exactly 6". (Measured: the server answers
+// "Score 5 is NOT in range 6 to 2147483647".)
 func parseTestRange(low, high string) (int, int, error) {
 	lo := -2147483648
 	if low != "*" {
@@ -378,7 +415,7 @@ func parseTestRange(low, high string) (int, int, error) {
 	hi := 2147483647
 	switch {
 	case high == "":
-		hi = lo
+		// 1.12.2 leaves the upper bound at Integer.MAX_VALUE.
 	case high == "*":
 		// No upper limit.
 	default:

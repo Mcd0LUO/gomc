@@ -99,6 +99,22 @@ go test ./internal/... -timeout 20s -p 2
 
 > 只用第 2、3 条是不够的：反编译会读出**推断**，而推断可能是错的。
 > 已经发生过一次——从字节码里"读"出 1.12.2 有 `/tag` 命令，实测发现没有。
+>
+> 这条纪律后来又救了三次场：`execute` 的多实体顺序、失败传播、实体显示名，
+> 三条都是"读"出来的结论，被实测推翻了。**凡是能测的，都要测。**
+>
+> 还有一条捷径值得记住：1.12.2 的**提示文字全在语言文件里**
+> （`assets/minecraft/lang/en_US.lang`，在服务端 jar 里）。要文案不必起服，
+> 直接读那个文件：
+>
+> ```powershell
+> # 读出某个键的原文
+> Add-Type -AssemblyName System.IO.Compression.FileSystem
+> $zip = [System.IO.Compression.ZipFile]::OpenRead('D:\game\McServer\1.12.2\cache\patched_1.12.2.jar')
+> $e = $zip.Entries | Where-Object { $_.FullName -eq 'assets/minecraft/lang/en_US.lang' }
+> $sr = New-Object System.IO.StreamReader($e.Open()); $txt = $sr.ReadToEnd(); $sr.Close(); $zip.Dispose()
+> ($txt -split "`r?`n") | Where-Object { $_ -match '^commands\.scoreboard\.' }
+> ```
 
 参考资源在本机：
 
@@ -127,6 +143,17 @@ java -jar .ref\tools\cfr.jar <jar> --outputdir .ref\src --comments false
 - 选择器语义改了 → 同步更新 `docs/SPEC-1.12.2.md` 第 3 节，
   以及 `internal/parser/selector_test.go` 和 `internal/exec/selector_test.go`。
 - gamerule 清单改了 → 同步 `internal/world/state.go` 和 SPEC 第 5 节。
+- **命令的回显文字改了** → 同步 SPEC 里对应的小节。
+  真服的文案是语言文件里的原文，gomc 必须一字不差地对齐；
+  对齐后重录 golden：
+
+  ```powershell
+  $env:GOMC_UPDATE_GOLDEN='1'
+  go test ./internal/difftest/... -run TestGoldenCases
+  $env:GOMC_UPDATE_GOLDEN=''
+  ```
+
+  **重录后一定要看 diff**，确认变化只来自预期的行为改动。
 
 ---
 

@@ -1,18 +1,22 @@
 # case: scoreboard basics
 step 1: scoreboard objectives add counter dummy
   count: 1
-  feedback: Added objective counter
+  feedback: Added new objective 'counter' successfully
 step 2: scoreboard players set Steve counter 1
   count: 1
+  feedback: Set score of counter for player Steve to 1
 step 3: scoreboard players add Steve counter 2
   count: 1
 step 4: scoreboard players set Steve counter 10
   count: 1
+  feedback: Set score of counter for player Steve to 10
 step 5: scoreboard players operation Steve counter += Steve counter
   count: 1
+  feedback: Operation applied successfully
 step 6: scoreboard players test Steve counter 20
   count: 1
-  feedback: Test passed: 20 is in the range 20..20
+  feedback: Score 20 is in range 20 to 2147483647
 step 7: scoreboard players list Steve
   count: 1
-  feedback: Steve: 20 (counter)
+  feedback: Showing 1 tracked objective(s) for Steve:
+  feedback: - counter: 20 (dummy)
