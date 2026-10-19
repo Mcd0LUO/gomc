@@ -70,6 +70,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# 记录这个脚本启动的服务端进程，脚本被打断时据此清理。
+$script:StartedProcs = @()
+
 # 要用 junction 指回原目录的大目录。
 $Linked = @('libraries', 'cache', 'assets', 'lang')
 # 每次起服都会先发的公共命令。
@@ -227,6 +230,8 @@ function Start-Server {
 	$p = New-Object System.Diagnostics.Process
 	$p.StartInfo = $psi
 	$p.Start() | Out-Null
+	# 记下来，脚本被打断时才能只收自己的进程。
+	$script:StartedProcs += $p
 
 	# 控制台输出直接落文件，避免和脚本自己的写入打架。
 	# StandardOutput 是 StreamReader，异步拷贝要用它的 BaseStream。
@@ -253,13 +258,15 @@ function Start-Server {
 
 	$server = @{
 		Proc = $p
+		# GetNewClosure() 是必须的：PowerShell 7 里，返回出去的 scriptblock
+		# 不会自动捕获函数里的局部变量，不加这个 $p 就是 null。
 		Send = {
 			param([string]$c)
 			Write-Host ">>> $c"
 			$p.StandardInput.WriteLine($c)
 			$p.StandardInput.Flush()
 			Start-Sleep -Seconds 3
-		}
+		}.GetNewClosure()
 		# 收尾：关服，把输出文件合在一起。
 		Finish = {
 			$p.StandardInput.WriteLine('stop')
@@ -274,7 +281,7 @@ function Start-Server {
 				if ($e) { $text += "`n" + $e }
 			}
 			return $text
-		}
+		}.GetNewClosure()
 	}
 	return $server
 }
@@ -364,40 +371,53 @@ $casePath = (Resolve-Path $Case).Path
 $name = [IO.Path]::GetFileNameWithoutExtension($casePath)
 $expectedPath = [IO.Path]::ChangeExtension($casePath, '.expected')
 
-Write-Step "用例 $name"
-New-ProbeServer -ServerDir $ServerHome -Dir $Work
-$spec = Read-Case -Path $casePath
-Install-Functions -Dir $Work -Funcs $spec.Funcs
-$log = Invoke-Probe -Dir $Work -Commands $spec.Commands
-$observed = Select-Observation -Log $log
+# 脚本被打断时也要把服务端进程收掉，否则它会一直占着端口。
+$running = $null
+try {
+	Write-Step "用例 $name"
+	New-ProbeServer -ServerDir $ServerHome -Dir $Work
+	$spec = Read-Case -Path $casePath
+	Install-Functions -Dir $Work -Funcs $spec.Funcs
+	$log = Invoke-Probe -Dir $Work -Commands $spec.Commands
+	$observed = Select-Observation -Log $log
 
-Write-Host ""
-Write-Host "---- 服务端观察 ----" -ForegroundColor Yellow
-$observed | ForEach-Object { Write-Host $_ }
-Write-Host "---- 完整日志: $log ----" -ForegroundColor DarkGray
-
-$code = 0
-if ($Record) {
-	Set-Content -Path $expectedPath -Value $observed -Encoding utf8
 	Write-Host ""
-	Write-Host "已写入 $expectedPath —— 请人工核对一遍" -ForegroundColor Green
-}
-if ($Compare) {
-	if (-not (Test-Path $expectedPath)) { Fail "找不到期望文件 $expectedPath" }
-	$expected = Get-Content $expectedPath
-	$diff = Compare-Object -ReferenceObject $expected -DifferenceObject $observed
-	if ($diff) {
+	Write-Host "---- 服务端观察 ----" -ForegroundColor Yellow
+	$observed | ForEach-Object { Write-Host $_ }
+	Write-Host "---- 完整日志: $log ----" -ForegroundColor DarkGray
+
+	$code = 0
+	if ($Record) {
+		Set-Content -Path $expectedPath -Value $observed -Encoding utf8
 		Write-Host ""
-		Write-Host "---- 与期望不一致 ----" -ForegroundColor Red
-		$diff | ForEach-Object {
-			$sign = if ($_.SideIndicator -eq '<=') { '-' } else { '+' }
-			Write-Host "$sign $($_.InputObject)"
-		}
-		$code = 1
+		Write-Host "已写入 $expectedPath —— 请人工核对一遍" -ForegroundColor Green
 	}
-	else {
-		Write-Host ""
-		Write-Host "与期望一致" -ForegroundColor Green
+	if ($Compare) {
+		if (-not (Test-Path $expectedPath)) { Fail "找不到期望文件 $expectedPath" }
+		$expected = Get-Content $expectedPath
+		$diff = Compare-Object -ReferenceObject $expected -DifferenceObject $observed
+		if ($diff) {
+			Write-Host ""
+			Write-Host "---- 与期望不一致 ----" -ForegroundColor Red
+			$diff | ForEach-Object {
+				$sign = if ($_.SideIndicator -eq '<=') { '-' } else { '+' }
+				Write-Host "$sign $($_.InputObject)"
+			}
+			$code = 1
+		}
+		else {
+			Write-Host ""
+			Write-Host "与期望一致" -ForegroundColor Green
+		}
+	}
+}
+finally {
+	# 兜底：只把**这个脚本启动的**服务端进程收掉。
+	# 绝不能按"最近启动的 java 进程"来杀——用户自己可能开着 Minecraft 服务端。
+	foreach ($proc in $script:StartedProcs) {
+		if ($proc -and -not $proc.HasExited) {
+			try { $proc.Kill() } catch { }
+		}
 	}
 }
 

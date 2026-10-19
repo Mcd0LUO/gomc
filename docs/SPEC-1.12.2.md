@@ -46,6 +46,30 @@ java.lang.IllegalArgumentException: Unknown or invalid command 'tag'
 - `maxCommandChainLength` gamerule 限制单次调用的命令总数，默认 65536。
 - 函数重入时命令入队而不是内联执行，调用者拿到 0。
 
+### 1.3.1 一条命令失败不会中止函数 [读]
+
+1.12.2 是**逐条命令**捕获异常的
+（`CommandBlockListenerAbstract.executeCommand` 里每个命令一个 try/catch），
+所以一条命令失败之后，函数**继续执行下一条**。
+
+实测：函数里放一条会失败的 `execute ... detect ...`，服务端报
+`[Server: Failed to execute 'detect' as Armor Stand]`，然后函数继续跑后面的命令。
+
+> gomc 早期版本是"第一条命令失败就中止整个函数"，这会让被测函数的后半段
+> 悄悄不执行——对拍时表现为"结果对不上但看不出为什么"。现在失败会被收集起来
+> 统一报告，执行不再中断。
+
+### 1.3.2 实体标签就是 NBT 里的 `Tags` [读]
+
+1.12.2 的 `Entity.getScoreboardTags()` 直接读实体 NBT 里的 `Tags` 列表，
+所以这两件事是**同一份数据**：
+
+- `summon armor_stand 0 0 0 {Tags:["w"]}` → `@e[tag=w]` 立刻能选中它。
+- `scoreboard players tag @e[...] add w` → 实体的 NBT 里也会出现 `Tags`。
+
+gomc 把 `Tags` 做成 NBT 的虚拟字段（`Entity.TagList` / `Entity.SetTag`），
+不做第二份拷贝。
+
 ### 1.4 坏函数不阻断其他函数 [读]
 
 `CustomFunctionData.h` 对每个文件单独 try/catch，坏文件只记日志、不注册，

@@ -7,7 +7,7 @@
 包括那些只有把服务端 jar 反编译才看得见的细节。
 
 ```
-gomc check  <world>                    # 校验世界里的所有函数
+gomc check  <world>                    # 校验世界里的所有函数（含参数 lint）
 gomc run    <world> <ns:function>      # 执行一个函数
 gomc tick   <world> [ticks]            # 推进 N 个 tick
 gomc commands                          # 列出支持的命令
@@ -16,6 +16,10 @@ gomc difftest check  <world> <case>    # 与 golden 文件比对
 gomc difftest update <world> <case>    # 重写 golden 文件
 gomc difftest probe  <case>            # 生成给真实服务端用的探针函数
 ```
+
+`check` 做两件事：一是查**命令名**未注册（1.12.2 加载函数时就会拒绝的），
+二是 lint **参数**（1.12.2 要等函数真跑了才会暴露的问题，比如
+`scoreboard players add s obj notanumber`）。第二项是 gomc 自己加的。
 
 ## 文档
 

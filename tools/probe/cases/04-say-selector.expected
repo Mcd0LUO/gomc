@@ -1,1 +1,50 @@
+Timings Reset
+Game rule doMobSpawning has been updated to true
+Game rule doFireTick has been updated to false
+Set the world spawn point to (0, 4, 0)
+Starting minecraft server version 1.12.2
+Loading properties
+Default game type: SURVIVAL
+This server is running Paper version git-Paper-1620 (MC: 1.12.2) (Implementing API version 1.12.2-R0.1-SNAPSHOT)
+Debug logging is disabled
+Server Ping Player Sample Count: 12
+Using 4 threads for Netty based IO
+Generating keypair
+Starting Minecraft server on *:25599
+Using default channel type
+Server permissions file permissions.yml is empty, ignoring it
+**** Beginning UUID conversion, this may take A LONG time ****
+Preparing level "probe"
+-------- World Settings For [probe] --------
+Max TNT Explosions: 100
+Hopper Transfer: 8 Hopper Check: 1 Hopper Amount: 1
+Random Lighting Updates: false
+Tile Max Tick Time: 50ms Entity max Tick Time: 50ms
+Entity Tracking Range: Pl 48 / An 48 / Mo 48 / Mi 32 / Other 64
+Structure Info Saving: true
+Cactus Growth Modifier: 100%
+Cane Growth Modifier: 100%
+Melon Growth Modifier: 100%
+Mushroom Growth Modifier: 100%
+Pumpkin Growth Modifier: 100%
+Sapling Growth Modifier: 100%
+Wheat Growth Modifier: 100%
+NetherWart Growth Modifier: 100%
+Vine Growth Modifier: 100%
+Cocoa Growth Modifier: 100%
+Entity Activation Range: An 32 / Mo 32 / Mi 16 / Tiv true
+Custom Map Seeds:  Village: 10387312 Feature: 14357617 Monument: 10387313 Slime: 987234911
+Allow Zombie Pigmen to spawn from portal blocks: true
+Zombie Aggressive Towards Villager: true
+Nerfing mobs spawned from spawners: false
+Item Merge Radius: 2.5
+Item Despawn Rate: 6000
+View Distance: 10
+Arrow Despawn Rate: 1200
+Experience Merge Radius: 3.0
+Mob Spawn Range: 4
+Loaded 1 custom command functions
+Preparing start region for level 0 (Seed: 8146120067523099165)
+Done (0.395s)! For help, type "help" or "?"
+Timings Reset
 [Server: Selector '@a' found nothing]

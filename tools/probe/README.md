@@ -98,10 +98,35 @@ gomc 的行为基准来自两处：**反编译服务端 jar**（"读"）和**跑
 
 - 脚本**先摘 junction 再删目录**。直接 `Remove-Item -Recurse` 会顺着 junction
   删进真实服务端，这是脚本里最需要小心的地方。
+- 脚本被打断时只清理**自己启动的**服务端进程（`$script:StartedProcs`）。
+  绝不能按"最近启动的 java 进程"来杀——你可能自己开着 Minecraft 服务端。
 - 每次跑都用同一个 `-Work` 目录，跑之前先清掉旧的。
 - `spawn-monsters=false`（脚本写死的）会连带关掉 `doMobSpawning` gamerule，
   `/summon` 会失败，所以脚本每次先发 `gamerule doMobSpawning true`。
 - 真实服务端的原存档完全没被碰过。
+
+## 两个 PowerShell 的坑（写这个脚本时踩的）
+
+**1. scriptblock 不会自动捕获局部变量。**
+
+```powershell
+function Make {
+    $p = "VALUE"
+    return @{ Send = { Write-Host $p }.GetNewClosure() }   # 不加就是 null
+}
+```
+
+PowerShell 7 里，返回出去的 scriptblock 在别处调用时**看不到**定义它的函数里的
+局部变量。必须显式调 `.GetNewClosure()`。
+
+**2. `CopyToAsync` 在 StreamReader 上没有。**
+
+`$p.StandardOutput` 是 `StreamReader`，要拿到原始字节流得用
+`$p.StandardOutput.BaseStream.CopyToAsync($fileStream)`。
+
+另外，事件处理器（`Register-ObjectEvent -Action`）在另一个 runspace 里写共享对象，
+和主线程读它会打架——症状是永远等不到服务端就绪。所以脚本改成**读服务端自己写的
+`logs/latest.log`** 判断就绪，用 `CopyToAsync` 把控制台输出落文件。
 
 ---
 
