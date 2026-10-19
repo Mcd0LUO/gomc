@@ -1,0 +1,15 @@
+# The 1.12.2 scoreboard basics.
+#
+# Run with:  gomc difftest run <world> testdata/cases/scoreboard.difftest
+name: scoreboard basics
+
+setup:
+  scoreboard objectives add counter dummy
+  scoreboard players set Steve counter 1
+
+run:
+  scoreboard players add Steve counter 2
+  scoreboard players set Steve counter 10
+  scoreboard players operation Steve counter += Steve counter
+  scoreboard players test Steve counter 20
+  scoreboard players list Steve

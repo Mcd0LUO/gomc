@@ -1,0 +1,13 @@
+# 仓库里统一存 LF，工作区按平台检出。
+* text=auto eol=lf
+
+# PowerShell 脚本在 Windows 上跑，用 CRLF。
+*.ps1 text eol=crlf
+
+# 1.12.2 的函数文件是 UTF-8 文本，服务端会 trim 每行，CRLF 也能跑，
+# 但保持 LF 更干净。
+*.mcfunction text eol=lf
+*.difftest text eol=lf
+*.golden text eol=lf
+*.case text eol=lf
+*.expected text eol=lf

@@ -1,0 +1,11 @@
+# 验证：say 会解析消息里的选择器。
+#
+# 没有匹配时报 "Selector '@a' found nothing"。
+#
+# 期望：[Server: Selector '@a' found nothing]
+
+--- function probe/saysel.mcfunction ---
+say @a
+
+--- console ---
+function probe:saysel

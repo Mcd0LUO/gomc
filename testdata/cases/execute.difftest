@@ -1,0 +1,18 @@
+# The 1.12.2 flavour of execute and of the target selector.
+#
+# 1.12.2's execute takes an entity and explicit coordinates, and the
+# coordinates are relative to that entity. The selector syntax of this
+# version has no `scores=` and no `nbt=`, and the tags of an entity are
+# managed with `scoreboard players tag` rather than a `/tag` command.
+name: execute and selectors
+
+setup:
+  summon armor_stand 10 20 30
+  summon zombie 0 0 0
+
+run:
+  execute @e[type=armor_stand] ~ ~1 ~ setblock ~ ~ ~ stone
+  scoreboard players tag @e[type=zombie] add marked
+  scoreboard players tag @e[tag=marked] list
+  execute @e[type=zombie] ~ ~ ~ detect ~ ~-1 ~ air 0 say ground is clear
+  say done

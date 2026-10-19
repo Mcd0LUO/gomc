@@ -1,0 +1,14 @@
+# 验证：scoreboard players list 的输出格式。
+#
+# 这个输出不是聊天格式，而是普通的多行 INFO；而且放在函数里控制台看不到，
+# 所以这条命令必须从控制台跑。
+#
+# 期望：[Server: Added new objective 'q' successfully]
+# 期望：[Server: Set score of q for player Steve to 5]
+# 期望：Showing 1 tracked objective(s) for Steve:
+# 期望：- q: 5 (q)
+
+--- console ---
+scoreboard objectives add q dummy
+scoreboard players set Steve q 5
+scoreboard players list Steve

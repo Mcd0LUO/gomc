@@ -1,0 +1,13 @@
+# 验证：1.12.2 没有独立的 /tag 命令。
+#
+# 1.12.2 的实体标签用 `scoreboard players tag` 管理。
+# 写了 /tag 的函数会整个加载失败，报 Unknown or invalid command 'tag'。
+#
+# 期望：[ERROR] Couldn't read custom function ...
+# 期望：Loaded 0 custom command functions
+
+--- function probe/tag.mcfunction ---
+tag @e[type=zombie] add marked
+
+--- console ---
+function probe:tag

@@ -1,0 +1,11 @@
+# 验证：detect 前置条件失败时的报错。
+#
+# 期望：[Server: Failed to execute 'detect' as Armor Stand]
+
+--- function probe/detect.mcfunction ---
+execute @e[type=armor_stand] ~ ~ ~ detect ~ ~-1 ~ stone 0 say PROBE_DETECT
+
+--- console ---
+setblock 0 4 0 dirt
+summon armor_stand 0 5 0
+function probe:detect

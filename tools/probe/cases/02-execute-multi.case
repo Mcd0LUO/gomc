@@ -1,0 +1,15 @@
+# 验证：execute 对每个匹配实体各执行一次。
+#
+# 两个盔甲架 -> say 执行两次。
+#
+# 期望：两条 [Armor Stand] PROBE_ONE_STAND
+
+--- function probe/multi.mcfunction ---
+execute @e[type=armor_stand] ~ ~ ~ say PROBE_ONE_STAND
+
+--- console ---
+setblock 0 4 0 dirt
+setblock 30 4 0 dirt
+summon armor_stand 0 5 0
+summon armor_stand 30 5 0
+function probe:multi

@@ -1,0 +1,32 @@
+# The 1.12.2 target selector.
+#
+# The syntax of this version has no `scores={...}` and no `nbt={...}`, and
+# the score conditions are written `score_<objective>` and
+# `score_<objective>_min`. A repeated argument keeps its last value, so
+# `@e[tag=a,tag=b]` behaves like `@e[tag=b]`.
+name: target selectors
+
+setup:
+  summon zombie 0 0 0
+  summon armor_stand 5 0 0
+  scoreboard objectives add kills dummy
+  scoreboard players set @e[type=zombie] kills 5
+  scoreboard players tag @e[type=zombie] add marked
+
+run:
+  say --- type ---
+  scoreboard players tag @e[type=zombie] list
+  scoreboard players tag @e[type=!zombie] list
+  say --- tag ---
+  scoreboard players tag @e[tag=marked] list
+  scoreboard players tag @e[tag=!marked] list
+  scoreboard players tag @e[tag=marked,tag=other] list
+  say --- score ---
+  scoreboard players tag @e[score_kills=5] list
+  scoreboard players tag @e[score_kills=9] list
+  scoreboard players tag @e[score_kills_min=5] list
+  scoreboard players tag @e[score_kills_min=6] list
+  say --- volume ---
+  scoreboard players tag @e[dx=1,dy=1,dz=1] list
+  say --- unknown arguments ---
+  scoreboard players tag @e[nbt={OnGround:1b}] list

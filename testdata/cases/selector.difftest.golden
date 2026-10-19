@@ -1,0 +1,60 @@
+# case: target selectors
+step 1: summon zombie 0 0 0
+  count: 1
+  feedback: Summoned new zombie at 0.00, 0.00, 0.00
+step 2: summon armor_stand 5 0 0
+  count: 1
+  feedback: Summoned new armor_stand at 5.00, 0.00, 0.00
+step 3: scoreboard objectives add kills dummy
+  count: 1
+  feedback: Added objective kills
+step 4: scoreboard players set @e[type=zombie] kills 5
+  count: 1
+step 5: scoreboard players tag @e[type=zombie] add marked
+  count: 1
+  feedback: Successfully added tag marked
+step 6: say --- type ---
+  count: 1
+  feedback: [Server] --- type ---
+step 7: scoreboard players tag @e[type=zombie] list
+  count: 1
+  feedback: Tags for entity-1: marked
+step 8: scoreboard players tag @e[type=!zombie] list
+  count: 1
+  feedback: Tags for entity-2: 
+step 9: say --- tag ---
+  count: 1
+  feedback: [Server] --- tag ---
+step 10: scoreboard players tag @e[tag=marked] list
+  count: 1
+  feedback: Tags for entity-1: marked
+step 11: scoreboard players tag @e[tag=!marked] list
+  count: 1
+  feedback: Tags for entity-2: 
+step 12: scoreboard players tag @e[tag=marked,tag=other] list
+  count: 0
+step 13: say --- score ---
+  count: 1
+  feedback: [Server] --- score ---
+step 14: scoreboard players tag @e[score_kills=5] list
+  count: 1
+  feedback: Tags for entity-1: marked
+step 15: scoreboard players tag @e[score_kills=9] list
+  count: 1
+  feedback: Tags for entity-1: marked
+step 16: scoreboard players tag @e[score_kills_min=5] list
+  count: 1
+  feedback: Tags for entity-1: marked
+step 17: scoreboard players tag @e[score_kills_min=6] list
+  count: 0
+step 18: say --- volume ---
+  count: 1
+  feedback: [Server] --- volume ---
+step 19: scoreboard players tag @e[dx=1,dy=1,dz=1] list
+  count: 1
+  feedback: Tags for entity-1: marked
+step 20: say --- unknown arguments ---
+  count: 1
+  feedback: [Server] --- unknown arguments ---
+step 21: scoreboard players tag @e[nbt={OnGround:1b}] list
+  error: Syntax:1:24: invalid selector argument "nbt={OnGround:1b}"
