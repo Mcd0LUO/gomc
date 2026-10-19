@@ -82,7 +82,14 @@ func (c *executeCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	}
 	a := &executeArgs{target: target, pos: *pos, detectData: -1}
 	if p.OptionalLiteral("detect") {
-		dp, err := p.Coord(*pos)
+		// The detect coordinates are relative to the *execution* position,
+		// which is only known at run time (it depends on the target
+		// entity). So they are parsed against zero here and resolved
+		// against the execution position later.
+		//
+		// Parsing them against the execute coordinates would apply the
+		// execution offset twice.
+		dp, err := p.Coord(ast.Coord{})
 		if err != nil {
 			return nil, err
 		}
@@ -93,12 +100,14 @@ func (c *executeCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 			return nil, err
 		}
 		a.detectBlock = block
-		// The data value is optional; -1 means "any data value".
-		if p.More() {
-			if n, err := p.Int(); err == nil {
-				a.detectData = n
-			}
+		// The data value is required in 1.12.2: the detect block is five
+		// arguments, the last one the data value. A value of -1 means
+		// "any data value".
+		n, err := p.Int()
+		if err != nil {
+			return nil, err
 		}
+		a.detectData = n
 	}
 	sub := p.Rest()
 	if strings.TrimSpace(sub) == "" {

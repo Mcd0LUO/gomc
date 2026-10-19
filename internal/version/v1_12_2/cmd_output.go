@@ -384,6 +384,15 @@ func (c *meCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 // Run implements exec.Handler.
 func (c *meCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	msg := args[0].(*ast.StringArg).Value
+	// 1.12.2 only expands the selectors when the sender is not a player:
+	// a player cannot make the server announce a name list.
+	if ctx.Source.Entity == nil {
+		expanded, err := expandMessage(ctx, msg)
+		if err != nil {
+			return 0, err
+		}
+		msg = expanded
+	}
 	ctx.Engine.Feedback = append(ctx.Engine.Feedback,
 		fmt.Sprintf("* %s %s", ctx.Source.Name, msg))
 	return 1, nil

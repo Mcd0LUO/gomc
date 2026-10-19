@@ -179,7 +179,7 @@ func (e *Engine) LoadFunctions() []error {
 			// 1.12.2 where `split("/", 2)` must yield two parts.
 			return nil
 		}
-		id := ns + ":" + name
+		id := NormalizeFunctionID(ns + ":" + name)
 		fn, loadErr := e.loadFunctionFile(id, path)
 		if loadErr != nil {
 			errs = append(errs, loadErr)
@@ -506,7 +506,7 @@ type pendingLine struct {
 
 // RunFunctionByID runs a function by its namespaced id.
 func (e *Engine) RunFunctionByID(id string, src *Source) (int, error) {
-	fn := e.Functions.Get(id)
+	fn := e.Functions.Get(NormalizeFunctionID(id))
 	if fn == nil {
 		return 0, Errorf("unknown function %q", id)
 	}
@@ -527,7 +527,7 @@ func (e *Engine) Tick(src *Source) (int, error) {
 	if id == "" || id == "-" {
 		return 0, nil
 	}
-	fn := e.Functions.Get(id)
+	fn := e.Functions.Get(NormalizeFunctionID(id))
 	if fn == nil {
 		// A missing function is not an error in 1.12.2: the reference is
 		// simply kept and nothing runs.

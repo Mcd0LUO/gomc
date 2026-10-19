@@ -145,6 +145,9 @@ func runRun(args []string, stdout, stderr io.Writer, opts options) int {
 		return 1
 	}
 	id := args[1]
+	// 1.12.2 identifies a function with a `MinecraftKey`: both parts are
+	// lower-cased and a missing namespace means "minecraft".
+	id = exec.NormalizeFunctionID(id)
 	// The world is loaded as a whole, and a function that fails to load is
 	// only skipped. That is what 1.12.2 does, so a broken sibling must not
 	// stop the function under test from running.
@@ -156,7 +159,7 @@ func runRun(args []string, stdout, stderr io.Writer, opts options) int {
 			reportError(stderr, err, opts)
 			return 1
 		}
-		fmt.Fprintf(stderr, "error: unknown function %q\n", id)
+		fmt.Fprintf(stderr, "error: Unknown function '%s'\n", id)
 		return 1
 	}
 	for _, e := range loadErrs {

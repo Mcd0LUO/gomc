@@ -213,8 +213,14 @@ func runPlayers(ctx *exec.Context, args []ast.Arg) (int, error) {
 			return 0, err
 		}
 		objective := args[3].(*ast.StringArg).Value
-		if sb.Objective(objective) == nil {
+		o := sb.Objective(objective)
+		if o == nil {
 			return 0, exec.Errorf("No objective was found by the name '%s'", objective)
+		}
+		if o.Criteria.ReadOnly() {
+			// 1.12.2 refuses to write the criteria the server keeps
+			// for itself: health, xp, level, food, air and armor.
+			return 0, exec.Errorf("The objective '%s' is read-only and cannot be set", objective)
 		}
 		value := args[4].(*ast.IntArg).Value
 		for _, h := range holders {
@@ -272,12 +278,22 @@ func runPlayers(ctx *exec.Context, args []ast.Arg) (int, error) {
 		if sb.Objective(sourceObj) == nil {
 			return 0, exec.Errorf("No objective was found by the name '%s'", sourceObj)
 		}
+		if o := sb.Objective(targetObj); o.Criteria.ReadOnly() {
+			return 0, exec.Errorf("The objective '%s' is read-only and cannot be set", targetObj)
+		}
 		for _, t := range targets {
 			for _, s := range sources {
 				targetVal, _ := sb.Score(t, targetObj)
 				sourceVal, ok := sb.Score(s, sourceObj)
 				if !ok {
 					return 0, exec.Errorf("No %s score for %s found", sourceObj, s)
+				}
+				if op == world.OpSwap {
+					// The swap exchanges the two scores; it does not just
+					// copy the source over the target.
+					sb.SetScore(t, targetObj, sourceVal)
+					sb.SetScore(s, sourceObj, targetVal)
+					continue
 				}
 				next, err := world.Apply(op, targetVal, sourceVal)
 				if err != nil {

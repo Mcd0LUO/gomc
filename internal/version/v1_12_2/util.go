@@ -4,13 +4,15 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/mcsim/gomc/internal/parser"
 )
 
 // parseIntSafe parses a decimal integer, reporting a friendly error.
 func parseIntSafe(s string) (int, error) {
-	n, err := strconv.Atoi(strings.TrimSpace(s))
-	if err != nil {
-		return 0, fmt.Errorf("expected an integer, got %q", s)
+	n, ok := parser.JavaInt(s)
+	if !ok {
+		return 0, fmt.Errorf("'%s' is not a valid number", strings.TrimSpace(s))
 	}
 	return n, nil
 }

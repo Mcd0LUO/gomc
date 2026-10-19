@@ -29,10 +29,16 @@ func (c *sayCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 
 // Run implements exec.Handler.
 func (c *sayCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
+	// 1.12.2 expands the selectors in the message, and a selector that
+	// matches nothing is an error.
+	msg, err := expandMessage(ctx, args[0].(*ast.StringArg).Value)
+	if err != nil {
+		return 0, err
+	}
 	// The prefix is the name of whoever ran the command. When the command
 	// runs inside an /execute, that is the target entity, not the server.
 	ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-		"["+ctx.Source.Name+"] "+args[0].(*ast.StringArg).Value)
+		"["+ctx.Source.Name+"] "+msg)
 	return 1, nil
 }
 

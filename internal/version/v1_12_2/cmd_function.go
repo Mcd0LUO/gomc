@@ -49,7 +49,9 @@ func (c *functionCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	if err != nil {
 		return nil, err
 	}
-	a := &functionArgs{id: id}
+	// 1.12.2 identifies a function with a `MinecraftKey`: both parts are
+	// lower-cased and a missing namespace means "minecraft".
+	a := &functionArgs{id: exec.NormalizeFunctionID(id)}
 	if p.More() {
 		cond, err := p.String()
 		if err != nil {

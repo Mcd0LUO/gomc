@@ -268,12 +268,20 @@ func (c *tpCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 // mergeNBT merges src into dst, overwriting existing keys.
 //
 // This is the behaviour `/entitydata` and `/blockdata` have in 1.12.2: the
-// given compound is merged into the target's NBT.
+// given compound is merged into the target's NBT. A compound value is
+// merged recursively, so writing {Item:{Count:64}} keeps the other fields
+// of the item; every other type replaces the old value.
 func mergeNBT(dst, src *nbt.Compound) {
 	if dst == nil || src == nil {
 		return
 	}
 	for _, k := range src.Keys() {
+		if sub, ok := src.Get(k).(*nbt.Compound); ok {
+			if old, ok := dst.Get(k).(*nbt.Compound); ok {
+				mergeNBT(old, sub)
+				continue
+			}
+		}
 		dst.Set(k, nbt.CloneValue(src.Get(k)))
 	}
 }

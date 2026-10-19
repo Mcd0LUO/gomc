@@ -204,16 +204,30 @@ func (p *Parser) OptionalLiteral(want string) bool {
 }
 
 // Int reads the next token as an integer.
+// Int reads the next token as a number.
 func (p *Parser) Int() (int, error) {
 	t, ok := p.Next()
 	if !ok {
 		return 0, p.Errorf("expected an integer but reached end of command")
 	}
-	n, err := strconv.Atoi(strings.TrimSpace(t.Text))
-	if err != nil {
-		return 0, p.ErrorAt(t, "expected an integer, got %q", t.Text)
+	n, ok := JavaInt(strings.TrimSpace(t.Text))
+	if !ok {
+		return 0, p.ErrorAt(t, "'%s' is not a valid number", t.Text)
 	}
 	return n, nil
+}
+
+// JavaInt parses a decimal integer the way 1.12.2 does.
+//
+// The server parses numbers with `Integer.parseInt`, so a value outside the
+// signed 32-bit range is not a number at all: it makes the command fail
+// with "is not a valid number" instead of silently wrapping.
+func JavaInt(s string) (int, bool) {
+	n, err := strconv.ParseInt(strings.TrimSpace(s), 10, 32)
+	if err != nil {
+		return 0, false
+	}
+	return int(n), true
 }
 
 // Float reads the next token as a number.

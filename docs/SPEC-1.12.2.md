@@ -25,6 +25,17 @@
 namespace 是路径的第一段（`split("/", 2)` 的第一段）。不是 1.13+ 的
 datapack 布局。
 
+**函数 id 的大小写**（实测）：1.12.2 用 `MinecraftKey` 标识函数，它的构造器把
+**命名空间和路径都小写化**，并且没有命名空间时默认补 `minecraft:`。所以：
+
+| 写法 | 实际指向 |
+|---|---|
+| `function PROBE:mcns` | `probe:mcns` |
+| `function mcns` | `minecraft:mcns` |
+| `function probe:MCNS` | `probe:mcns` |
+
+找不到时回显的是**规范化之后**的 id：`Unknown function 'minecraft:mcns'`。
+
 ### 1.2 加载 [读][验]
 
 - 每一行 trim 后按**第一个空格**切成两段（`split(" ", 2)`）。
@@ -103,15 +114,24 @@ execute <实体> <x> <y> <z> [detect <x2> <y2> <z2> <方块> <数据值>] <命�
 - 至少 5 段，否则报用法错误。
 - 坐标**相对于目标实体**，不是相对于执行者。
 - 没有 1.13 的 `as` / `at` / `run`。
-- `detect` 后面固定 5 段（三个坐标 + 方块 + 数据值），数据值可以是 `-1` 表示任意。
+- `detect` 后面固定 5 段（三个坐标 + 方块 + **数据值必填**），数据值可以是 `-1` 表示任意。
+  数据值缺失或不是数字都会让命令失败——1.12.2 的 `detect` 只有在参数数够时才进入
+  检查分支（`astring.length > 10`），而方块状态（`state`）在 1.12.2 会被当成方块名解析。
 
-**坐标基准（实测）**：`execute` 设定的执行位置就是目标实体的位置，
-`detect` 的相对坐标也以**目标实体的位置**为基准（不是执行位置）。
-绝对坐标则按世界原点算。
+**坐标基准（实测）**：`execute` 设定的执行位置 = 目标实体的位置 + 坐标偏移；
+`detect` 的相对坐标以**执行位置**为基准（不是目标实体的位置），绝对坐标按世界原点算。
 
-验证方法：把实体 `tp` 到 (3, 9, 0)，在它脚下 y=8 放一块石头，
-`execute @e ~ ~ ~ setblock ~ ~ ~ stone` 把石头放在 (3, 9, 0)，
-`detect ~ ~-1 ~ stone` 命中 y=8 的石头，`detect ~ ~ ~ stone` 命中 y=9 的石头。
+验证方法：实体在 (0, 10, 0)，只有 (0, 11, 0) 有石头。
+
+| 命令 | 检查的位置 | 结果 |
+|---|---|---|
+| `execute @e ~ ~1 ~ detect ~ ~ ~ stone 0` | (0, 11, 0) | 通过 |
+| `execute @e ~ ~1 ~ detect ~ ~-1 ~ stone 0` | (0, 10, 0) | 失败 |
+| `execute @e ~ ~ ~ detect ~ ~1 ~ stone 0` | (0, 11, 0) | 通过 |
+
+> 这里的偏移**只能加一次**。1.12.2 先算执行位置 `d0 = b(entity.locX, ...)`，
+> 再算 detect 位置 `d3 = b(d0, ...)`；如果 detect 的坐标在解析期就按执行坐标
+> 折算一遍，运行期再折算一遍，偏移就会被加两次。
 
 ### 2.2 多实体 [读][验]
 
@@ -315,6 +335,17 @@ scoreboard players test <持有者> <目标> <最小值> [<最大值>]
 scoreboard players tag <目标> <add|remove|list> [标签]
 ```
 
+### 4.6.1 只读目标 [验][读]
+
+有些目标是**只读**的，命令改不了：`health`、`xp`、`level`、`food`、`air`、`armor`。
+往这些目标里写分数会报：
+
+```
+The objective '<名字>' is read-only and cannot be set
+```
+
+`dummy`、`trigger`、`deathCount`、`playerKillCount`、`totalKillCount` 可以写。
+
 ### 4.5 `list` 的输出 [验]
 
 真实服务端**从控制台**执行时的输出：
@@ -445,7 +476,7 @@ time query <daytime|day|gametime>
 
 ---
 
-## 8. 消息里的选择器 [验]
+## 8. 消息里的选择器 [验][读]
 
 `/say` 和 `/me` 会解析消息里的选择器：
 
@@ -453,6 +484,15 @@ time query <daytime|day|gametime>
 say @a          → 展开成匹配到的实体名
 say @a（无匹配） → Selector '@a' found nothing
 ```
+
+细节（`CommandAbstract.b`）：
+
+- 消息**按空格拆成 token**，逐个尝试展开，然后**用单个空格重新拼回去**
+  ——所以消息里的多余空格会被规范化掉。
+- 展开成的是**所有**匹配实体的名字，用 `, ` 连接（不是只取第一个）。
+- 名字取的是计分板显示名（自定义名 → 玩家名 → 类型的翻译名）。
+- `/say` **总是**展开；`/me` **只在执行者不是玩家时**展开（玩家发 `/me` 不会
+  把选择器展开成名字列表）。
 
 ---
 
@@ -517,7 +557,11 @@ say @a（无匹配） → Selector '@a' found nothing
   > `minecraft:<名字>` 形式的字符串（只有裸名），而语言文件里的两级键
   > （`tile.stone.graniteSmooth.name`）推不出注册名（`polished_granite`）。
   > 猜错会误报"方块不存在"，所以宁可先不校验。
-  > 要补的话得反编译 `Block` 的静态初始化块，把 `register(id, name, ...)` 逐个读出来。
+  >
+  > 补法已经验证可行：`javap -p -c` 读每个 `Block*.class`，取
+  > `setRegistryName` 调用前最近的 `ldc` 字符串常量。1.12.2 的注册名是
+  > **下划线风格**（`acacia_door`、`crafting_table`、`sandstone`、`stonebrick`……），
+  > 和 gomc 现在用的命名一致；驼峰那批（`acaciaFence`）是物品/模型名，不是方块名。
 - **需要玩家在线的命令**（give / effect / title / tp / tell / xp / clear / enchant /
   trigger / gamemode / spawnpoint）：真服在控制台执行时的报错文本与 gomc 不同。
 - **Paper 的扩展**：实测真服（Paper 1.12.2）允许 `gamerule <不存在的规则> <值>`，
