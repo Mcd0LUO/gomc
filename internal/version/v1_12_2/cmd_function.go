@@ -86,7 +86,7 @@ func (c *functionCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	}
 	fn := ctx.Engine.Functions.Get(a.id)
 	if fn == nil {
-		return 0, exec.Errorf("unknown function %q", a.id)
+		return 0, exec.Errorf("Unknown function '%s'", a.id)
 	}
 	// The function inherits the caller's execution context.
 	count, err := ctx.Engine.RunFunction(fn, ctx.Source)
@@ -94,7 +94,7 @@ func (c *functionCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		return 0, err
 	}
 	ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-		fmt.Sprintf("Ran %d command(s) from function %s", count, a.id))
+		fmt.Sprintf("Executed %d command(s) from function '%s'", count, a.id))
 	return count, nil
 }
 
@@ -125,7 +125,7 @@ func (c *reloadCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		}
 		ctx.Engine.Logs = append(ctx.Engine.Logs, err.Error())
 	}
-	ctx.Engine.Feedback = append(ctx.Engine.Feedback, "Reloaded the server")
+	ctx.Engine.Feedback = append(ctx.Engine.Feedback, "Successfully reloaded loot tables, advancements and functions")
 	return 1, nil
 }
 

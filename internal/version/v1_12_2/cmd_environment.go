@@ -75,21 +75,21 @@ func (c *weatherCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		w.Weather.Storm = false
 		w.Weather.Thundering = false
 		w.Weather.Kind = world.WeatherClear
-		ctx.Engine.Feedback = append(ctx.Engine.Feedback, "Changing the weather to clear")
+		ctx.Engine.Feedback = append(ctx.Engine.Feedback, "Changing to clear weather")
 	case "rain":
 		w.Weather.ClearDuration = 0
 		w.Weather.Duration = ticks
 		w.Weather.Storm = true
 		w.Weather.Thundering = false
 		w.Weather.Kind = world.WeatherRain
-		ctx.Engine.Feedback = append(ctx.Engine.Feedback, "Changing the weather to rain")
+		ctx.Engine.Feedback = append(ctx.Engine.Feedback, "Changing to rainy weather")
 	case "thunder":
 		w.Weather.ClearDuration = 0
 		w.Weather.Duration = ticks
 		w.Weather.Storm = true
 		w.Weather.Thundering = true
 		w.Weather.Kind = world.WeatherThunder
-		ctx.Engine.Feedback = append(ctx.Engine.Feedback, "Changing the weather to thunder")
+		ctx.Engine.Feedback = append(ctx.Engine.Feedback, "Changing to rain and thunder")
 	}
 	return 1, nil
 }
@@ -233,7 +233,7 @@ func (c *idleTimeoutCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	minutes := args[0].(*ast.IntArg).Value
 	ctx.World.IdleTimeout = minutes
 	ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-		fmt.Sprintf("Idle timeout set to %d minutes", minutes))
+		fmt.Sprintf("Successfully set the idle timeout to %d minutes.", minutes))
 	return 1, nil
 }
 

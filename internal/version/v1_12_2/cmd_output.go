@@ -112,7 +112,7 @@ func (c *titleCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		}
 	}
 	ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-		fmt.Sprintf("Set the title of %d target(s)", len(holders)))
+		fmt.Sprintf("Title command successfully executed"))
 	return len(holders), nil
 }
 
@@ -194,18 +194,15 @@ func (c *playSoundCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	sound := args[0].(*ast.StringArg).Value
 	source := args[1].(*ast.StringArg).Value
 	if !validSoundCategory(source) {
-		return 0, exec.Errorf("unknown sound source %q", source)
+		return 0, exec.Errorf("Source %s is unknown", source)
 	}
 	holders, err := resolveHolders(ctx, args[2])
 	if err != nil {
 		return 0, err
 	}
-	volume := args[4].(*ast.FloatArg).Value
-	pitch := args[5].(*ast.FloatArg).Value
 	for _, h := range holders {
 		ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-			fmt.Sprintf("Played %s from %s to %s (volume %.2f, pitch %.2f)",
-				sound, source, h, volume, pitch))
+			fmt.Sprintf("Played sound '%s' to %s", sound, h))
 	}
 	return len(holders), nil
 }
@@ -262,7 +259,7 @@ func (c *stopSoundCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	sound := args[2].(*ast.StringArg).Value
 	for _, h := range holders {
 		ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-			fmt.Sprintf("Stopped %s for %s", sound, h))
+			fmt.Sprintf("Stopped sound '%s' with source '%s' for %s", sound, source, h))
 	}
 	return len(holders), nil
 }
@@ -359,7 +356,7 @@ func (c *particleCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	name := args[0].(*ast.StringArg).Value
 	count := args[9].(*ast.IntArg).Value
 	ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-		fmt.Sprintf("Spawned %d particle(s) of type %s", count, name))
+		fmt.Sprintf("Playing effect %s for %d times", name, count))
 	return count, nil
 }
 

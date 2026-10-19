@@ -118,7 +118,7 @@ func (c *cloneCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		}
 	}
 	ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-		fmt.Sprintf("Cloned %d block(s)", copied))
+		fmt.Sprintf("%d blocks cloned", copied))
 	return copied, nil
 }
 
@@ -183,11 +183,12 @@ func (c *testForBlocksCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 				pos := world.Pos{X: x, Y: y, Z: z}
 				block := ctx.World.Blocks.Get(pos)
 				if !strings.EqualFold(block.Name, ref.Name) {
-					return 0, exec.Errorf("the block at %s is %s, not %s", pos, block.Name, ref.Name)
+					return 0, exec.Errorf("The block at %s is %s (expected: %s)",
+						blockPos(pos), describeBlocks(block), describeBlocks(world.BlockState{Name: ref.Name, Data: ref.Data}))
 				}
 				if ref.HasData && block.Data != ref.Data {
-					return 0, exec.Errorf("the block at %s has data value %d, not %d",
-						pos, block.Data, ref.Data)
+					return 0, exec.Errorf("The block at %s had the data value of %d (expected: %d)",
+						blockPos(pos), block.Data, ref.Data)
 				}
 				count++
 			}

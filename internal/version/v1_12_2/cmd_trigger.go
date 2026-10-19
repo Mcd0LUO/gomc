@@ -49,7 +49,7 @@ func (c *triggerCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		return 0, exec.Errorf("No objective was found by the name '%s'", objective)
 	}
 	if o.Criteria != world.CriteriaTrigger {
-		return 0, exec.Errorf("objective %q is not a trigger", objective)
+		return 0, exec.Errorf("Objective %s is not a trigger", objective)
 	}
 	holder := ctx.Source.Name
 	if ctx.Source.Entity != nil {

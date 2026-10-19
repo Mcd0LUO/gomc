@@ -58,8 +58,33 @@ func (c *gamemodeCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	}
 	for _, e := range targets {
 		e.NBT.Set("playerGameType", nbt.Int(int32(id)))
+		if e == ctx.Source.Entity {
+			ctx.Engine.Feedback = append(ctx.Engine.Feedback,
+				fmt.Sprintf("Set own game mode to %s", gameModeName(id)))
+		} else {
+			ctx.Engine.Feedback = append(ctx.Engine.Feedback,
+				fmt.Sprintf("Set %s's game mode to %s", e.DisplayName(), gameModeName(id)))
+		}
 	}
 	return len(targets), nil
+}
+
+// gameModeName returns the name 1.12.2 shows for a game mode.
+//
+// It comes from the language file: `gameMode.survival` is "Survival Mode",
+// not just "Survival".
+func gameModeName(id int) string {
+	switch id {
+	case 0:
+		return "Survival Mode"
+	case 1:
+		return "Creative Mode"
+	case 2:
+		return "Adventure Mode"
+	case 3:
+		return "Spectator Mode"
+	}
+	return "Survival Mode"
 }
 
 // gameModeID maps a game mode name to its 1.12.2 id.

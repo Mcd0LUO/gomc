@@ -104,7 +104,7 @@ func (c *spawnPointCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		ctx.World.PlayerSpawns[h] = pos
 	}
 	ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-		fmt.Sprintf("Set the spawn point to (%d, %d, %d)", pos.X, pos.Y, pos.Z))
+		fmt.Sprintf("Set %s's spawn point to (%d, %d, %d)", ctx.Source.Name, pos.X, pos.Y, pos.Z))
 	return len(holders), nil
 }
 

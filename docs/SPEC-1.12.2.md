@@ -476,7 +476,60 @@ say @a（无匹配） → Selector '@a' found nothing
 
 ---
 
-## 10. 还没搞清楚的
+## 10. 回显文案 [验][读]
+
+命令的回显文字全部来自语言文件 `en_US.lang`（在服务端 jar 的
+`assets/minecraft/lang/` 下），gomc 逐条对齐：
+
+| 命令 | 回显 |
+|---|---|
+| `summon` | `Object successfully summoned` |
+| `kill` | `Killed <实体名>` |
+| `setblock` | `Block placed` |
+| `fill` | `<n> blocks filled` |
+| `clone` | `<n> blocks cloned` |
+| `testforblock` | `Successfully found the block at <x>, <y>, <z>` |
+| `testfor` | `Found <实体名>` |
+| `entitydata` | `Entity data updated to: <NBT>` |
+| `tp` / `teleport` | `Teleported <实体名> to <x>, <y>, <z>` |
+| `time set` / `add` / `query` | `Set the time to <n>` / `Added <n> to the time` / `Time is <n>` |
+| `weather` | `Changing to clear weather` / `Changing to rainy weather` / `Changing to rain and thunder` |
+| `difficulty` | `Set game difficulty to <难度>` |
+| `gamerule` | `Game rule <名> has been updated to <值>`；查询是 `<名> = <值>` |
+| `setworldspawn` | `Set the world spawn point to (<x>, <y>, <z>)` |
+| `worldborder` | `World border is currently <n> blocks wide`、`Set world border to <n> blocks wide (from <m> blocks)` 等 6 条 |
+| `particle` | `Playing effect <名> for <n> times` |
+| `list` | `There are <n>/<max> players online:` |
+| `function` | `Executed <n> command(s) from function '<名>'` |
+| `debug` | `Started debug profiling` / `Stopped debug profiling after <n> seconds (<n> ticks)` |
+| `title` | `Title command successfully executed` |
+| `playsound` | `Played sound '<名>' to <目标>` |
+| `stopsound` | `Stopped sound '<名>' with source '<源>' for <目标>` |
+| `gamemode` | `Set own game mode to <模式>` / `Set <谁>'s game mode to <模式>`（模式名带 " Mode" 后缀） |
+
+**还没对齐的**（下一批）：
+
+- **方块的显示名**：真服用语言文件里的 `block.<id>.name`（`Stone`、`Grass Block`），
+  gomc 现在用注册名（`stone`）。影响 `testforblock` 这类把方块名写进消息的地方。
+- **需要玩家在线的命令**（give / effect / title / tp / tell / xp / clear / enchant /
+  trigger / gamemode / spawnpoint）：真服在控制台执行时的报错文本与 gomc 不同。
+- **Paper 的扩展**：实测真服（Paper 1.12.2）允许 `gamerule <不存在的规则> <值>`，
+  回显 `Game rule ... has been updated to ...`；gomc 按 vanilla 1.12.2 报
+  `No game rule called '...' is available`。
+
+---
+
+## 11. 明确不做的 [决策]
+
+- **不模拟重力**。真服的实体有重力，`summon` 之后会落到地面上，所以"实体的位置"
+  通常是落地后的位置。gomc 的 `/summon` 把实体留在给定坐标上，依赖落地位置的
+  相对坐标两边会差一格。
+  这是有意为之：重力属于实体模拟，而 gomc 的定位是**确定性的命令解释器**，
+  不模拟实体行为。
+
+---
+
+## 12. 还没搞清楚的
 
 | 问题 | 现状 |
 |---|---|

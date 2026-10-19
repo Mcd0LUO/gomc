@@ -104,10 +104,12 @@ func (c *clearCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		removed += clearInventory(e, item, data, maxCount, tag)
 	}
 	if removed == 0 {
-		return 0, exec.Errorf("failed to clear the inventory")
+		return 0, exec.Errorf("Could not clear the inventory of %s, no items to remove",
+			holders[0].DisplayName())
 	}
 	ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-		fmt.Sprintf("Removed %d item(s) from the inventory", removed))
+		fmt.Sprintf("Cleared the inventory of %s, removing %d items",
+			holders[0].DisplayName(), removed))
 	return removed, nil
 }
 
@@ -389,7 +391,7 @@ func (c *enchantCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		stack.Set("Enchantments", list)
 	}
 	ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-		fmt.Sprintf("Enchanted %d item(s) with %s", len(holders), enchantment))
+		fmt.Sprintf("Enchanting succeeded"))
 	return len(holders), nil
 }
 
@@ -494,10 +496,10 @@ func (c *xpCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	}
 	if levels {
 		ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-			fmt.Sprintf("Gave %d levels to %s", amount, holders[0].DisplayName()))
+			fmt.Sprintf("Given %d levels to %s", amount, holders[0].DisplayName()))
 	} else {
 		ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-			fmt.Sprintf("Gave %d points to %s", amount, holders[0].DisplayName()))
+			fmt.Sprintf("Given %d experience to %s", amount, holders[0].DisplayName()))
 	}
 	return len(holders), nil
 }

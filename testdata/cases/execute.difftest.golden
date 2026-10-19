@@ -1,12 +1,13 @@
 # case: execute and selectors
 step 1: summon armor_stand 10 20 30
   count: 1
-  feedback: Summoned new armor_stand at 10.00, 20.00, 30.00
+  feedback: Object successfully summoned
 step 2: summon zombie 0 0 0
   count: 1
-  feedback: Summoned new zombie at 0.00, 0.00, 0.00
+  feedback: Object successfully summoned
 step 3: execute @e[type=armor_stand] ~ ~1 ~ setblock ~ ~ ~ stone
   count: 1
+  feedback: Block placed
 step 4: scoreboard players tag @e[type=zombie] add marked
   count: 1
   feedback: Tag marked added

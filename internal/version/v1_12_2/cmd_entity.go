@@ -77,8 +77,9 @@ func (c *summonCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		mergeNBT(e.NBT, data)
 	}
 	ctx.World.AddEntity(e)
-	ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-		fmt.Sprintf("Summoned new %s at %.2f, %.2f, %.2f", canonical, pos.X, pos.Y, pos.Z))
+	// 1.12.2 does not say where the entity was put; it only confirms the
+	// summon.
+	ctx.Engine.Feedback = append(ctx.Engine.Feedback, "Object successfully summoned")
 	return 1, nil
 }
 
@@ -110,6 +111,8 @@ func (c *killCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 			return 0, exec.Errorf("no entity to kill")
 		}
 		ctx.World.RemoveEntity(ctx.Source.Entity.ID)
+		ctx.Engine.Feedback = append(ctx.Engine.Feedback,
+			"Killed "+ctx.Source.Entity.DisplayName())
 		return 1, nil
 	}
 	entities, err := resolveEntityTargets(ctx, args[0])
@@ -118,6 +121,7 @@ func (c *killCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	}
 	for _, e := range entities {
 		ctx.World.RemoveEntity(e.ID)
+		ctx.Engine.Feedback = append(ctx.Engine.Feedback, "Killed "+e.DisplayName())
 	}
 	return len(entities), nil
 }
@@ -153,6 +157,9 @@ func (c *entityDataCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	data := exec.NBTOf(args, 1)
 	for _, e := range entities {
 		mergeNBT(e.NBT, data)
+		// 1.12.2 echoes the whole entity data back.
+		ctx.Engine.Feedback = append(ctx.Engine.Feedback,
+			"Entity data updated to: "+e.NBT.String())
 	}
 	return len(entities), nil
 }
@@ -193,9 +200,12 @@ func (c *testForCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	if data != nil {
 		for _, e := range entities {
 			if !nbt.Matches(e.NBT, data) {
-				return 0, exec.Errorf("entity %s does not match the given NBT", e.ID)
+				return 0, exec.Errorf("%s did not match the required data structure", e.DisplayName())
 			}
 		}
+	}
+	for _, e := range entities {
+		ctx.Engine.Feedback = append(ctx.Engine.Feedback, "Found "+e.DisplayName())
 	}
 	return len(entities), nil
 }
@@ -248,6 +258,9 @@ func (c *tpCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 			pos.Z = e.Pos.Z + pos.Z
 		}
 		e.Pos = pos
+		ctx.Engine.Feedback = append(ctx.Engine.Feedback,
+			fmt.Sprintf("Teleported %s to %.1f, %.1f, %.1f",
+				e.DisplayName(), pos.X, pos.Y, pos.Z))
 	}
 	return len(entities), nil
 }

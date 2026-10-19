@@ -83,7 +83,7 @@ func (c *timeCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		default:
 			return 0, exec.Errorf("expected daytime, day or gametime, got %q", raw)
 		}
-		ctx.Engine.Feedback = append(ctx.Engine.Feedback, fmt.Sprintf("The time is %d", value))
+		ctx.Engine.Feedback = append(ctx.Engine.Feedback, fmt.Sprintf("Time is %d", value))
 		return 1, nil
 	}
 	return 0, exec.Errorf("unknown action %q", action)

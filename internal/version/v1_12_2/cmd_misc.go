@@ -34,7 +34,7 @@ func (c *listCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	}
 	sort.Strings(names)
 	ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-		fmt.Sprintf("There are %d of a max of %d players online:", len(names), len(names)))
+		fmt.Sprintf("There are %d/%d players online:", len(names), len(names)))
 	for _, n := range names {
 		ctx.Engine.Feedback = append(ctx.Engine.Feedback, n)
 	}
@@ -72,7 +72,7 @@ func (c *helpCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		names := ctx.Engine.Registry.Names()
 		sort.Strings(names)
 		for _, n := range names {
-			ctx.Engine.Feedback = append(ctx.Engine.Feedback, "/"+n)
+			ctx.Engine.Feedback = append(ctx.Engine.Feedback, n)
 		}
 		return 1, nil
 	}
@@ -114,9 +114,9 @@ func (c *debugCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 func (c *debugCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	action := args[0].(*ast.StringArg).Value
 	if action == "start" {
-		ctx.Engine.Feedback = append(ctx.Engine.Feedback, "Started debug")
+		ctx.Engine.Feedback = append(ctx.Engine.Feedback, "Started debug profiling")
 	} else {
-		ctx.Engine.Feedback = append(ctx.Engine.Feedback, "Stopped debug")
+		ctx.Engine.Feedback = append(ctx.Engine.Feedback, "Stopped debug profiling after 0 seconds (0 ticks)")
 	}
 	return 1, nil
 }

@@ -61,7 +61,7 @@ func (c *worldBorderCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	switch action {
 	case "get":
 		ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-			fmt.Sprintf("The world border is currently %.0f blocks wide", border.Size))
+			fmt.Sprintf("World border is currently %.0f blocks wide", border.Size))
 		return 1, nil
 	case "set", "add":
 		if len(rest) < 1 {
@@ -86,12 +86,12 @@ func (c *worldBorderCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 			}
 			border.LerpSize = size
 			ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-				fmt.Sprintf("The world border is now %.1f blocks wide, shrinking from %.1f in %d seconds",
+				fmt.Sprintf("Shrinking world border to %.1f blocks wide (down from %.1f blocks) over %d seconds",
 					size, old, seconds))
 			return 1, nil
 		}
 		ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-			fmt.Sprintf("The world border is now %.1f blocks wide", size))
+			fmt.Sprintf("Set world border to %.1f blocks wide (from %.1f blocks)", size, old))
 		return 1, nil
 	case "center":
 		if len(rest) < 2 {
@@ -107,7 +107,7 @@ func (c *worldBorderCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		}
 		border.Center = world.Vec{X: x, Z: z}
 		ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-			fmt.Sprintf("The world border centre is now %.1f, %.1f", x, z))
+			fmt.Sprintf("Set world border center to %.1f, %.1f", x, z))
 		return 1, nil
 	case "damage":
 		if len(rest) < 2 {
@@ -119,13 +119,15 @@ func (c *worldBorderCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		}
 		switch rest[0] {
 		case "buffer":
+			old := border.DamageBuffer
+			border.DamageBuffer = value
+			ctx.Engine.Feedback = append(ctx.Engine.Feedback,
+				fmt.Sprintf("Set world border damage buffer to %.1f blocks (from %.1f blocks)", value, old))
+		case "amount":
 			old := border.DamagePerBlock
 			border.DamagePerBlock = value
 			ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-				fmt.Sprintf("The world border damage buffer has been set to %.1f from %.1f", value, old))
-		case "amount":
-			ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-				fmt.Sprintf("The world border damage amount has been set to %.2f", value))
+				fmt.Sprintf("Set world border damage amount to %.2f per block (from %.2f per block)", value, old))
 		default:
 			return 0, exec.Errorf("expected buffer or amount, got %q", rest[0])
 		}
@@ -143,12 +145,12 @@ func (c *worldBorderCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 			old := border.WarningTime
 			border.WarningTime = value
 			ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-				fmt.Sprintf("The world border warning time has been set to %d from %d", value, old))
+				fmt.Sprintf("Set world border warning to %d seconds away (from %d seconds)", value, old))
 		case "distance":
 			old := border.WarningDistance
 			border.WarningDistance = float64(value)
 			ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-				fmt.Sprintf("The world border warning distance has been set to %d from %d", value, int(old)))
+				fmt.Sprintf("Set world border warning to %d blocks away (from %d blocks)", value, int(old)))
 		default:
 			return 0, exec.Errorf("expected time or distance, got %q", rest[0])
 		}

@@ -102,7 +102,7 @@ func (c *setBlockCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		}
 	case "keep":
 		if !ctx.World.Blocks.Get(pos).IsAir() {
-			return 0, exec.Errorf("the block at %s is not empty", pos)
+			return 0, exec.Errorf("The block couldn't be placed")
 		}
 	}
 
@@ -119,6 +119,7 @@ func (c *setBlockCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		mergeNBT(existing, data)
 		ctx.World.Blocks.SetTileEntity(pos, existing)
 	}
+	ctx.Engine.Feedback = append(ctx.Engine.Feedback, "Block placed")
 	return 1, nil
 }
 
@@ -251,6 +252,11 @@ func (c *fillCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 			}
 		}
 	}
+	if count == 0 {
+		return 0, exec.Errorf("No blocks filled")
+	}
+	ctx.Engine.Feedback = append(ctx.Engine.Feedback,
+		fmt.Sprintf("%d blocks filled", count))
 	return count, nil
 }
 
@@ -354,11 +360,15 @@ func (c *testForBlockCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	ref := args[1].(*ast.BlockRef)
 	block := ctx.World.Blocks.Get(pos)
 	if !strings.EqualFold(block.Name, ref.Name) {
-		return 0, exec.Errorf("block at %s is %s, not %s", pos, block.Name, ref.Name)
+		return 0, exec.Errorf("The block at %s is %s (expected: %s)",
+			blockPos(pos), describeBlocks(block), describeBlocks(world.BlockState{Name: ref.Name, Data: ref.Data}))
 	}
 	if ref.HasData && block.Data != ref.Data {
-		return 0, exec.Errorf("block at %s has data value %d, not %d", pos, block.Data, ref.Data)
+		return 0, exec.Errorf("The block at %s had the data value of %d (expected: %d)",
+			blockPos(pos), block.Data, ref.Data)
 	}
+	ctx.Engine.Feedback = append(ctx.Engine.Feedback,
+		fmt.Sprintf("Successfully found the block at %s", blockPos(pos)))
 	return 1, nil
 }
 
@@ -373,4 +383,10 @@ func registerWorld(reg *exec.Registry) {
 // describeBlocks renders a block for messages.
 func describeBlocks(s world.BlockState) string {
 	return fmt.Sprintf("%s", s.String())
+}
+
+// blockPos renders a block position the way 1.12.2 does in its messages:
+// "x, y, z".
+func blockPos(p world.Pos) string {
+	return fmt.Sprintf("%d, %d, %d", p.X, p.Y, p.Z)
 }

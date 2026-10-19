@@ -74,8 +74,8 @@ func (c *tellCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	if player == nil {
 		return 0, exec.Errorf("no player named %q is online", target)
 	}
-	ctx.Engine.Feedback = append(ctx.Engine.Feedback, fmt.Sprintf("[%s -> %s] %s",
-		ctx.Source.Name, player.PlayerName, msg))
+	ctx.Engine.Feedback = append(ctx.Engine.Feedback, fmt.Sprintf("You whisper to %s: %s",
+		player.PlayerName, msg))
 	return 1, nil
 }
 
@@ -113,8 +113,10 @@ func (c *tellRawCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		if name == "" {
 			name = e.ID
 		}
-		ctx.Engine.Feedback = append(ctx.Engine.Feedback, fmt.Sprintf("[%s -> %s] %s",
-			ctx.Source.Name, name, raw))
+		// 1.12.2 sends the raw message to the target; the console shows
+		// the sender's name in front of it.
+		ctx.Engine.Feedback = append(ctx.Engine.Feedback, fmt.Sprintf("[%s] %s",
+			ctx.Source.Name, raw))
 	}
 	return len(entities), nil
 }
@@ -148,7 +150,7 @@ func (c *gameruleCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	if len(args) == 1 {
 		r := rules.Get(rule)
 		if r == nil {
-			return 0, exec.Errorf("unknown game rule %q", rule)
+			return 0, exec.Errorf("No game rule called '%s' is available", rule)
 		}
 		ctx.Engine.Feedback = append(ctx.Engine.Feedback, fmt.Sprintf("%s = %s", rule, r.Display()))
 		return 1, nil

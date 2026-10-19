@@ -79,6 +79,8 @@ type WorldBorder struct {
 	WarningTime int
 	// DamagePerBlock is the damage per block travelled inside.
 	DamagePerBlock float64
+	// DamageBuffer is the distance inside the border where damage starts.
+	DamageBuffer float64
 	// LerpSize is the size the border shrinks towards, in blocks.
 	LerpSize float64
 }
@@ -94,5 +96,6 @@ func DefaultWorldBorder() WorldBorder {
 		WarningDistance: 5,
 		WarningTime:     15,
 		DamagePerBlock:  0.2,
+		DamageBuffer:    5,
 	}
 }
