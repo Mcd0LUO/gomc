@@ -30,6 +30,18 @@
 - **其它**：只读目标（health/xp/level/…）不能写、`><` 交换要换源、
   `entitydata` 改成深合并、超 int32 的数字报错而不是静默截断、
   `gamerule` 设置不存在的规则按原版新建。
+- **选择器四处**：`c` 传非整数时真服是**静默回落**（`kill @e[c=abc]` 真服照常执行，
+  gomc 之前报错）；`name=` 对**被改名的玩家**比较的是用户名而非自定义名
+  （`EntityHuman.getName()` 覆写了父类）；`type=` 的键必须是 1.12.2 的注册名
+  （`type=pigzombie` 不认，1.12.2 已改名 `zombie_pigman`）；`m=!<未知模式>`
+  命中全部玩家。实体类型表也补齐到 85 条，与真服注册名逐字对应。
+
+### 性能
+
+- `scoreboard players list` 从 O(持有者 × 目标) 降到近 O(持有者 + 目标)：
+  1000 个持有者、8 个目标时从 87.6 ms 降到 22.9 ms（`bfe7dcc`）。
+- 完整的性能评估（测了什么、瓶颈在哪、哪些是伪瓶颈）见
+  [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md)。
 
 ### 计划中
 

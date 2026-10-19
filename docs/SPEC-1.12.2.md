@@ -284,11 +284,11 @@ d5 = b(d2, astring[7], false)            // detect 位置 Z
 | 偏航角 | `$3` | 同上，`ry` 上限、`rym` 下限 |
 | 体积 | `$5` | 选**包围盒与体积相交**的实体，不是位置点落入体积的实体 |
 | 排序 | `$6` | 按到参考位置的**平方距离**升序 |
-| 类型 | `$7` | `EntityTypes.a(entity, key)`，支持 `!` 取反 |
+| 类型 | `$7` | `EntityTypes.a(entity, key)`，支持 `!` 取反。**键必须是 1.12.2 的注册名**（大小写和命名空间都不敏感：`type=Zombie`、`type=MINECRAFT:ZOMBIE` 都认；`type=pigzombie` **不认**，1.12.2 已改名 `zombie_pigman`） |
 | 等级 | `$9` | 只对玩家生效。`l` 是上限、`lm` 是下限 |
-| 游戏模式 | `$10` | 只对玩家生效。支持 `!` 取反 |
+| 游戏模式 | `$10` | 只对玩家生效。支持 `!` 取反。**未知模式算 `NOT_SET`**：非取反时恒假，取反时恒真，所以 `@a[m=!abc]` 命中**全部**玩家 |
 | 分数 | `$12` | 目标必须存在，且实体必须在该目标下有分数 |
-| 名称 | `$13` | `Entity.getName()`：自定义名 → 玩家名 → 类型的**翻译名**（见 3.9） |
+| 名称 | `$13` | `Entity.getName()`：自定义名 → 玩家名 → 类型的**翻译名**（见 3.9）。**玩家走的是 `EntityHuman.getName()`，只返回用户名、忽略自定义名** |
 | 标签 | `$14` | 空标签名表示"没有标签" |
 
 **角度区间支持环绕**：下界大于上界时，区间跨北展开。
@@ -305,11 +305,15 @@ d5 = b(d2, astring[7], false)            // detect 位置 Z
 - `@e` —— 不加玩家过滤，选所有实体。
 - `@s` —— 只指执行者自己。
 
-### 3.7 `c` 的语义 [读]
+### 3.7 `c` 的语义 [读][验]
 
 - `@a` / `@e` 默认 **0**（不限），`@p` / `@r` / `@s` 默认 **1**。
 - 负数会**先反转整个列表**再截断。所以 `@e[c=-3]` 不是"最后三个"，
   而是"反转后的前三个"。
+- **`c` 不是整数时不报错，而是回落到默认值**。1.12.2 用
+  `MathHelper.a(String, int)` 解析它，那是 `Integer.parseInt` 失败就用默认值。
+  所以 `c=abc`、`c=1.0`、`c=~` 都不是错误——真服上 `kill @e[c=abc]`
+  照常执行。
 
 ### 3.8 参考位置的 0.5 偏移 [读]
 
@@ -320,12 +324,33 @@ d5 = b(d2, astring[7], false)            // detect 位置 Z
 
 `Entity.getName()` 的顺序是：自定义名（`CustomName`）→ 玩家名 → 类型的**翻译名**。
 
+**但玩家是例外**：`EntityHuman.getName()` 覆写了父类，**只返回 GameProfile 的
+用户名，完全忽略 CustomName**。所以对玩家来说，`name=` 比较的是**用户名**。
+
+自定义名**原样返回**（真服 `getCustomName()` 不去引号）——名字里的引号
+是名字的一部分，所以 `@e[name="Bob"]` 和 `@e[name=Bob]` 是两个不同的东西。
+
 翻译名来自语言文件里的 `entity.<去掉 Entity 前缀的类名>.name`，
 所以是 "Zombie"、"Armor Stand"、"Zombie Pigman" 这样**带空格**的写法，
 不是注册名 `armor_stand`。语言文件里没有的键会原样返回键本身
 （比如扔出去的蛋是 "entity.Egg.name"）。
 
 实测：真服里盔甲架的输出前缀是 `[Armor Stand]`，不是 `[ArmorStand]`。
+
+### 3.10 还没对齐的选择器细节 [验]
+
+- **缺 `Entity type 'x' is invalid` 那条提示**。真服在 `type=` 指向未注册
+  类型时会发一条红字，然后**匹配为空、命令照样成功**；gomc 只做到了
+  "匹配为空、不报错"，没有那条提示（选择器层没有反馈通道）。
+- **空匹配在命令层仍会失败**。真服上 `kill @e[type=pigzombie]` 只打印提示、
+  命令成功；gomc 把空匹配一律变成 `Selector '...' found nothing` 错误。
+  其它命令（真服确实报 not found 的那些）行为是对的。
+- **消息展开的连接符**：真服 2 个用 `" and "`、3 个用 `", … and "`；
+  gomc 一律用 `", "`。
+- **`/summon` 支持的类型是子集**：gomc 能 summon 的只有 35 种，真服 83 种
+  （`summon zombie_pigman` 在 gomc 上报 unknown entity type）。
+- **`scoreboard players tag list` 的标题名**：真服用解析后的用户名 / UUID，
+  gomc 用实体 id。
 
 ---
 
