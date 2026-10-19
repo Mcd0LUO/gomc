@@ -71,6 +71,17 @@ type Scoreboard struct {
 	teams      map[string]*Team
 	// order preserves objective creation order for stable listing.
 	order []string
+	// tracked maps a holder to the objectives it is tracked in. The
+	// entries are in the creation order of the objectives, so the
+	// listing of a holder comes out in the same order as the listing
+	// of the objectives.
+	tracked map[string][]TrackedObjective
+	// seq numbers the objectives in creation order. A number is never
+	// reused, so the tracked lists stay ordered even when an
+	// objective between two others is removed.
+	seq map[string]int
+	// nextSeq is the number the next objective gets.
+	nextSeq int
 }
 
 // NewScoreboard returns an empty scoreboard.
@@ -79,7 +90,29 @@ func NewScoreboard() *Scoreboard {
 		objectives: map[string]*Objective{},
 		scores:     map[string]map[string]int{},
 		teams:      map[string]*Team{},
+		tracked:    map[string][]TrackedObjective{},
+		seq:        map[string]int{},
 	}
+}
+
+// TrackedObjective is one objective a holder is tracked in.
+//
+// The score itself is not part of it: it is read from the score table
+// of the objective when the listing is made, so a listing always shows
+// the current score.
+type TrackedObjective struct {
+	// Objective is the objective the holder has a score in.
+	Objective *Objective
+	// scores is the score table of the objective.
+	scores map[string]int
+	// seq is the creation number of the objective. It orders the
+	// tracked objectives of a holder.
+	seq int
+}
+
+// Score returns the score the holder has in the objective.
+func (t TrackedObjective) Score(holder string) int {
+	return t.scores[holder]
 }
 
 // AddObjective creates an objective, reporting whether it was newly created.
@@ -90,6 +123,16 @@ func (s *Scoreboard) AddObjective(name string, criteria Criteria, display string
 	o := &Objective{Name: name, Criteria: criteria, DisplayName: display}
 	s.objectives[name] = o
 	s.order = append(s.order, name)
+	s.seq[name] = s.nextSeq
+	s.nextSeq++
+	// The objective may already have scores, for example when it is
+	// added again after a removal. 1.12.2 lists the holders that have
+	// a score in an objective from the moment the objective exists.
+	if m, ok := s.scores[name]; ok {
+		for holder := range m {
+			s.track(holder, name)
+		}
+	}
 	return o, true
 }
 
@@ -99,12 +142,19 @@ func (s *Scoreboard) RemoveObjective(name string) bool {
 		return false
 	}
 	delete(s.objectives, name)
+	m := s.scores[name]
 	delete(s.scores, name)
+	delete(s.seq, name)
 	for i, n := range s.order {
 		if n == name {
 			s.order = append(s.order[:i], s.order[i+1:]...)
 			break
 		}
+	}
+	// The holders that had a score in the objective are not tracked in
+	// it any more.
+	for holder := range m {
+		s.untrack(holder, name)
 	}
 	return true
 }
@@ -128,6 +178,9 @@ func (s *Scoreboard) SetScore(holder, objective string, value int) bool {
 	}
 	_, existed := s.scores[objective][holder]
 	s.scores[objective][holder] = wrapInt32(value)
+	if !existed {
+		s.track(holder, objective)
+	}
 	return !existed
 }
 
@@ -148,10 +201,61 @@ func (s *Scoreboard) ResetScore(holder, objective string) {
 		for _, m := range s.scores {
 			delete(m, holder)
 		}
+		delete(s.tracked, holder)
 		return
 	}
 	if m, ok := s.scores[objective]; ok {
 		delete(m, holder)
+	}
+	s.untrack(holder, objective)
+}
+
+// TrackedObjectives returns the objectives the holder is tracked in, in the
+// creation order of the objectives.
+//
+// 1.12.2's `Scoreboard.getPlayerScores(name)` returns the objectives the
+// holder has a score in, and `CommandScoreboard` lists them in the order
+// the objectives were created.
+//
+// The returned slice belongs to the scoreboard and must not be modified.
+func (s *Scoreboard) TrackedObjectives(holder string) []TrackedObjective {
+	return s.tracked[holder]
+}
+
+// track records that a holder is tracked in an objective.
+func (s *Scoreboard) track(holder, objective string) {
+	seq, ok := s.seq[objective]
+	if !ok {
+		// The objective does not exist. 1.12.2 does not list the
+		// scores of an objective that is not there; the objective
+		// picks the holders up when it is added.
+		return
+	}
+	list := s.tracked[holder]
+	// The list is kept in the creation order of the objectives.
+	i := 0
+	for i < len(list) && list[i].seq < seq {
+		i++
+	}
+	if i < len(list) && list[i].Objective.Name == objective {
+		// The holder is already tracked in the objective.
+		return
+	}
+	list = append(list, TrackedObjective{})
+	copy(list[i+1:], list[i:])
+	list[i] = TrackedObjective{Objective: s.objectives[objective], scores: s.scores[objective], seq: seq}
+	s.tracked[holder] = list
+}
+
+// untrack drops an objective from the tracked list of a holder.
+func (s *Scoreboard) untrack(holder, objective string) {
+	list := s.tracked[holder]
+	for i, e := range list {
+		if e.Objective.Name == objective {
+			list = append(list[:i], list[i+1:]...)
+			s.tracked[holder] = list
+			return
+		}
 	}
 }
 

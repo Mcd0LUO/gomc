@@ -2,6 +2,7 @@ package v1_12_2
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/mcsim/gomc/internal/ast"
@@ -356,23 +357,22 @@ func runPlayers(ctx *exec.Context, args []ast.Arg) (int, error) {
 			// objective. The line shows the *display name* of the
 			// objective, the score and the name of the objective; the
 			// criterion is not part of it.
-			tracked := 0
-			for _, o := range sb.Objectives() {
-				if _, ok := sb.Score(h, o.Name); ok {
-					tracked++
-				}
-			}
-			if tracked == 0 {
+			//
+			// The tracked objectives are read from the index of the
+			// scoreboard instead of from a scan of every objective:
+			// the index already holds them in the order the
+			// objectives were created.
+			tracked := sb.TrackedObjectives(h)
+			if len(tracked) == 0 {
 				// A player without a score has no listing at all.
 				return 0, exec.Errorf("Player %s has no scores recorded", h)
 			}
 			ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-				fmt.Sprintf("Showing %d tracked objective(s) for %s:", tracked, h))
-			for _, o := range sb.Objectives() {
-				if v, ok := sb.Score(h, o.Name); ok {
-					ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-						fmt.Sprintf("- %s: %d (%s)", objectiveDisplayName(o), v, o.Name))
-				}
+				"Showing "+strconv.Itoa(len(tracked))+" tracked objective(s) for "+h+":")
+			for _, t := range tracked {
+				ctx.Engine.Feedback = append(ctx.Engine.Feedback,
+					"- "+objectiveDisplayName(t.Objective)+": "+strconv.Itoa(t.Score(h))+
+						" ("+t.Objective.Name+")")
 			}
 		}
 		return len(holders), nil
