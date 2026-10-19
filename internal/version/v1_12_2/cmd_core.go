@@ -29,7 +29,10 @@ func (c *sayCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 
 // Run implements exec.Handler.
 func (c *sayCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
-	ctx.Engine.Feedback = append(ctx.Engine.Feedback, "[Server] "+args[0].(*ast.StringArg).Value)
+	// The prefix is the name of whoever ran the command. When the command
+	// runs inside an /execute, that is the target entity, not the server.
+	ctx.Engine.Feedback = append(ctx.Engine.Feedback,
+		"["+ctx.Source.Name+"] "+args[0].(*ast.StringArg).Value)
 	return 1, nil
 }
 
@@ -103,9 +106,6 @@ func (c *tellRawCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	entities, err := resolveEntityTargets(ctx, args[0])
 	if err != nil {
 		return 0, err
-	}
-	if len(entities) == 0 {
-		return 0, exec.Errorf("no matching entities")
 	}
 	raw := args[1].(*ast.JSONArg).Value
 	for _, e := range entities {

@@ -77,9 +77,6 @@ func (c *titleCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	if len(holders) == 0 {
-		return 0, exec.Errorf("no matching entities")
-	}
 	action := args[1].(*ast.StringArg).Value
 
 	for _, h := range holders {
@@ -203,9 +200,6 @@ func (c *playSoundCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	if len(holders) == 0 {
-		return 0, exec.Errorf("no matching entities")
-	}
 	volume := args[4].(*ast.FloatArg).Value
 	pitch := args[5].(*ast.FloatArg).Value
 	for _, h := range holders {
@@ -260,9 +254,6 @@ func (c *stopSoundCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	holders, err := resolveHolders(ctx, args[0])
 	if err != nil {
 		return 0, err
-	}
-	if len(holders) == 0 {
-		return 0, exec.Errorf("no matching entities")
 	}
 	source := args[1].(*ast.StringArg).Value
 	if source != "" && !validSoundCategory(source) {

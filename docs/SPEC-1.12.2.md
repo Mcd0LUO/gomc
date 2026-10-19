@@ -105,25 +105,75 @@ execute <实体> <x> <y> <z> [detect <x2> <y2> <z2> <方块> <数据值>] <命�
 - 没有 1.13 的 `as` / `at` / `run`。
 - `detect` 后面固定 5 段（三个坐标 + 方块 + 数据值），数据值可以是 `-1` 表示任意。
 
+**坐标基准（实测）**：`execute` 设定的执行位置就是目标实体的位置，
+`detect` 的相对坐标也以**目标实体的位置**为基准（不是执行位置）。
+绝对坐标则按世界原点算。
+
+验证方法：把实体 `tp` 到 (3, 9, 0)，在它脚下 y=8 放一块石头，
+`execute @e ~ ~ ~ setblock ~ ~ ~ stone` 把石头放在 (3, 9, 0)，
+`detect ~ ~-1 ~ stone` 命中 y=8 的石头，`detect ~ ~ ~ stone` 命中 y=9 的石头。
+
 ### 2.2 多实体 [读][验]
 
 `execute` 对**每个匹配实体各执行一次**。
 
-实测：召唤两个盔甲架后，`execute @e[type=armor_stand] ~ ~ ~ say ORDER_TEST`
-执行了两次。
+**展开发生在命令分发层，不在 `execute` 内部。** 1.12.2 的命令分发入口
+（`CommandHandler.a(ICommandListener, String)`）会找出命令的第一个"目标列表"参数，
+把选择器解析出来，然后**对每个匹配实体把该参数替换掉、单独执行一次整条命令**。
+`execute` 的第 0 个参数正是这样的参数（`CommandExecute.isListStart` 只对 `i == 0`
+返回 true）。
 
-执行**顺序为倒序**（MC-121728，1.13 才修），依据是 1.13 官方变更日志
-"The order, in which execute runs the command for each entity, is in reverse"。
-（次数是实测的，顺序是查证来的——实测时无法让两个实体输出可区分的名字。）
+**顺序就是选择器返回的顺序，不是倒序。** `PlayerSelector` 对 `@a` `@e` `@p` 按距离平方
+**升序稳定排序**（`Collections.sort`，比较 `entity.d(x,y,z)`），所以离执行点最近的实体
+先执行；距离相同时保持世界遍历顺序。`@r` 先打乱。`c` 为负数时先 `Collections.reverse`
+再截断。
 
-### 2.3 失败传播 [读]
+实测：三个带 `CustomName` 的盔甲架，到执行点的距离分别是 5.10 / 6.40 / 9.43，
+输出依次是 `[NEAR]` `[MID]` `[FAR]`——按距离升序。
 
-多实体时若某条失败，**其余实体的执行被取消**（MC-121727）。
+> 这里此前写的是"倒序（MC-121728，依据 1.13 官方变更日志）"，那是**查证**来的、没有实测。
+> 用可区分名字的实体一测就推翻了。MC-121728 的实质是"顺序不确定"，不是"确定倒序"。
+
+### 2.3 失败传播 [读][验]
+
+**一个实体失败不影响其余实体。** 分发层对每个实体单独 try/catch：捕获异常、发消息、
+`continue` 到下一个实体（`CommandHandler.a(...)` 里的 `continue`，不是 `break`）。
+
+实测：距离最近的实体 `detect` 失败（报 `Failed to execute 'detect' as NEAR`），
+后面两个实体照样执行。
+
+> 这里此前写的是"其余实体的执行被取消（MC-121727）"，同样是查证来的、没有实测，
+> 源码里也不是 `break`。
 
 ### 2.4 执行者 [验]
 
 被选中的实体成为子命令的执行者，因此子命令的输出前缀是**目标实体的名字**，
 而不是 `[Server]`。`@s` 因此指向目标实体。
+
+名字的取法与 `Entity.getName` 一致：自定义名（`CustomName`）→ 玩家名 → 类型的**翻译名**。
+翻译名来自语言文件里的 `entity.<去掉 Entity 前缀的类名>.name`，所以是 "Armor Stand"
+这样带空格的写法，不是注册名 `armor_stand`。语言文件里没有的键（比如扔出去的蛋
+`entity.Egg.name`）会原样返回键本身，gomc 也照抄。
+
+### 2.5 目标实体有重力 [验]
+
+**目标实体会落到地面上**，所以"实体的位置"通常是它落地后的位置，而不是
+`/summon` 时给的那个。
+
+实测（超平坦世界，草地层在 y=3）：
+
+| 操作 | 实体的实际位置 |
+|---|---|
+| `summon armor_stand 1 5 0` | y=4（落到地面上） |
+| `tp @e[type=armor_stand] 3 9 0` | y=9（tp 不触发下落） |
+
+这条很容易把人带沟里：早先的探针用例以为"detect 失败"能复现，结果三个实体
+全部检测成功——因为那时候的世界（`generator-settings` 写错了）地面在 y=0，
+盔甲架一路掉到 y=1，脚下正好是石头。
+
+**gomc 不模拟重力**（明确不做），`/summon` 的实体就留在给定的坐标上。
+这是 gomc 与真实服务端的一处已知差异：凡是依赖"落地后位置"的相对坐标，
+两边会差一格。
 
 ---
 
@@ -216,10 +266,16 @@ execute <实体> <x> <y> <z> [detect <x2> <y2> <z2> <方块> <数据值>] <命�
 `x` / `y` / `z` 覆盖参考位置时，x 和 z **加 0.5**（块中心），y 不加。
 所以 `@e[x=10]` 的参考点是 x=10.5。
 
-### 3.9 名称匹配 [读]
+### 3.9 名称匹配 [读][验]
 
-`Entity.getName()` 的顺序是：自定义名（`CustomName`）→ 玩家名 → 类型注册名
-（`EntityTypes` 里注册的显示名，比如 "Zombie"、"ArmorStand"、"PigZombie"）。
+`Entity.getName()` 的顺序是：自定义名（`CustomName`）→ 玩家名 → 类型的**翻译名**。
+
+翻译名来自语言文件里的 `entity.<去掉 Entity 前缀的类名>.name`，
+所以是 "Zombie"、"Armor Stand"、"Zombie Pigman" 这样**带空格**的写法，
+不是注册名 `armor_stand`。语言文件里没有的键会原样返回键本身
+（比如扔出去的蛋是 "entity.Egg.name"）。
+
+实测：真服里盔甲架的输出前缀是 `[Armor Stand]`，不是 `[ArmorStand]`。
 
 ---
 
@@ -365,10 +421,30 @@ say @a（无匹配） → Selector '@a' found nothing
 
 ---
 
-## 9. 还没搞清楚的
+## 9. 错误文本
+
+1.12.2 的错误消息来自语言文件，gomc 照抄原文：
+
+| 场景 | 文本 | 语言键 |
+|---|---|---|
+| 选择器没匹配到 | `Selector '@e[type=zombie]' found nothing` | `commands.generic.selector.notFound` |
+| 玩家名不在 | `Player 'Steve' cannot be found` | `commands.generic.player.notFound` |
+| `execute` 的 detect 没过 | `Failed to execute 'detect' as <实体名>` | `commands.execute.failed` |
+| 子命令一次都没成功 | `All invocations failed: '<命令>'` | `commands.execute.allInvocationsFailed` |
+
+选择器没匹配到这条是**分发层**抛的，所以它不只出现在 `execute`：凡是
+`isListStart` 为真的命令（execute、kill、give、effect、tp、title、tell、……）
+表现都一样。玩家名那条则是命令自己抛的。
+
+> 消息里引号包的是**用户写的原文**，所以 `@e[tag=a,tag=b]` 报的是
+> `Selector '@e[tag=a,tag=b]' found nothing`（保留重复参数，不折叠）。
+
+---
+
+## 10. 还没搞清楚的
 
 | 问题 | 现状 |
 |---|---|
-| execute 多实体的**顺序** | 依据 1.13 变更日志判定为倒序，未能实测（无法让两个实体输出可区分的名字） |
 | 实体 UUID 与计分板持有者的对应 | 未建模，gomc 用内部 id 代替 |
+| 实体落地后的精确位置 | 真服有重力，gomc 不模拟（见 2.5） |
 | 函数内命令失败何时报错 | 真实服务端有的报有的不报，gomc 统一报 |

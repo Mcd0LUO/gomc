@@ -45,12 +45,20 @@ func (a *executeArg) ArgKind() ast.Kind { return ast.KindList }
 //
 //	execute <entity> <x> <y> <z> [detect <x2> <y2> <z2> <block> <dataValue>] <command>
 //
-// Two behaviours of 1.12.2 are preserved deliberately:
+// How 1.12.2 expands a multi-entity target is not obvious from the
+// command itself, and getting it wrong is easy:
 //
-//   - When the target selector matches several entities, the command runs
-//     once per entity in reverse order (MC-121728, fixed in 1.13).
-//   - If the command fails for one entity, the remaining entities are
-//     skipped (MC-121727, fixed in 1.13).
+//   - The expansion happens in the *command dispatcher* (`CommandHandler`),
+//     not inside `execute`. The dispatcher finds the first argument that
+//     is a target list, resolves it, and then runs the whole command once
+//     per matching entity, with that entity substituted for the
+//     argument.
+//   - The entities are visited in the order the selector returned them.
+//     `PlayerSelector` sorts `@a`, `@e` and `@p` by distance (a stable
+//     sort, so equally distant entities keep their world order), so the
+//     nearest entity is visited first. There is no reversal.
+//   - A failure belongs to the entity that caused it. The dispatcher
+//     catches it, reports it, and carries on with the next entity.
 type executeCmd struct{}
 
 // Name implements exec.Handler.
@@ -110,13 +118,14 @@ func (c *executeCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	if len(entities) == 0 {
-		return 0, exec.Errorf("no matching entities")
-	}
-	// 1.12.2 expands a multi-entity selector into one command per entity,
-	// and those commands run in reverse order.
-	for i := len(entities) - 1; i >= 0; i-- {
-		e := entities[i]
+	// The entities are visited in the order the selector returned them,
+	// which is the order the dispatcher would use.
+	//
+	// The target entity becomes the *executor* of the sub-command, so the
+	// sub-command's output is prefixed with the entity's name, and `@s`
+	// inside it refers to that entity.
+	total := 0
+	for _, e := range entities {
 		pos := resolveRelative(a.Value.pos, e.Pos)
 		if a.Value.detect {
 			ok, err := checkDetect(ctx.World, a.Value, pos)
@@ -124,20 +133,32 @@ func (c *executeCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 				return 0, err
 			}
 			if !ok {
-				return 0, exec.Errorf("the detect precondition was not met")
+				// 1.12.2 reports the entity it could not run the
+				// command as, and then moves on to the next entity.
+				ctx.Engine.Errors = append(ctx.Engine.Errors,
+					exec.Errorf("Failed to execute 'detect' as %s", e.DisplayName()))
+				continue
 			}
 		}
 		sub := ctx.Source.WithEntity(e).WithPos(pos)
+		sub.Name = e.DisplayName()
 		count, err := ctx.Engine.ExecuteLine(a.Value.sub, ctx.Command.Line, sub)
 		if err != nil {
-			// MC-121727: a failure cancels the remaining entities.
-			return 0, err
+			// The failure belongs to this entity only; the remaining
+			// entities still run.
+			ctx.Engine.Errors = append(ctx.Engine.Errors, err)
+			continue
 		}
-		if count > 0 {
-			return count, nil
+		if count < 1 {
+			// 1.12.2 treats a sub-command that did nothing as a
+			// failure of the whole invocation.
+			ctx.Engine.Errors = append(ctx.Engine.Errors,
+				exec.Errorf("All invocations failed: '%s'", a.Value.sub))
+			continue
 		}
+		total += count
 	}
-	return 0, nil
+	return total, nil
 }
 
 // resolveRelative applies relative coordinates to a base position.

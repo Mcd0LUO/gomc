@@ -121,6 +121,10 @@ type Selector struct {
 	Base string
 	// Args holds the raw selector arguments in source order.
 	Args []SelectorArg
+	// Raw is the selector exactly as it was written, e.g. "@e[type=zombie]".
+	// 1.12.2 quotes the original text in its error messages, so the raw
+	// spelling has to survive parsing.
+	Raw string
 	// Offset is the byte offset within the line.
 	Offset int
 }

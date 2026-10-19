@@ -32,7 +32,7 @@ step 11: scoreboard players tag @e[tag=!marked] list
   count: 1
   feedback: Tags for entity-2: 
 step 12: scoreboard players tag @e[tag=marked,tag=other] list
-  count: 0
+  error: Selector '@e[tag=marked,tag=other]' found nothing
 step 13: say --- score ---
   count: 1
   feedback: [Server] --- score ---
@@ -46,7 +46,7 @@ step 16: scoreboard players tag @e[score_kills_min=5] list
   count: 1
   feedback: Tags for entity-1: marked
 step 17: scoreboard players tag @e[score_kills_min=6] list
-  count: 0
+  error: Selector '@e[score_kills_min=6]' found nothing
 step 18: say --- volume ---
   count: 1
   feedback: [Server] --- volume ---

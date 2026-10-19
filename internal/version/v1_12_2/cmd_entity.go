@@ -116,9 +116,6 @@ func (c *killCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	if len(entities) == 0 {
-		return 0, exec.Errorf("no matching entities")
-	}
 	for _, e := range entities {
 		ctx.World.RemoveEntity(e.ID)
 	}
@@ -152,9 +149,6 @@ func (c *entityDataCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	entities, err := resolveEntityTargets(ctx, args[0])
 	if err != nil {
 		return 0, err
-	}
-	if len(entities) == 0 {
-		return 0, exec.Errorf("no matching entities")
 	}
 	data := exec.NBTOf(args, 1)
 	for _, e := range entities {
@@ -194,9 +188,6 @@ func (c *testForCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	entities, err := resolveEntityTargets(ctx, args[0])
 	if err != nil {
 		return 0, err
-	}
-	if len(entities) == 0 {
-		return 0, exec.Errorf("no matching entities")
 	}
 	data := exec.NBTOf(args, 1)
 	if data != nil {
@@ -243,9 +234,6 @@ func (c *tpCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	entities, err := resolveEntityTargets(ctx, args[0])
 	if err != nil {
 		return 0, err
-	}
-	if len(entities) == 0 {
-		return 0, exec.Errorf("no matching entities")
 	}
 	posArg := args[1].(*ast.Coord)
 	for _, e := range entities {

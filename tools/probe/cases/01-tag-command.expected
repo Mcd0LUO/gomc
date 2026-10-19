@@ -1,5 +1,2 @@
 [ERROR] Couldn't read custom function probe:tag from .\probe\data\functions\probe\tag.mcfunction
-Game rule doMobSpawning has been updated to true
-Game rule doFireTick has been updated to false
-Set the world spawn point to (0, 4, 0)
 Unknown function 'probe:tag'

@@ -1,0 +1,19 @@
+# 验证：函数内不同来源的输出前缀不同，以及命令结果的回显文本。
+#
+# say 是 [Server] ...，命令结果是 [Server: ...]。
+#
+# 期望：[Server] PROBE_SAY
+# 期望：[Server: Added new objective 'probe' successfully]
+# 期望：[Server: Set the time to 18000]
+# 期望：[Server: Game rule doFireTick has been updated to false]
+# 期望：[Server: Set game difficulty to Peaceful]
+
+--- function probe/feedback.mcfunction ---
+say PROBE_SAY
+scoreboard objectives add probe dummy
+time set 18000
+gamerule doFireTick false
+difficulty peaceful
+
+--- console ---
+function probe:feedback

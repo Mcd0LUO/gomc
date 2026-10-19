@@ -98,9 +98,6 @@ func (c *spawnPointCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	if len(holders) == 0 {
-		return 0, exec.Errorf("no matching entities")
-	}
 	posArg := args[1].(*ast.Coord)
 	pos := resolveRelative(*posArg, ctx.Source.Pos).BlockPos()
 	for _, h := range holders {

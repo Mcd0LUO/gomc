@@ -1,6 +1,7 @@
 package v1_12_2
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/mcsim/gomc/internal/exec"
@@ -133,6 +134,36 @@ func TestTagCommandIsNotAStandaloneCommand(t *testing.T) {
 	}
 	if _, ok := e.Registry.Get("scoreboard"); !ok {
 		t.Error("/scoreboard is missing")
+	}
+}
+
+// TestExecuteRunsForEveryEntity covers the 1.12.2 expansion.
+//
+// `execute` runs the sub-command once per matching entity, in reverse
+// order, and the target entity becomes the executor of the sub-command —
+// so the output is prefixed with the entity's name.
+func TestExecuteRunsForEveryEntity(t *testing.T) {
+	e := newTestEngine(t)
+	for _, id := range []string{"a1", "a2"} {
+		s, _ := e.World.EntityTypes.NewEntity("armor_stand", id)
+		s.Pos = world.Vec{X: 1, Y: 2, Z: 3}
+		e.World.AddEntity(s)
+	}
+	if err := runLine(e, "execute @e[type=armor_stand] ~ ~ ~ say HELLO"); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var count int
+	for _, msg := range e.Feedback {
+		if strings.Contains(msg, "HELLO") {
+			count++
+			// The prefix is the executing entity's name, not "Server".
+			if strings.HasPrefix(msg, "[Server]") {
+				t.Errorf("the message = %q, want it to be prefixed with the entity", msg)
+			}
+		}
+	}
+	if count != 2 {
+		t.Errorf("the sub-command ran %d times, want once per entity", count)
 	}
 }
 

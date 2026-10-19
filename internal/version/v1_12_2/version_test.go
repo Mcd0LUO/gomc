@@ -3,6 +3,7 @@ package v1_12_2
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/mcsim/gomc/internal/ast"
@@ -171,13 +172,69 @@ func TestExecuteDetectFailureBlocksCommand(t *testing.T) {
 	e := newTestEngine(t)
 	e.World.AddEntity(&world.Entity{ID: "e1", Type: "armor_stand", Pos: world.Vec{X: 0, Y: 0, Z: 0}})
 	src := &exec.Source{Name: "Server", World: "world", PermissionLevel: 4, Feedback: true}
-	// There is no sand below, so the command must not run.
+	// There is no sand below, so the command must not run. 1.12.2 reports
+	// the failure of that one entity and carries on.
 	line := "execute @e[type=armor_stand] ~ ~ ~ detect ~ ~-1 ~ sand 0 setblock ~ ~1 ~ stone"
-	if _, err := e.ExecuteLine(line, 1, src); err == nil {
-		t.Fatal("expected the detect precondition to fail")
+	if _, err := e.ExecuteLine(line, 1, src); err != nil {
+		t.Fatalf("ExecuteLine: %v", err)
 	}
 	if got := e.World.Blocks.Get(world.Pos{X: 0, Y: 1, Z: 0}); got.Name != "air" {
 		t.Errorf("block = %s, want air", got.Name)
+	}
+	errs := e.TakeErrors()
+	if len(errs) != 1 {
+		t.Fatalf("got %d errors, want 1: %v", len(errs), errs)
+	}
+	if want := "Failed to execute 'detect' as Armor Stand"; !strings.Contains(errs[0].Error(), want) {
+		t.Errorf("error = %q, want it to contain %q", errs[0], want)
+	}
+}
+
+// 1.12.2 expands a multi-entity target in the command dispatcher, which
+// visits the entities in the order the selector returned them. `PlayerSelector`
+// sorts @e by distance, so the nearest entity is visited first.
+func TestExecuteVisitsEntitiesInDistanceOrder(t *testing.T) {
+	e := newTestEngine(t)
+	e.World.AddEntity(&world.Entity{ID: "far", Type: "zombie", Pos: world.Vec{X: 8, Y: 0, Z: 0}})
+	e.World.AddEntity(&world.Entity{ID: "near", Type: "armor_stand", Pos: world.Vec{X: 1, Y: 0, Z: 0}})
+	src := &exec.Source{Name: "Server", World: "world", PermissionLevel: 4, Feedback: true}
+	if _, err := e.ExecuteLine("execute @e ~ ~ ~ say ORDER", 1, src); err != nil {
+		t.Fatalf("ExecuteLine: %v", err)
+	}
+	want := []string{"[Armor Stand] ORDER", "[Zombie] ORDER"}
+	if len(e.Feedback) != len(want) {
+		t.Fatalf("feedback = %v, want %v", e.Feedback, want)
+	}
+	for i := range want {
+		if e.Feedback[i] != want[i] {
+			t.Errorf("feedback[%d] = %q, want %q", i, e.Feedback[i], want[i])
+		}
+	}
+}
+
+// A failure belongs to the entity that caused it: the dispatcher reports
+// it and still runs the command for the remaining entities.
+func TestExecuteFailureDoesNotStopTheOtherEntities(t *testing.T) {
+	e := newTestEngine(t)
+	// The near entity has no sand below, so its detect fails. The far one
+	// has sand, so it must still run.
+	e.World.AddEntity(&world.Entity{ID: "near", Type: "zombie", Pos: world.Vec{X: 1, Y: 0, Z: 0}})
+	e.World.AddEntity(&world.Entity{ID: "far", Type: "armor_stand", Pos: world.Vec{X: 8, Y: 0, Z: 0}})
+	e.World.Blocks.Set(world.Pos{X: 8, Y: -1, Z: 0}, world.BlockState{Name: "sand", Data: 0})
+	src := &exec.Source{Name: "Server", World: "world", PermissionLevel: 4, Feedback: true}
+	line := "execute @e ~ ~ ~ detect ~ ~-1 ~ sand 0 say RAN"
+	if _, err := e.ExecuteLine(line, 1, src); err != nil {
+		t.Fatalf("ExecuteLine: %v", err)
+	}
+	if len(e.Feedback) != 1 || e.Feedback[0] != "[Armor Stand] RAN" {
+		t.Fatalf("feedback = %v, want [Armor Stand] RAN", e.Feedback)
+	}
+	errs := e.TakeErrors()
+	if len(errs) != 1 {
+		t.Fatalf("got %d errors, want 1: %v", len(errs), errs)
+	}
+	if want := "Failed to execute 'detect' as Zombie"; !strings.Contains(errs[0].Error(), want) {
+		t.Errorf("error = %q, want it to contain %q", errs[0], want)
 	}
 }
 

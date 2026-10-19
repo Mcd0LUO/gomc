@@ -1,15 +1,17 @@
 # 验证：execute 对每个匹配实体各执行一次。
 #
-# 两个盔甲架 -> say 执行两次。
+# 这一条同时看三件事：
+#   1. 两个匹配实体 -> 子命令执行两次（不是只跑最后一个）。
+#   2. 输出前缀是**目标实体的名字**（带 CustomName 时就是 CustomName），不是 [Server]。
+#   3. 多实体时按**倒序**执行（MC-121728）：先 SECOND，后 FIRST。
 #
-# 期望：两条 [Armor Stand] PROBE_ONE_STAND
+# 期望：[SECOND] PROBE_MULTI
+# 期望：[FIRST] PROBE_MULTI
 
 --- function probe/multi.mcfunction ---
-execute @e[type=armor_stand] ~ ~ ~ say PROBE_ONE_STAND
+execute @e[type=armor_stand] ~ ~ ~ say PROBE_MULTI
 
 --- console ---
-setblock 0 4 0 dirt
-setblock 30 4 0 dirt
-summon armor_stand 0 5 0
-summon armor_stand 30 5 0
+summon armor_stand 0 5 0 {CustomName:"FIRST",CustomNameVisible:1b}
+summon armor_stand 2 5 0 {CustomName:"SECOND",CustomNameVisible:1b}
 function probe:multi

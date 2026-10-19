@@ -7,12 +7,21 @@
 	这个脚本负责后者。
 
 	它做四件事：
-	  1. 在临时目录里搭一份隔离的服务端：只复制 jar 和配置文件，
-	     libraries / cache / assets / lang 用 junction 指回原目录。
-	     **用户的存档和原服务端目录不会被写入或删除。**
-	  2. 把用例里的 .mcfunction 放进测试世界。
-	  3. 用 JDK 8 起 nogui，把控制台命令喂进去，把日志抓下来。
+	  1. 准备一个**超平坦**世界模板（一次性生成：出生点、gamerule 都固化进去）。
+	  2. 每个用例从模板复制一份世界，再装上用例里的 .mcfunction。
+	  3. 用 JDK 8 起一次 nogui，把控制台命令喂进去，把日志抓下来。
 	  4. 打印出和命令输出相关的那些行（[Server] ... / [Server: ... / [实体名] ...）。
+
+	**用户的存档和原服务端目录不会被写入或删除。**
+
+	为什么要有世界模板：1.12.2 只在服务端**启动时**加载世界出生点所在的那个区块，
+	运行中执行 /setworldspawn 只是记录新位置，并不会把新区块加载进来。于是
+	"先设出生点、再跑用例"要起两次服。模板把出生点直接固化进 level.dat，
+	复制出来就能用——每个用例只起一次服，快一倍。
+
+	为什么用超平坦：地形完全确定，任何坐标的方块和实体位置都可预期，
+	录出来的期望文件不会因为随机地形而漂移。
+	超平坦结构 = 基岩 1 层 + 泥土 2 层 + 草地 1 层，站在 y=4 的地面上。
 
 	用例文件格式（.case）：
 
@@ -31,6 +40,10 @@
 
 .PARAMETER Work
 	隔离环境的落地目录。默认用系统临时目录下的 mc122probe。
+
+.PARAMETER Template
+	超平坦世界模板的落地目录。默认用系统临时目录下的 mc122probe-template。
+	不存在时会自动生成（要起一次服，约 40 秒）。
 
 .PARAMETER Case
 	用例文件（.case）。
@@ -51,6 +64,9 @@
 .PARAMETER Keep
 	保留隔离环境（默认跑完就清掉）。
 
+.PARAMETER RebuildTemplate
+	强制重建世界模板。
+
 .EXAMPLE
 	.\probe.ps1 -Case .\cases\01-tag-command.case
 	.\probe.ps1 -Case .\cases\02-execute-multi.case -Compare
@@ -60,12 +76,14 @@
 param(
 	[string]$ServerHome = 'D:\game\McServer\1.12.2',
 	[string]$Work = (Join-Path $env:TEMP 'mc122probe'),
+	[string]$Template = (Join-Path $env:TEMP 'mc122probe-template'),
 	[string]$Case,
 	[string]$Java = 'D:\tools\jdk\JDK_1.8\bin\java.exe',
 	[int]$Port = 25599,
 	[switch]$Compare,
 	[switch]$Record,
-	[switch]$Keep
+	[switch]$Keep,
+	[switch]$RebuildTemplate
 )
 
 $ErrorActionPreference = 'Stop'
@@ -75,15 +93,14 @@ $script:StartedProcs = @()
 
 # 要用 junction 指回原目录的大目录。
 $Linked = @('libraries', 'cache', 'assets', 'lang')
-# 每次起服都会先发的公共命令。
+
+# 超平坦世界的地形：基岩 1 层 + 泥土 2 层 + 草地 1 层。
 #
-# doMobSpawning 必须打开：server.properties 里的 spawn-monsters=false
-# 会连带把 doMobSpawning gamerule 关掉，那样 /summon 直接失败。
-$Prelude = @(
-	'gamerule doMobSpawning true'
-	'gamerule doFireTick false'
-	'setworldspawn 0 4 0'
-)
+# 1.12.2 的 generator-settings 是三段式：<层数>;<方块层>;<生物群系 id>。
+# 写成两段（<方块层>;<生物群系>）时解析会退化成"单层石头"，整个世界变成
+# 石头底 + 虚空——实测发现的，别再改回去。
+# 草地层在 y=3，站立面是 y=4。
+$FlatLayers = '3;minecraft:bedrock,2*minecraft:dirt,minecraft:grass;1'
 
 function Fail($msg) {
 	Write-Host "错误：$msg" -ForegroundColor Red
@@ -94,33 +111,30 @@ function Write-Step($msg) {
 	Write-Host "==> $msg" -ForegroundColor Cyan
 }
 
-# ---------------------------------------------------------------- 搭环境
+# ---------------------------------------------------------------- 服务端骨架
 
-function New-ProbeServer {
-	param([string]$ServerDir, [string]$Dir)
+# 搭一份能跑起来的服务端：jar + 配置文件 + 指回原目录的 junction。
+# **不包含世界**——世界要么新建（生成模板），要么从模板复制。
+function New-ServerSkeleton {
+	param([string]$Dir)
 
-	if (-not (Test-Path $ServerDir)) { Fail "找不到服务端目录 $ServerDir" }
-	$jar = Get-ChildItem $ServerDir -Filter 'paper-*.jar' -File | Select-Object -First 1
-	if (-not $jar) { Fail "$ServerDir 里没有 paper-*.jar" }
+	if (-not (Test-Path $ServerHome)) { Fail "找不到服务端目录 $ServerHome" }
+	$jar = Get-ChildItem $ServerHome -Filter 'paper-*.jar' -File | Select-Object -First 1
+	if (-not $jar) { Fail "$ServerHome 里没有 paper-*.jar" }
 	if (-not (Test-Path $Java)) { Fail "找不到 JDK 8：$Java" }
 
-	if (Test-Path $Dir) {
-		Write-Step "清理旧的隔离环境 $Dir"
-		Remove-ProbeServer -Dir $Dir
-	}
 	New-Item -ItemType Directory -Force -Path $Dir | Out-Null
-
-	Copy-Item $jar.FullName $Dir
+	Copy-Item $jar.FullName $Dir -Force
 	foreach ($f in @('eula.txt', 'bukkit.yml', 'spigot.yml', 'paper.yml',
 			'commands.yml', 'permissions.yml', 'ops.json', 'whitelist.json',
 			'banned-ips.json', 'banned-players.json')) {
-		$p = Join-Path $ServerDir $f
-		if (Test-Path $p) { Copy-Item $p $Dir }
+		$p = Join-Path $ServerHome $f
+		if (Test-Path $p) { Copy-Item $p $Dir -Force }
 	}
 
 	# 用 junction 指回原目录：既省空间，也保证用的是同一份依赖。
 	foreach ($d in $Linked) {
-		$target = Join-Path $ServerDir $d
+		$target = Join-Path $ServerHome $d
 		if (Test-Path $target) {
 			New-Item -ItemType Junction -Path (Join-Path $Dir $d) -Target $target | Out-Null
 		}
@@ -129,7 +143,7 @@ function New-ProbeServer {
 	$props = @(
 		'level-name=probe'
 		'level-type=FLAT'
-		'generator-settings=3;minecraft:bedrock,2*minecraft:dirt,minecraft:grass;1'
+		"generator-settings=$FlatLayers"
 		'online-mode=false'
 		"server-port=$Port"
 		'max-players=5'
@@ -162,7 +176,50 @@ function Remove-ProbeServer {
 			}
 		}
 	}
-	Remove-Item -Recurse -Force $Dir
+	if (Test-Path $Dir) { Remove-Item -Recurse -Force $Dir }
+}
+
+# ---------------------------------------------------------------- 世界模板
+
+# 一次性生成超平坦世界模板：起一次空服，把出生点和 gamerule 定好，
+# 关服时服务端会把它们写进 level.dat。之后每个用例复制这份 level.dat 就行。
+function Initialize-Template {
+	param([string]$TemplateDir)
+
+	Write-Step "生成超平坦世界模板：$TemplateDir"
+	$staging = Join-Path $env:TEMP 'mc122probe-init'
+	Remove-ProbeServer -Dir $staging
+	New-ServerSkeleton -Dir $staging
+
+	$server = Start-Server -Dir $staging -ConsoleFile (Join-Path $staging 'console-init.txt')
+	# setworldspawn 会写进 level.dat；关服时一起落盘。
+	& $server.Send 'setworldspawn 0 4 0'
+	& $server.Send 'gamerule doMobSpawning true'
+	& $server.Send 'difficulty peaceful'
+	& $server.Send 'save-all'
+	$null = & $server.Finish
+
+	if (-not (Test-Path (Join-Path $staging 'probe\level.dat'))) {
+		Fail "模板生成失败：$staging\probe\level.dat 不存在"
+	}
+
+	# 只把世界搬进模板目录，骨架（jar、配置、junction）不留。
+	if (Test-Path $TemplateDir) { Remove-Item -Recurse -Force $TemplateDir }
+	New-Item -ItemType Directory -Force -Path $TemplateDir | Out-Null
+	Move-Item (Join-Path $staging 'probe') (Join-Path $TemplateDir 'world')
+	Remove-ProbeServer -Dir $staging
+	Write-Step "模板就绪：$TemplateDir\world" -ForegroundColor Green
+}
+
+function Ensure-Template {
+	param([string]$TemplateDir)
+	$levelDat = Join-Path $TemplateDir 'world\level.dat'
+	if ($RebuildTemplate -or -not (Test-Path $levelDat)) {
+		Initialize-Template -TemplateDir $TemplateDir
+	}
+	else {
+		Write-Step "复用世界模板：$TemplateDir" -ForegroundColor DarkGray
+	}
 }
 
 # ---------------------------------------------------------------- 解析用例
@@ -201,7 +258,7 @@ function Install-Functions {
 	}
 }
 
-# ---------------------------------------------------------------- 跑
+# ---------------------------------------------------------------- 起服
 
 # 起一次服务端，等它 ready，返回一个带 Send/Finish 的对象。
 #
@@ -265,7 +322,8 @@ function Start-Server {
 			Write-Host ">>> $c"
 			$p.StandardInput.WriteLine($c)
 			$p.StandardInput.Flush()
-			Start-Sleep -Seconds 3
+			# 控制台命令是同步执行的，等一小会儿让日志落盘即可。
+			Start-Sleep -Milliseconds 1500
 		}.GetNewClosure()
 		# 收尾：关服，把输出文件合在一起。
 		Finish = {
@@ -286,48 +344,8 @@ function Start-Server {
 	return $server
 }
 
-function Invoke-Probe {
-	param([string]$Dir, [string[]]$Commands)
+# ---------------------------------------------------------------- 提取观察
 
-	$log = Join-Path $Dir 'probe.log'
-
-	# 第一阶段：预热。
-	#
-	# 1.12.2 只在**服务端启动时**加载世界出生点所在的那个区块，
-	# 运行中改 /setworldspawn 不会立刻把区块加载进来。所以先起一次服、
-	# 把出生点定好、关掉，再起第二次跑用例——这时区块已经是加载状态。
-	#
-	# 预热做的 gamerule 和出生点会存进 level.dat，第二次启动时自动生效。
-	Write-Step "预热：设置 gamerule 与世界出生点"
-	$warm = Start-Server -Dir $Dir -ConsoleFile (Join-Path $Dir 'console-warmup.txt')
-	foreach ($c in $Prelude) { & $warm.Send $c }
-	$warmText = & $warm.Finish
-
-	# 第二阶段：跑用例。
-	Write-Step "跑用例"
-	$run = Start-Server -Dir $Dir -ConsoleFile (Join-Path $Dir 'console-case.txt')
-	foreach ($c in $Commands) { & $run.Send $c }
-	$runText = & $run.Finish
-
-	($warmText + "`n### SESSION: case`n" + $runText) | Out-File -FilePath $log -Encoding utf8
-	return $log
-}
-
-# 提取命令输出。
-#
-# 服务端的日志行格式是 `[HH:mm:ss LEVEL]: <消息>`。命令输出有三种形态，
-# 方括号的位置不一样，所以这里原样保留文本，不做二次解析：
-#
-#	[Server] PROBE_SAY                              ← say，括号只包住来源名
-#	[Server: Added new objective 'probe' ...]       ← 命令结果，括号包住整条
-#	[Armor Stand] ORDER_TEST                        ← execute 子命令，来源是目标实体
-#
-# 有些命令的输出不是聊天格式，而是多行的普通 INFO（比如
-# `scoreboard players list`），所以这里不按前缀筛，而是**按命令分段**：
-# 只保留 `>>> <命令>` 之后的输出，启动阶段的噪声自然被排除。
-# 例外是 ERROR 行——函数加载失败发生在启动阶段，也要留下。
-# 提取命令输出。
-#
 # 服务端的日志行格式是 `[HH:mm:ss LEVEL]: <消息>`。命令输出有三种形态，
 # 方括号的位置不一样，所以这里原样保留文本，不做二次解析：
 #
@@ -340,13 +358,13 @@ function Invoke-Probe {
 #
 # 取值范围：以服务端的 "Done (" 为界（之前是启动噪声），
 # 之后去掉关服噪声。ERROR 行一律保留——函数加载失败发生在启动阶段。
-$Noise = '^(Executing|Executed) \d+ command|^Stopping|^Saving|^Closing|^Flushing|^Unloading|^ThreadedAnvilChunkStorage|^Time elapsed'
+$Noise = '^(Executing|Executed) \d+ command|^Stopping|^Saving|^Closing|^Flushing|^Unloading|^ThreadedAnvilChunkStorage|^Time elapsed|^Timings Reset|^Preparing spawn|^Calculating'
 
 function Select-Observation {
-	param([string]$Log)
+	param([string]$ConsoleFile)
 	$out = @()
 	$started = $false
-	foreach ($l in Get-Content $Log) {
+	foreach ($l in Get-Content $ConsoleFile -ErrorAction SilentlyContinue) {
 		if ($l -match '^\[\d\d:\d\d:\d\d ERROR\]: (.+)$') {
 			$out += ("[ERROR] " + $Matches[1])
 			continue
@@ -372,19 +390,30 @@ $name = [IO.Path]::GetFileNameWithoutExtension($casePath)
 $expectedPath = [IO.Path]::ChangeExtension($casePath, '.expected')
 
 # 脚本被打断时也要把服务端进程收掉，否则它会一直占着端口。
-$running = $null
 try {
 	Write-Step "用例 $name"
-	New-ProbeServer -ServerDir $ServerHome -Dir $Work
+
+	Ensure-Template -TemplateDir $Template
+
+	# 每个用例从模板复制一份世界，保证互相不干扰。
+	Remove-ProbeServer -Dir $Work
+	New-ServerSkeleton -Dir $Work
+	Copy-Item (Join-Path $Template 'world') -Destination (Join-Path $Work 'probe') -Recurse -Force
+
 	$spec = Read-Case -Path $casePath
 	Install-Functions -Dir $Work -Funcs $spec.Funcs
-	$log = Invoke-Probe -Dir $Work -Commands $spec.Commands
-	$observed = Select-Observation -Log $log
+
+	Write-Step "跑用例"
+	$server = Start-Server -Dir $Work -ConsoleFile (Join-Path $Work 'console-case.txt')
+	foreach ($c in $spec.Commands) { & $server.Send $c }
+	$null = & $server.Finish
+
+	$observed = Select-Observation -ConsoleFile (Join-Path $Work 'console-case.txt')
 
 	Write-Host ""
 	Write-Host "---- 服务端观察 ----" -ForegroundColor Yellow
 	$observed | ForEach-Object { Write-Host $_ }
-	Write-Host "---- 完整日志: $log ----" -ForegroundColor DarkGray
+	Write-Host "---- 完整日志: $(Join-Path $Work 'console-case.txt') ----" -ForegroundColor DarkGray
 
 	$code = 0
 	if ($Record) {

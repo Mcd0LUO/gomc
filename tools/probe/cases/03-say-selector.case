@@ -1,6 +1,7 @@
 # 验证：say 会解析消息里的选择器。
 #
 # 没有匹配时报 "Selector '@a' found nothing"。
+# 控制台没有玩家，所以 @a 永远匹配不到。
 #
 # 期望：[Server: Selector '@a' found nothing]
 

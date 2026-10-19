@@ -4,7 +4,7 @@
 # 写了 /tag 的函数会整个加载失败，报 Unknown or invalid command 'tag'。
 #
 # 期望：[ERROR] Couldn't read custom function ...
-# 期望：Loaded 0 custom command functions
+# 期望：Unknown function 'probe:tag'
 
 --- function probe/tag.mcfunction ---
 tag @e[type=zombie] add marked

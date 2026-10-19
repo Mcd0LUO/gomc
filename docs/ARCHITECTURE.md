@@ -69,13 +69,18 @@
 8. **execute 旧语法**：`execute <entity> <x> <y> <z> [detect <x2> <y2> <z2> <block> <dataValue>] <cmd>`。
    坐标相对于**目标实体**而非执行者。无 `as`/`at`/`run`。
 9. **execute 多实体**：`execute <selector> ...` 对**每个匹配实体各执行一次**。
-   真实服务端实测：两个盔甲架 → 命令执行两次。
-   执行**顺序为倒序**（MC-121728，1.13 才修），依据是 1.13 官方变更日志
-   "The order, in which execute runs the command for each entity, is in reverse"；
-   次数是实测的，顺序是查证来的（实测时无法让两个实体输出可区分的名字）。
-10. **execute 失败传播**：多实体时若某条失败，**其余实体的执行被取消**（MC-121727）。
+   展开发生在**命令分发层**（`CommandHandler`），不在 execute 内部。
+   顺序 = 选择器返回的顺序 = **距离升序**（`PlayerSelector` 按距离平方稳定排序），
+   **不是倒序**。真实服务端实测：三个具名盔甲架（距离 5.10 / 6.40 / 9.43）→
+   输出依次是 `[NEAR]` `[MID]` `[FAR]`。
+10. **execute 失败传播**：一个实体失败**不影响其余实体**——分发层对每个实体单独
+    try/catch，捕获后 `continue` 到下一个。失败文本是
+    `Failed to execute 'detect' as <实体名>`。真实服务端实测：最近的实体 detect 失败，
+    后面两个照样执行。
 11. **execute 的执行者**：被选中的实体成为子命令的执行者，因此输出前缀是
     **目标实体的名字**（`[Armor Stand] hello`），而不是 `[Server]`。
+    名字取法与 `Entity.getName` 一致：自定义名 → 玩家名 → 类型的**翻译名**
+    （语言文件里的 `entity.<类名>.name`，所以是 "Armor Stand" 这种带空格的写法）。
 12. **function 的 if/unless**：`function <id> if|unless <selector>` 存在于 1.12.2，
     语义是"该 selector 匹配到实体则执行"；名字找不到时条件为**假**而不是报错。
 13. **selector 选项集**：`r rm l lm x y z dx dy dz rx rxm ry rym c m team name type tag`。
@@ -117,6 +122,12 @@
 29. **`/setblock` 与 `/fill` 的模式参数**：`setblock` 的模式在参数 6 位
     （`replace`/`destroy`/`keep`），`fill` 的模式在参数 9 位
     （`replace`/`destroy`/`keep`/`hollow`/`outline`），1.12.2 两者都有。
+30. **实体的显示名是翻译名**：`Entity.getName` 走语言文件里的
+    `entity.<去掉 Entity 前缀的类名>.name`，所以是 "Armor Stand" 这种带空格的
+    写法，不是注册名 `armor_stand`；语言文件缺键时原样返回键本身。
+31. **实体有重力**：`summon` 出来的实体会落到地面上（`tp` 不会）。
+    gomc 明确不模拟重力，所以 `/summon` 的实体留在给定坐标上——
+    依赖落地位置的相对坐标，两边会差一格。
 
 ## 权威规格的来源
 
@@ -146,18 +157,18 @@ CFR 无法还原，于是用 `javap -p -c` 直接读字节码才拿到精确语�
 | 结论 | 来源 | 对应用例 |
 |---|---|---|
 | **1.12.2 没有 `/tag` 命令**，写 `tag` 的函数整个加载失败 | 服务端日志 `Unknown or invalid command 'tag'` | `01-tag-command` |
-| `execute <selector>` 对**每个匹配实体各执行一次**（两个盔甲架 → 执行两次） | 服务端日志 | `02-execute-multi` |
-| `execute` 的子命令输出前缀是**目标实体名**（`[Armor Stand] ...`） | 服务端日志 | `03-execute-prefix` |
-| `say @a` 会展开选择器，无匹配时报 `Selector '@a' found nothing` | 服务端日志 | `04-say-selector` |
-| 函数内 `say` 是 `[Server] ...`，命令结果是 `[Server: ...]` | 服务端日志 | `05-function-prefix` |
-| `detect` 失败会报 `[Server: Failed to execute 'detect' as <实体>]` | 服务端日志 | `06-detect-fail` |
-| `time` / `gamerule` / `difficulty` 的回显文本 | 服务端日志 | `07-time-gamerule` |
-| `scoreboard players list` 的真实输出格式 | 服务端日志 | `08-scoreboard-list` |
+| `execute <selector>` 对**每个匹配实体各执行一次**，且按**距离升序**执行 | 服务端日志 | `02-execute-multi` |
+| `execute` 的子命令输出前缀是**目标实体名**（`[Armor Stand] ...`） | 服务端日志 | `02-execute-multi` |
+| `say @a` 会展开选择器，无匹配时报 `Selector '@a' found nothing` | 服务端日志 | `03-say-selector` |
+| 一个实体 `detect` 失败**不影响其余实体**，失败文本是 `Failed to execute 'detect' as <实体>` | 服务端日志 | `04-detect-fail` |
+| 函数内 `say` 是 `[Server] ...`，命令结果是 `[Server: ...]` | 服务端日志 | `05-command-feedback` |
+| `time` / `gamerule` / `difficulty` 的回显文本 | 服务端日志 | `05-command-feedback` |
+| `scoreboard players list` 的真实输出格式 | 服务端日志 | `06-scoreboard-list` |
 
 这些用例在 [`tools/probe/`](../tools/probe/README.md) 里，可以随时重跑复核。
 
 实测用的服务端是**隔离副本**：`libraries`/`cache` 用 junction 指回原目录，
-存档另开一个 FLAT 世界，用户自己的存档与服务端进程都没有被碰到。
+存档另开一个**超平坦**世界，用户自己的存档与服务端进程都没有被碰到。
 
 ### 怎么复现一次实测
 
@@ -167,6 +178,7 @@ CFR 无法还原，于是用 `javap -p -c` 直接读字节码才拿到精确语�
 cd tools\probe
 .\probe.ps1 -Case .\cases\02-execute-multi.case          # 跑一个用例
 .\probe.ps1 -Case .\cases\02-execute-multi.case -Compare # 和期望文件比对
+.\run-all.ps1                                            # 跑完全部用例并比对
 ```
 
 它替你做完了下面这些事：
@@ -174,11 +186,14 @@ cd tools\probe
 1. 复制一份服务端目录到临时路径，只复制 jar 与配置文件，`libraries`/`cache`/
    `assets`/`lang` 用 junction 指回原目录（不要复制，更不要删 junction）。
 2. 写一份 `server.properties`：`level-type=FLAT`、另开一个世界、
-   `online-mode=false`、`port` 换一个、`spawn-protection=0`。
-3. 在 `<world>/data/functions/<ns>/` 下放要测的 `.mcfunction`。
-4. 用 **JDK 8**（`D:\tools\jdk\JDK_1.8`）启动：1.12.2 在 JDK 21 上跑不起来。
+   `online-mode=false`、`port` 换一个、`spawn-protection=16`。
+3. **从超平坦世界模板复制一份世界**。模板里已经固化了出生点 `(0,4,0)` 和 gamerule，
+   所以**每个用例只起一次服**——1.12.2 只在启动时加载出生点区块，运行中改
+   `/setworldspawn` 不会把新区块加载进来。
+4. 在 `<world>/data/functions/<ns>/` 下放要测的 `.mcfunction`。
+5. 用 **JDK 8**（`D:\tools\jdk\JDK_1.8`）启动：1.12.2 在 JDK 21 上跑不起来。
    把命令喂给控制台的标准输入并读标准输出即可。
-5. 观察服务端日志里的 `[Server] ...` / `[Server: ...]` / `[实体名] ...` 三种前缀，
+6. 观察服务端日志里的 `[Server] ...` / `[Server: ...]` / `[实体名] ...` 三种前缀，
    这就是命令输出在真实服务端上的样子。
 
 > 删临时目录前**先删掉那 4 个 junction**，否则可能误伤真实服务端。

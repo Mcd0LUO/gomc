@@ -68,6 +68,11 @@ func resolveHolders(ctx *exec.Context, arg ast.Arg) ([]string, error) {
 		if err != nil {
 			return nil, exec.Errorf("%v", err)
 		}
+		if len(entities) == 0 {
+			// The score holder is a target list, so the dispatcher
+			// expands it; an empty list is an error there.
+			return nil, exec.Errorf("Selector '%s' found nothing", selectorText(t))
+		}
 		out := make([]string, 0, len(entities))
 		for _, e := range entities {
 			out = append(out, e.ID)

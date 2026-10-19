@@ -94,9 +94,6 @@ func (c *clearCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	if len(holders) == 0 {
-		return 0, exec.Errorf("no matching entities")
-	}
 	item := args[1].(*ast.StringArg).Value
 	data := args[2].(*ast.IntArg).Value
 	maxCount := args[3].(*ast.IntArg).Value
@@ -265,9 +262,6 @@ func (c *replaceItemCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	if len(holders) == 0 {
-		return 0, exec.Errorf("no matching entities")
-	}
 	index, ok := slotIndex(slot)
 	if !ok {
 		return 0, exec.Errorf("unknown slot %q", slot)
@@ -374,9 +368,6 @@ func (c *enchantCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	if len(holders) == 0 {
-		return 0, exec.Errorf("no matching entities")
-	}
 	enchantment := args[1].(*ast.StringArg).Value
 	level := args[2].(*ast.IntArg).Value
 	if level < 1 {
@@ -478,9 +469,6 @@ func (c *xpCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	holders, err := resolveEntityTargets(ctx, args[1])
 	if err != nil {
 		return 0, err
-	}
-	if len(holders) == 0 {
-		return 0, exec.Errorf("no matching entities")
 	}
 	for _, e := range holders {
 		if levels {

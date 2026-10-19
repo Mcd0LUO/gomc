@@ -1,3 +1,5 @@
+[Server] PROBE_SAY
+[Server: Added new objective 'probe' successfully]
 [Server: Set the time to 18000]
 [Server: Game rule doFireTick has been updated to false]
 [Server: Set game difficulty to Peaceful]

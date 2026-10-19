@@ -56,9 +56,6 @@ func (c *gamemodeCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		}
 		targets = entities
 	}
-	if len(targets) == 0 {
-		return 0, exec.Errorf("no matching entities")
-	}
 	for _, e := range targets {
 		e.NBT.Set("playerGameType", nbt.Int(int32(id)))
 	}
@@ -129,9 +126,6 @@ func (c *giveCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	entities, err := resolveEntityTargets(ctx, args[0])
 	if err != nil {
 		return 0, err
-	}
-	if len(entities) == 0 {
-		return 0, exec.Errorf("no matching entities")
 	}
 	item := args[1].(*ast.ItemArg)
 	count := item.Count
@@ -219,9 +213,6 @@ func (c *effectCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	entities, err := resolveEntityTargets(ctx, args[1])
 	if err != nil {
 		return 0, err
-	}
-	if len(entities) == 0 {
-		return 0, exec.Errorf("no matching entities")
 	}
 	switch action {
 	case "clear":

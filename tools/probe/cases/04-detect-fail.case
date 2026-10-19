@@ -1,0 +1,27 @@
+# 验证：execute 多实体时的执行顺序，以及一个实体失败会不会影响其余。
+#
+# 1.12.2 在**命令分发层**展开多实体目标：选择器返回的实体按距离升序
+# 逐个执行，被选中的实体成为子命令的执行者（所以输出前缀是它的名字）。
+# 失败只属于出错的那个实体，其余实体照常执行。
+#
+# 实体（summon 在 y=5，但盔甲架有重力，会落到地面上 y=4）：
+#   NEAR (1,5,0) -> 落在 y=4，脚下 y=3 是草地，detect stone 失败
+#   MID  (4,5,0) -> 落在 y=4，脚下 y=3 被换成石头，detect 成功
+#   FAR  (8,5,0) -> 落在 y=4，脚下 y=3 被换成石头，detect 成功
+#
+# NEAR 排在最前且它的失败没有挡住后面两条，正好一次看清这两件事。
+#
+# 期望：[Server: Failed to execute 'detect' as NEAR]
+# 期望：[MID] PROBE_DETECT
+# 期望：[FAR] PROBE_DETECT
+
+--- function probe/detect.mcfunction ---
+execute @e[type=armor_stand] ~ ~ ~ detect ~ ~-1 ~ stone 0 say PROBE_DETECT
+
+--- console ---
+setblock 4 3 0 stone
+setblock 8 3 0 stone
+summon armor_stand 1 5 0 {CustomName:"NEAR",CustomNameVisible:1b}
+summon armor_stand 4 5 0 {CustomName:"MID",CustomNameVisible:1b}
+summon armor_stand 8 5 0 {CustomName:"FAR",CustomNameVisible:1b}
+function probe:detect

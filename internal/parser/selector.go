@@ -59,7 +59,7 @@ func ParseSelector(text string) (*ast.Selector, error) {
 	if !ok {
 		return nil, fmt.Errorf("malformed selector %q", text)
 	}
-	sel := &ast.Selector{Base: base}
+	sel := &ast.Selector{Base: base, Raw: text}
 	if body == "" {
 		return sel, nil
 	}

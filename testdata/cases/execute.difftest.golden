@@ -15,7 +15,7 @@ step 5: scoreboard players tag @e[tag=marked] list
   feedback: Tags for entity-2: marked
 step 6: execute @e[type=zombie] ~ ~ ~ detect ~ ~-1 ~ air 0 say ground is clear
   count: 1
-  feedback: [Server] ground is clear
+  feedback: [Zombie] ground is clear
 step 7: say done
   count: 1
   feedback: [Server] done
