@@ -64,6 +64,7 @@ error[Syntax]: 1:31: expected an integer, got "="
 | [`docs/COMMANDS.md`](docs/COMMANDS.md) | 命令支持矩阵：1.12.2 专用服务器 64 条（`CommandDispatcher` 注册 65 次，三个分支互斥），已实现 46 条，含 1.12.2 真实语法与已知偏差 |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 架构、依赖方向、31 条核心不变量、权威规格的来源与实测流程 |
 | [`docs/DIFFTEST.md`](docs/DIFFTEST.md) | 对拍层使用手册：写用例、跑 golden、和真服对齐 |
+| [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) | 性能评估：测了什么、瓶颈在哪、该怎么改 |
 | [`docs/DEV.md`](docs/DEV.md) | 开发指南：目录结构、怎么加一条命令、测试纪律、怎么确认 1.12.2 行为 |
 
 ## 为什么不是"模拟器"

@@ -1,0 +1,162 @@
+# 性能评估
+
+这份文档记录 gomc 的性能现状：**测了什么、数据是多少、瓶颈在哪、该怎么改**。
+目的是让优化有据可依，而不是凭感觉改。
+
+## 结论先说
+
+gomc 的命令执行本身**不慢**（每条 `say` 约 3.5 µs，一秒几十万条命令），
+真正的开销集中在三处：
+
+1. **命令被重复解析**——占每条命令约 **60%** 的时间。
+2. **选择器每次都重建整个实体列表**——实体多时是主要成本。
+3. **`scoreboard players list` 是 O(持有者 × 目标)**——目标一多就 quadratic。
+
+其余的（回显字符串的分配、difftest 的快照、tick 循环）**量级上可以忽略**，
+不要去优化它们。
+
+## 怎么测的
+
+两种手段，互相印证：
+
+**端到端**：造一个只有函数的世界（gomc 的世界状态**不在存档里**，方块、实体、
+分数全靠命令产生），然后用真实二进制计时。
+
+```powershell
+# 造一个 5000 条 setblock 的函数
+.\gomc.exe run <world> demo:big
+```
+
+**微基准**：`internal/exec/bench_test.go` 里的 Go 基准，每个场景自建内存世界。
+
+```powershell
+go test ./internal/exec/... -bench . -benchmem -run '^$' -timeout 300s -p 1
+```
+
+> 所有 `go test` 都必须带 `-timeout`：这个项目的一条硬规矩，不许把机器拖死。
+
+## 数据
+
+机器：i9-14900HX，Windows amd64，Go 1.24。
+
+### 端到端（`gomc.exe`，含进程启动约 8 ms）
+
+| 场景 | 耗时 |
+|---|---|
+| `check`（3 个函数共 12000 行，加载 + lint） | 33 ms |
+| 跑 5000 条 `setblock` | 30 ms |
+| 跑 2000 次 `summon` | 22 ms |
+| 跑 5000 条 `scoreboard players set` | 121 ms |
+| 5000 个持有者后 `scoreboard players list` | 134 ms |
+| **2000 个实体 + 2000 次带选择器的写分** | **835 ms** |
+| （对照）2000 个实体 + 2000 次普通写分 | 81 ms |
+| `tick 100`（每 tick 跑 50 条 `say`） | 18 ms |
+| `difftest run` | 12 ms |
+
+**对照组把范围锁死了**：同样 2000 次写分，用选择器 835 ms、不用 81 ms——
+**754 ms 全在选择器上**。
+
+### 微基准
+
+```
+BenchmarkBaselineSay/ExecuteLine       3534692 ns/op   4745987 B/op   90018 allocs/op
+BenchmarkBaselineSay/RunFunction      7493582 ns/op   7400217 B/op   90038 allocs/op
+BenchmarkBaselineSay/ExecuteParsed    2760157 ns/op   1908186 B/op   30000 allocs/op
+BenchmarkParseOnly/Say                 4459020 ns/op   3120021 B/op   60000 allocs/op
+BenchmarkSetblock/ExecuteLine        18062886 ns/op  13138929 B/op  130099 allocs/op
+BenchmarkSummon/ExecuteLine          12036768 ns/op   7166032 B/op   84835 allocs/op
+BenchmarkSelectorScan/Resolver      193618883 ns/op  32824149 B/op    4001 allocs/op
+BenchmarkSelectorScan/Command      1153764500 ns/op 328581432 B/op  6037088 allocs/op
+BenchmarkSelectorScanScaling/Entities100    11698 ns/op     1848 B/op      4 allocs/op
+BenchmarkSelectorScanScaling/Entities500    33152 ns/op     8249 B/op      4 allocs/op
+BenchmarkSelectorScanScaling/Entities2000  123397 ns/op    32824 B/op      4 allocs/op
+BenchmarkSelectorScanScaling/Entities8000  785841 ns/op   131143 B/op      4 allocs/op
+BenchmarkScoreboardWrite/ExecuteLine 22724584 ns/op  12609612 B/op  170137 allocs/op
+BenchmarkScoreboardList/SelectorHolders/Objectives1  16631377 ns/op   6455678 B/op  100052 allocs/op
+BenchmarkScoreboardList/SelectorHolders/Objectives3  36073634 ns/op  12343544 B/op  220061 allocs/op
+BenchmarkScoreboardList/SelectorHolders/Objectives8  87628067 ns/op  27706796 B/op  560072 allocs/op
+BenchmarkScoreboardList/AllHolders                  11493200 ns/op   2585906 B/op      164 allocs/op
+```
+
+## 三个瓶颈
+
+### 1. 命令被重复解析（约占 60%）
+
+`Engine.runEntry` 在**运行期**把每一行重新解析一遍；而函数**加载期**只检查了
+命令名，没有留下解析结果。
+
+```
+只解析 say            4.46 µs/条
+只执行（AST 已解析）   2.76 µs/条
+解析 + 执行           3.53 µs/条
+```
+
+另一组测量（用 `go build -overlay` 在仓库外跑的）把重复解析的代价单独量了出来：
+**646 ns + 12 次分配**，而一条命令的总成本是 1063 ns——**约 60%**。
+
+还有一处更明显的：**`RunFunction` 比 `ExecuteLine` 慢一倍以上**
+（7.49 µs vs 3.53 µs）。函数路径除了重复解析，还要过一遍命令栈。
+
+**建议**：函数**加载时**把每行解析一次并把 AST 缓存下来，运行时直接用。
+注意要**保持 1.12.2 的语义**：1.12.2 加载函数时只检查命令名，参数写错要等运行时
+才暴露——所以加载时解析**失败不要报错**，只是不缓存这一行。
+
+预估：每条命令省 0.6 µs，大函数整体快 1.6~2.5 倍。
+
+### 2. 选择器每次重建实体列表
+
+`SelectorResolver.filter` 的第一行是 `candidates := r.World.EntityList()`——
+**每次选择器都把整个实体表复制成一个新切片**（map 查找 + 分配）。
+接着结果切片又按候选数**预分配**：
+
+```
+8000 个实体：一次选择器 786 µs、131 KB 分配（即使只匹配 1 个实体）
+```
+
+分配量随实体数线性增长（100 实体 1.8 KB → 8000 实体 131 KB），
+说明预分配的容量就是候选数。
+
+**建议**：
+- World 缓存实体切片，实体增删时失效（选择器就只遍历不复制）
+- 结果切片**不要**按候选数预分配（多数选择器只匹配一两个）
+- 实体类型多的话，按类型分桶，`type=` 过滤直接在桶里做
+
+预估：8000 实体时 786 µs → 100~150 µs。
+
+### 3. `scoreboard players list` 是 O(持有者 × 目标)
+
+真服是"列出这个持有者被跟踪的目标"。gomc 的实现对**每个持有者**都遍历一遍
+**全部目标**：
+
+| 持有者 1000 × 目标数 | 耗时 | 分配 |
+|---|---|---|
+| 1 个目标 | 16.6 ms | 100052 |
+| 3 个目标 | 36.1 ms | 220061 |
+| 8 个目标 | 87.6 ms | 560072 |
+
+目标数 ×3，时间 ×2.1；×8，时间 ×5.3——**近似 quadratic**。
+不带名字的 `players list`（列出全部持有者）反而很快：11.5 ms、164 次分配。
+
+**建议**：先把"这个持有者跟踪了哪些目标"算出来一次，再遍历持有者；
+或者反过来先扫目标表建索引。目标 → O(持有者 + 目标)。
+
+预估：8 个目标时 87.6 ms → 20 ms 上下。
+
+## 看着像但其实不用管
+
+- **计分板写入的 17 次分配/条**：主要是回显字符串（`Set score of ... to ...`）。
+  真服也回显，这部分是**输出**不是计算。
+- **difftest 的快照**：一个用例 12 ms，世界再大也只是线性增长。
+- **tick 循环**：100 个 tick 18 ms，每 tick 才跑 50 条命令。
+- **`setblock` 比 `say` 贵 3 倍**（18 µs vs 3.5 µs）：贵在坐标解析和方块存储，
+  属于固有成本，不算缺陷。
+
+## 优先级
+
+| 顺序 | 做什么 | 预计收益 |
+|---|---|---|
+| 1 | 加载时缓存 AST | 每条命令省 60% 的时间 |
+| 2 | 选择器不重建实体列表 | 选择器快 5~8 倍 |
+| 3 | `players list` 去掉双重循环 | 目标多时快 4 倍 |
+
+三个都是**改动小、语义不变**的活，做完再跑一遍上面的基准就能验证。
