@@ -9,11 +9,32 @@
 
 ## [未发布]
 
+### 修复
+
+一批按 1.12.2 真实行为对齐的修正（都来自反编译源码 + 真服实测）：
+
+- **选择器**：`@a`/`@p` 忽略 `type` 参数、体积盒差一格、`r`/`rm` 是整数解析、
+  负半径取消该约束、`score_x` 与 `score_x_min` 可以并存、计分板持有者用玩家名
+  （选择器与命令写侧现在一致）。
+- **execute**：detect 的偏移只加一次（之前加了两次）、detect 的数据值必填。
+- **命令与执行模型**：`/testforblocks` 改成区域比较（之前实现成了另一个命令）、
+  `/fill` 加 32768 上限与 Y 越界检查、`/clone` 加重叠检查、函数嵌套改成入队展开
+  （调用者拿 0）、`maxCommandChainLength` 改成整条链共享的预算、函数内命令权限
+  降到 2 级。
+- **回显文案**：`players list` 的条目格式、add/remove 的回显、reset 的两种形式、
+  `scoreboard teams` 整个子树的回显、`/give` 的回显、`worldborder` 的 grow/shrink
+  与 center 的 0.5 偏移、`spawnpoint` 用目标玩家名、`gamerule` 无参数时列出全部规则、
+  `difficulty` 用翻译名、目标解析失败区分 `Selector` / `Entity` / `Player` 三种文案。
+- **语法**：`/effect`（目标在最前）、`/trigger`（模式必填）、`/particle`（速度必填，
+  之前**根本解析不了**）、`/fill`（参数位置改成 1.12.2 的）。
+- **其它**：只读目标（health/xp/level/…）不能写、`><` 交换要换源、
+  `entitydata` 改成深合并、超 int32 的数字报错而不是静默截断、
+  `gamerule` 设置不存在的规则按原版新建。
+
 ### 计划中
 
-- 选择器语义收尾：体积盒、整数半径、负半径、`score_x` 与 `score_x_min` 并存。
-- 命令回显逐条对齐语言文件（含 `scoreboard teams`、`/give` 这些目前缺回显的）。
 - 方块注册表：让写错的方块名像真服一样报错。
+- 实体 UUID：真服用 UUID 标识非玩家实体的计分板持有者（见 SPEC 第 12 节）。
 
 ## [0.1.0] - 2026-10-20
 
@@ -53,7 +74,8 @@
 - 只做 1.12.2；1.13+ 的 `execute as/at/run`、`scores={...}`、datapack 布局都不支持。
 - 不模拟实体 AI、寻路、重力、区块生成、渲染和网络协议。
 - 方块名不校验（写错方块名不会报错）。
-- 实体没有建模 UUID，计分板持有者用内部 id。
+- 实体没有建模 UUID：非玩家实体的计分板持有者用内部 id，真服用 UUID。
+  UUID 不可读，实际用选择器（`@e[type=zombie]`）指定就行，那条路是通的。
 
 [未发布]: https://github.com/mcsim/gomc/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/mcsim/gomc/releases/tag/v0.1.0

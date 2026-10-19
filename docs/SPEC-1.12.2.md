@@ -459,6 +459,46 @@ The objective '<名字>' is read-only and cannot be set
 
 `dummy`、`trigger`、`deathCount`、`playerKillCount`、`totalKillCount` 可以写。
 
+### 4.7 `teams` 子树 [读]
+
+1.12.2 的 `scoreboard teams` 用法（语言键 `commands.scoreboard.teams.*.usage`）：
+
+```
+scoreboard teams add <名字> [显示名 ...]
+scoreboard teams remove <名字>
+scoreboard teams join <队伍> [玩家 ...]
+scoreboard teams leave [玩家 ...]
+scoreboard teams empty <队伍>
+scoreboard teams list [队伍]
+scoreboard teams option <队伍> <选项> <值>
+```
+
+几条容易搞错的：
+
+- **`leave` 没有队伍参数**。它把人从**所在的所有队伍**里移出去
+  （`Scoreboard.removePlayerFromTeam`）；不在任何队伍时报
+  `Could not remove %s player(s) from their teams: %s`。
+- **`join` 不会因为人已经在别的队伍而报错**。命令层没有这个检查，
+  `Scoreboard.addPlayerToTeam` 是"先从旧队移除、再加入新队"，也就是**移动**，
+  回显是成功那条。唯一的失败是**队伍不存在**：
+  `Could not add %s player(s) to team %s: %s`。
+- **`empty` 对空队会报错**：`Team %s is already empty, cannot remove nonexistant players`
+  （原版就带着 "nonexistant" 这个拼写错误）。
+- **`option` 的选项名不合法是用法错误**，不是"取值不对"：
+  `noValue`（`Valid values for option %s are: %s`）是给**取值**不对用的。
+  合法选项：`friendlyfire` / `color` / `seeFriendlyInvisibles` /
+  `nametagVisibility` / `deathMessageVisibility` / `collisionRule`。
+- **队伍名找不到**用 `No team was found by the name '%s'`，
+  但 `join` 不用它（见上）。
+- **`list` 的两种形式的条目格式不一样**：
+  - `teams list`（全部队伍）：`Showing %s teams on the scoreboard:` +
+    每行 `- <队伍名>: '<显示名>' has <人数> players`
+  - `teams list <队伍>`：`Showing %s player(s) in team %s:` +
+    **一行纯文本**的成员名列表（不是条目格式）
+  - 同理，`players list`（不带持有者）也是 `Showing %s tracked players on
+    the scoreboard:` + **一行纯文本**；只有 `players list <持有者>` 才是
+    条目格式 `- <显示名>: <分数> (<目标名>)`。
+
 ---
 
 ## 5. gamerule
@@ -513,6 +553,38 @@ fill <x1> <y1> <z1> <x2> <y2> <z2> <方块> [<数据值>] [<模式> [<替换方�
 - `keep` —— 跳过非空的位置。
 - `hollow` —— 只填壳，内部清空成空气。
 - `outline` —— 只填壳。
+
+**只有这五个词特殊，其它词一律当 `replace`**——真服不对模式位报错。
+（真服的位置是严格按位数的：`stone replace` 在真服上会被当成"数据值"，
+而数据值只接受 0..15，所以报 "'replace' is not a state for block minecraft:stone"。
+gomc 更宽松，两种写法都收。）
+
+**第 10 位有两种身份**（真服 `CommandFill`）：放置的方块**有方块实体**时它是
+**dataTag**（NBT），否则它是**要替换的方块**。gomc 没有方块实体注册表，
+用形状判断：`{...}` 开头当 NBT，否则当方块名。
+
+**`-1` / `*`（"任意数据值"）只对第 11 位的替换数据值有效**，
+放置方块自己的数据值（第 8 位）只接受 0..15。
+
+### 6.3 `/effect`、`/trigger`、`/particle` 的参数 [读]
+
+```
+effect <玩家> <效果> [<秒数>] [<等级>] [<隐藏粒子>]  OR  effect <玩家> clear
+trigger <目标> <add|set> <值>
+particle <名称> <x> <y> <z> <dx> <dy> <dz> <速度> [<数量>] [<模式>] [<观察者>]
+```
+
+- **`/effect` 的 `<效果>` 接受 id 或注册名**（`speed` / `1` 都行），
+  错误文案仍然说 "ID"（那是语言文件里的原话）。
+  秒数默认 30、范围 0..1000000；等级默认 0、范围 0..255；
+  `隐藏粒子` 只有字面量 `true`（不分大小写）才算。
+- **1.12.2 没有"瞬间效果"的特殊分支**。`MobEffectList.isInstant()` 在 1.12.2 的
+  字节码里恒返回 false，所以时长永远是 `秒数 * 20` tick。
+  > 反编译出来的 `CommandEffect.java` 里**看着**有个 `isInstant()` 分支，
+  > 但在 1.12.2 里那是**死代码**。又一次"读"出来的印象不如字节码。
+- **`/trigger` 的 `set` 是赋值不是累加**（gomc 之前一律当加法）。
+  真服只有**创造模式**才发成功消息，gomc 一律发。
+- **`/particle` 的模式从不校验**：只有字面量 `force` 特殊，其它词当 normal。
 
 ---
 
@@ -661,6 +733,15 @@ say @a（无匹配） → Selector '@a' found nothing
   这类写法还不支持（见第 12 节）。
 - **需要玩家在线的命令**（give / effect / title / tp / tell / xp / clear / enchant /
   trigger / gamemode / spawnpoint）：真服在控制台执行时的报错文本与 gomc 不同。
+- **玩家专属命令的目标**：1.12.2 里下面这些命令的目标用
+  `CommandAbstract.b`（**EntityPlayer** 变体）解析，**只接受玩家**：
+  `give` / `gamemode` / `title` / `spawnpoint` / `tellraw` / `playsound` /
+  `stopsound` / `clear` / `trigger` / `tp`（`/teleport` 才是实体版）。
+  gomc 用的是通用的目标解析，**实体也能当目标**——方向是 gomc 更宽松：
+  真服会报 `Player '...' cannot be found`，gomc 则照做。
+  > 这条没改是有原因的：gomc 的世界里**没有"在线玩家"这个概念**，
+  > 改成"只接受玩家"会让这些命令在 gomc 里几乎永远报错，
+  > 而它们本来就没什么可操作的对象。等 gomc 建模了玩家再说。
 - **Paper 私有扩展：函数里的管理命令被静默忽略**。Paper 给
   `CommandBlockListenerAbstract.executeCommand` 打了补丁：从命令方块或
   **函数**里执行命令时走的是
@@ -691,6 +772,23 @@ say @a（无匹配） → Selector '@a' found nothing
 
 | 问题 | 现状 |
 |---|---|
-| 实体 UUID 与计分板持有者的对应 | 未建模，gomc 用内部 id 代替 |
+| 实体 UUID 与计分板持有者的对应 | 玩家用玩家名 ✓；非玩家实体用内部 id（`entity-N`），真服用 UUID |
 | 实体落地后的精确位置 | 真服有重力，gomc 不模拟（见 2.5） |
 | 函数内命令失败何时报错 | 真实服务端有的报有的不报，gomc 统一报 |
+
+### 为什么不建模实体 UUID
+
+1.12.2 里，计分板持有者的标识是：玩家用**玩家名**，非玩家实体用**实体的 UUID**
+（`Entity.bn()` 返回 `uniqueID.toString()`）。gomc 现在玩家用玩家名 ✓，
+非玩家实体用内部 id（`entity-N`）。
+
+所以 `scoreboard players set <uuid> obj 5` 这种**硬编码 UUID** 的写法在 gomc 上
+认不出来。**但实际影响很小**：UUID 不可读，mcfunction 里没人这么写，作者写的是
+选择器（`@e[type=zombie]`），那条路 gomc 是通的。
+
+补齐的代价也不低：1.12.2 的 UUID 是 `UUID.randomUUID()` **随机生成**的，
+照抄会让 difftest 的 golden 每次运行都漂；改成确定性 UUID（从实体 id 派生）
+虽然可复现，但和真服不是一回事——真服的 UUID 本来就不可预测，
+"对齐"出来的只是另一个假 UUID。
+
+**决定**：保持现状，记在这里。要用 UUID 指定非玩家实体时用选择器。

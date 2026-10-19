@@ -32,11 +32,11 @@ gomc 目前实现了 **46 条**（以专用服务器的 64 条为基准）。
 | `debug` | `/debug <start\|stop>` | 只报告状态，不产出调试报告 |
 | `defaultgamemode` | `/defaultgamemode <模式>` | |
 | `difficulty` | `/difficulty <难度>` | 全名、单字母缩写、数字 id 都接受 |
-| `effect` | `/effect <目标> <效果> [<秒数>] [<等级>] [<隐藏粒子>] OR /effect <目标> clear` | **目标在最前**；`clear` 是第二段，不是第一段 |
+| `effect` | `/effect <目标> <效果> [<秒数>] [<等级>] [<隐藏粒子>] OR /effect <目标> clear` | **目标在最前**；`clear` 是第二段，不是第一段；`<效果>` 接受 id 或注册名；秒数默认 30、范围 0..1000000，等级默认 0、范围 0..255 |
 | `enchant` | `/enchant <目标> <附魔> [<等级>]` | 等级缺省为 1 |
 | `entitydata` | `/entitydata <目标> <nbt>` | |
 | `execute` | `/execute <实体> <x> <y> <z> [detect <x2> <y2> <z2> <方块> <数据值>] <命令>` | **1.12.2 旧语法**，没有 `as`/`at`/`run` |
-| `fill` | `/fill <x1> <y1> <z1> <x2> <y2> <z2> <方块> [<数据值>] [<模式> [<替换方块> [<替换数据值>]]]` | 模式在第 9 位 |
+| `fill` | `/fill <x1> <y1> <z1> <x2> <y2> <z2> <方块> [<数据值>] [<模式> [<dataTag 或替换方块> [<替换数据值>]]]` | 模式在第 9 位；第 10 位是 NBT（放置的方块有方块实体时）**或**要替换的方块；替换数据值在第 11 位，它才支持 `-1` / `*` |
 | `function` | `/function <id> [if\|unless <目标>]` | 1.12.2 特有的条件形式 |
 | `gamemode` | `/gamemode <模式> [<目标>]` | |
 | `gamerule` | `/gamerule <规则> [<值>]` | 24 条规则，见 SPEC |
@@ -45,7 +45,7 @@ gomc 目前实现了 **46 条**（以专用服务器的 64 条为基准）。
 | `kill` | `/kill [<目标>]` | |
 | `list` | `/list` | |
 | `me` | `/me <动作>` | 消息里的选择器会被解析 |
-| `particle` | `/particle <名称> <x> <y> <z> <dx> <dy> <dz> <速度> [<数量>] [<模式>] [<观察者>]` | **速度是必填的**（源码要求至少 8 段） |
+| `particle` | `/particle <名称> <x> <y> <z> <dx> <dy> <dz> <速度> [<数量>] [<模式>] [<观察者>]` | **速度是必填的**（源码要求至少 8 段）；模式**不校验**（只有字面量 `force` 特殊，其余当 normal） |
 | `playsound` | `/playsound <音效> <声音源> <目标> [<x> <y> <z>] [<音量>] [<音调>] [<最小音量>]` | **目标在声音源之后** |
 | `reload` | `/reload` | 清空注册表后重载，坏函数只记日志 |
 | `replaceitem` | `/replaceitem <entity\|block> ...` | 实体形式：`entity <目标> <槽位> <物品> [<数量>]` |
@@ -68,7 +68,7 @@ gomc 目前实现了 **46 条**（以专用服务器的 64 条为基准）。
 | `title` | `/title <目标> <title\|subtitle\|actionbar\|clear\|reset\|times> [<参数>]` | |
 | `toggledownfall` | `/toggledownfall` | |
 | `tp` | `/tp <目标> <x> <y> <z>` | |
-| `trigger` | `/trigger <目标> <add\|set> <值>` | **模式必填**（`add` / `set`），不能省 |
+| `trigger` | `/trigger <目标> <add\|set> <值>` | **模式必填**（`add` / `set`），不能省；`set` 是**赋值**不是累加 |
 | `weather` | `/weather <clear\|rain\|thunder> [<时长>]` | 时长单位是秒 |
 | `worldborder` | `/worldborder <set\|add\|center\|damage\|warning\|get> [...]` | |
 | `xp` | `/xp <数量> [<玩家>]` | 数量带 `L`/`l` 后缀表示经验等级 |

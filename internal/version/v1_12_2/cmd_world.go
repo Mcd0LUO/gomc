@@ -124,6 +124,16 @@ func (c *setBlockCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 }
 
 // fillCmd implements `/fill`.
+//
+// The 1.12.2 syntax is `/fill <x1> <y1> <z1> <x2> <y2> <z2> <block>
+// [dataValue|state] [oldBlockHandling] [dataTag]`: the data value is the
+// eighth argument, the mode the ninth and the tenth is the data tag of
+// the block.
+//
+// The tenth argument is also where the block to replace goes in `replace`
+// mode, and the eleventh is that block's data value. 1.12.2 tells the two
+// apart by the block that is placed: a block with a tile entity takes a
+// data tag, any other block takes the block to replace.
 type fillCmd struct{}
 
 // Name implements exec.Handler.
@@ -131,7 +141,7 @@ func (c *fillCmd) Name() string { return "fill" }
 
 // Usage implements exec.Handler.
 func (c *fillCmd) Usage() string {
-	return "/fill <x1> <y1> <z1> <x2> <y2> <z2> <block> [<data>] [<fillMode>] [<replaceBlock>] [<replaceData>]"
+	return "/fill <x1> <y1> <z1> <x2> <y2> <z2> <block> [dataValue|state] [oldBlockHandling] [dataTag]"
 }
 
 // Parse implements exec.Handler.
@@ -150,7 +160,10 @@ func (c *fillCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	}
 	ref := &ast.BlockRef{Name: block, Data: -1}
 	if p.More() {
-		if t, ok := p.Peek(); ok && isDataValue(t.Text) {
+		// The data value is the eighth argument. 1.12.2 reads that slot
+		// strictly, but the mode is accepted there as well, which is the
+		// form most functions use.
+		if t, ok := p.Peek(); ok && isFillDataValue(t.Text) {
 			p.Next()
 			n, _ := strconv.Atoi(t.Text)
 			ref.Data = n
@@ -164,21 +177,28 @@ func (c *fillCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 			return nil, err
 		}
 	}
-	switch mode {
-	case "replace", "destroy", "keep", "hollow", "outline":
-	default:
-		return nil, p.Errorf("expected replace, destroy, keep, hollow or outline, got %q", mode)
-	}
+	// The tenth argument is the block to replace, or the data tag of the
+	// block that is placed. gomc has no list of blocks with a tile
+	// entity, so the shape of the argument decides.
 	replaceBlock := ""
+	replaceData := ""
+	var data *nbt.Compound
 	if p.More() {
-		replaceBlock, err = p.String()
-		if err != nil {
-			return nil, err
+		if t, ok := p.Peek(); ok && strings.HasPrefix(t.Text, "{") {
+			arg, err := p.NBT()
+			if err != nil {
+				return nil, p.Errorf("Data tag parsing failed: %s", nbtErrorMessage(err))
+			}
+			data = arg.Value
+		} else {
+			replaceBlock, err = p.String()
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	replaceData := -1
 	if p.More() {
-		replaceData, err = p.Int()
+		replaceData, err = p.String()
 		if err != nil {
 			return nil, err
 		}
@@ -191,8 +211,42 @@ func (c *fillCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 		ref,
 		&ast.StringArg{Value: mode},
 		&ast.StringArg{Value: replaceBlock},
-		&ast.IntArg{Value: replaceData},
+		&ast.StringArg{Value: replaceData},
+		&ast.NBTArg{Value: data},
 	}, nil
+}
+
+// isFillDataValue reports whether text is a block data value.
+//
+// A data value is a number, and 1.12.2 refuses the negative ones with
+// "The number you have entered (-1) is too small, it must be at least 0",
+// so they are read as a data value here as well.
+func isFillDataValue(text string) bool {
+	if text == "" {
+		return false
+	}
+	i := 0
+	if text[0] == '-' {
+		i = 1
+		if len(text) == 1 {
+			return false
+		}
+	}
+	for ; i < len(text); i++ {
+		if text[i] < '0' || text[i] > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// nbtErrorMessage returns the message of a parse error without the
+// position it carries.
+func nbtErrorMessage(err error) string {
+	if pe, ok := err.(*parser.Error); ok {
+		return pe.Msg
+	}
+	return err.Error()
 }
 
 // Run implements exec.Handler.
@@ -202,12 +256,38 @@ func (c *fillCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	ref := args[2].(*ast.BlockRef)
 	mode := args[3].(*ast.StringArg).Value
 	replaceBlock := args[4].(*ast.StringArg).Value
-	replaceData := args[5].(*ast.IntArg).Value
+	replaceData := args[5].(*ast.StringArg).Value
+	data := exec.NBTOf(args, 6)
 
-	data := ref.Data
-	if data < 0 {
-		data = 0
+	// 1.12.2 does not check the mode: every word it does not know
+	// behaves like "replace".
+	switch mode {
+	case "replace", "destroy", "keep", "hollow", "outline":
+	default:
+		mode = "replace"
 	}
+
+	blockData := ref.Data
+	if ref.HasData && blockData < 0 {
+		return 0, exec.Errorf("The number you have entered (%d) is too small, it must be at least 0", blockData)
+	}
+	if blockData < 0 {
+		blockData = 0
+	}
+	if blockData > 15 {
+		return 0, exec.Errorf("The number you have entered (%d) is too big, it must be at most 15", blockData)
+	}
+	// The data value of the block to replace may be "-1" or "*", which
+	// mean that any data value matches.
+	replaceValue := -1
+	if replaceData != "" && replaceData != "-1" && replaceData != "*" {
+		n, err := strconv.Atoi(replaceData)
+		if err != nil {
+			return 0, exec.Errorf("'%s' is not a state for block %s", replaceData, ref.Name)
+		}
+		replaceValue = n
+	}
+
 	min, max := orderCorners(from, to)
 	// 1.12.2 refuses a fill that is too big and a fill that reaches out
 	// of the world, before it changes anything.
@@ -254,12 +334,19 @@ func (c *fillCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 						if !strings.EqualFold(existing.Name, replaceBlock) {
 							continue
 						}
-						if replaceData >= 0 && existing.Data != replaceData {
+						if replaceValue >= 0 && existing.Data != replaceValue {
 							continue
 						}
 					}
 				}
-				ctx.World.Blocks.Set(pos, world.BlockState{Name: ref.Name, Data: data})
+				ctx.World.Blocks.Set(pos, world.BlockState{Name: ref.Name, Data: blockData})
+				if data != nil {
+					tag := data.Clone()
+					tag.Set("x", nbt.Int(int32(x)))
+					tag.Set("y", nbt.Int(int32(y)))
+					tag.Set("z", nbt.Int(int32(z)))
+					ctx.World.Blocks.SetTileEntity(pos, tag)
+				}
 				count++
 			}
 		}

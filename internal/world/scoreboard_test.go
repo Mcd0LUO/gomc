@@ -125,6 +125,86 @@ func TestScoreboardTeamMembership(t *testing.T) {
 	}
 }
 
+// TestScoreboardRemoveHolderFromTeam pins down the leaving of a team.
+//
+// 1.12.2's `Scoreboard.removePlayerFromTeam(String)` takes the player
+// out of the team it is on and reports whether it was on a team at all,
+// so the command can tell the two cases apart.
+func TestScoreboardRemoveHolderFromTeam(t *testing.T) {
+	sb := NewScoreboard()
+	sb.AddTeam("red")
+	sb.AddTeam("blue")
+	sb.AddTeamMember("red", "Steve")
+	sb.AddTeamMember("red", "Alex")
+
+	if !sb.RemoveHolderFromTeam("Steve") {
+		t.Error("RemoveHolderFromTeam did not report the removal")
+	}
+	if got := sb.TeamNameOf("Steve"); got != "" {
+		t.Errorf("team = %q, want an empty name", got)
+	}
+	if got := len(sb.Team("red").Members); got != 1 {
+		t.Errorf("the red team has %d members, want 1", got)
+	}
+
+	// A holder that is on no team cannot be removed from one.
+	if sb.RemoveHolderFromTeam("Steve") {
+		t.Error("RemoveHolderFromTeam reported a removal for a holder on no team")
+	}
+}
+
+// TestScoreboardTrackedPlayers pins down the list of tracked players.
+//
+// 1.12.2's `Scoreboard.getPlayers()` returns the keys of the map that
+// holds the scores, so a player is listed once no matter how many
+// objectives it has a score in.
+func TestScoreboardTrackedPlayers(t *testing.T) {
+	sb := NewScoreboard()
+	sb.AddObjective("kills", CriteriaDummy, "")
+	sb.AddObjective("deaths", CriteriaDummy, "")
+
+	if got := sb.TrackedPlayers(); len(got) != 0 {
+		t.Errorf("tracked players = %v, want none", got)
+	}
+
+	sb.SetScore("Steve", "kills", 3)
+	sb.SetScore("Steve", "deaths", 1)
+	sb.SetScore("Alex", "kills", 2)
+
+	got := sb.TrackedPlayers()
+	if len(got) != 2 || got[0] != "Alex" || got[1] != "Steve" {
+		t.Errorf("tracked players = %v, want [Alex Steve]", got)
+	}
+}
+
+// TestScoreboardTeamMemberList pins down the member list of a team.
+func TestScoreboardTeamMemberList(t *testing.T) {
+	sb := NewScoreboard()
+	sb.AddTeam("red")
+	sb.AddTeamMember("red", "Steve")
+	sb.AddTeamMember("red", "Alex")
+
+	got := sb.Team("red").MemberList()
+	if len(got) != 2 || got[0] != "Alex" || got[1] != "Steve" {
+		t.Errorf("members = %v, want [Alex Steve]", got)
+	}
+}
+
+// TestScoreboardAddTeamMemberNeedsATeam pins down the joining of a team.
+//
+// 1.12.2's `Scoreboard.addPlayerToTeam` answers false when the team
+// does not exist, and that is the only way the join command can fail.
+func TestScoreboardAddTeamMemberNeedsATeam(t *testing.T) {
+	sb := NewScoreboard()
+	if sb.AddTeamMember("nosuchteam", "Steve") {
+		t.Error("AddTeamMember reported a join into a team that does not exist")
+	}
+	sb.AddTeam("red")
+	if !sb.AddTeamMember("red", "Steve") {
+		t.Error("AddTeamMember did not report the join")
+	}
+}
+
 func TestGameruleDefaults(t *testing.T) {
 	r := NewGameRules()
 	if got := r.Int("maxCommandChainLength"); got != 65536 {

@@ -109,9 +109,14 @@ func parsePlayersAction(p *parser.Parser, action string) ([]ast.Arg, error) {
 			&ast.StringArg{Value: trigger},
 		}, nil
 	case "list":
-		holder, err := parseScoreHolder(p)
+		// `scoreboard players list [name]`: without a name 1.12.2
+		// lists every player the scoreboard tracks.
+		holder, err := parseOptionalScoreHolder(p)
 		if err != nil {
 			return nil, err
+		}
+		if p.More() {
+			return nil, usageError(p, "scoreboard players list", "expected at most one player name")
 		}
 		return []ast.Arg{
 			&ast.StringArg{Value: "players"},
@@ -330,6 +335,18 @@ func runPlayers(ctx *exec.Context, args []ast.Arg) (int, error) {
 		}
 		return len(holders), nil
 	case "list":
+		if s, ok := args[2].(*ast.StringArg); ok && s.Value == "" {
+			// Without a name 1.12.2 lists every player the
+			// scoreboard tracks, as one line of names.
+			players := sb.TrackedPlayers()
+			if len(players) == 0 {
+				return 0, exec.Errorf("There are no tracked players on the scoreboard")
+			}
+			ctx.Engine.Feedback = append(ctx.Engine.Feedback,
+				fmt.Sprintf("Showing %d tracked players on the scoreboard:", len(players)))
+			ctx.Engine.Feedback = append(ctx.Engine.Feedback, joinVanillaList(players))
+			return 1, nil
+		}
 		holders, err := resolveHolders(ctx, args[2])
 		if err != nil {
 			return 0, err
@@ -344,6 +361,10 @@ func runPlayers(ctx *exec.Context, args []ast.Arg) (int, error) {
 				if _, ok := sb.Score(h, o.Name); ok {
 					tracked++
 				}
+			}
+			if tracked == 0 {
+				// A player without a score has no listing at all.
+				return 0, exec.Errorf("Player %s has no scores recorded", h)
 			}
 			ctx.Engine.Feedback = append(ctx.Engine.Feedback,
 				fmt.Sprintf("Showing %d tracked objective(s) for %s:", tracked, h))

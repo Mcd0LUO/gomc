@@ -105,16 +105,43 @@ go test ./internal/... -timeout 20s -p 2
 >
 > 还有一条捷径值得记住：1.12.2 的**提示文字全在语言文件里**
 > （`assets/minecraft/lang/en_US.lang`，在服务端 jar 里）。要文案不必起服，
-> 直接读那个文件：
+> 见下面的脚本。
+
+## 对齐一条命令的语法：语言文件给用法，源码给顺序
+
+语言文件里有两个东西很容易搞混：
+
+- `commands.<命令>.usage` —— **用法**（参数叫什么、哪些必填）
+- `commands.<命令>.<动作>.success` —— **回显文案模板**（带 `%s`）
+
+**但 `%s` 的顺序不在语言文件里，在源码里。** 模板写
+`Set score of %s for player %s to %s`，源码传的却是
+`{目标名, 玩家名, 分数}`——顺序不对就全错，而且**错得很隐蔽**：
+显示名和目标名相同时（`- p2: 5 (p2)`）看不出来，
+用显示名不同时（`- MyCounter: 20 (counter)`）才暴露。
+
+> 这一条栽过跟头：曾经只对着语言文件猜 `%s` 顺序，把
+> `players list` 的条目写成 `- <目标>: <分数> (<类型>)`，
+> 真服其实是 `- <显示名>: <分数> (<目标名>)`；
+> 更糟的是把 `players add` / `teams` 全部子命令 / `give`
+> 写成了"没有回显"，而真服**都有**——然后这些错误被录进了
+> SPEC 和 golden，把错误**固化成了基准**。
 >
-> ```powershell
-> # 读出某个键的原文
-> Add-Type -AssemblyName System.IO.Compression.FileSystem
-> $zip = [System.IO.Compression.ZipFile]::OpenRead('D:\game\McServer\1.12.2\cache\patched_1.12.2.jar')
-> $e = $zip.Entries | Where-Object { $_.FullName -eq 'assets/minecraft/lang/en_US.lang' }
-> $sr = New-Object System.IO.StreamReader($e.Open()); $txt = $sr.ReadToEnd(); $sr.Close(); $zip.Dispose()
-> ($txt -split "`r?`n") | Where-Object { $_ -match '^commands\.scoreboard\.' }
-> ```
+> **规矩**：每条回显文案，都要能在源码里找到那个 `sendMessage`
+> 或 `new ChatMessage(...)`，把传参顺序抄下来再写。
+
+读语言文件的脚本：
+
+```powershell
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$zip = [System.IO.Compression.ZipFile]::OpenRead('D:\game\McServer\1.12.2\cache\patched_1.12.2.jar')
+$e = $zip.Entries | Where-Object { $_.FullName -eq 'assets/minecraft/lang/en_US.lang' }
+$sr = New-Object System.IO.StreamReader($e.Open()); $txt = $sr.ReadToEnd(); $sr.Close(); $zip.Dispose()
+($txt -split "`r?`n") | Where-Object { $_ -match '^commands\.scoreboard\.' }
+```
+
+要确认**参数顺序**，就看 `.ref/src/Command<名字>.java` 里那个
+`new ChatMessage("commands.xxx", 参数1, 参数2, ...)`。
 
 参考资源在本机：
 

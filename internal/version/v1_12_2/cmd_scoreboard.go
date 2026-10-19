@@ -1,6 +1,7 @@
 package v1_12_2
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/mcsim/gomc/internal/ast"
@@ -98,6 +99,73 @@ func resolveHolders(ctx *exec.Context, arg ast.Arg) ([]string, error) {
 		return out, nil
 	}
 	return nil, exec.Errorf("invalid score holder")
+}
+
+// parseOptionalScoreHolder parses a score holder that may be left out.
+//
+// The absence is kept in the argument list as an empty name, because
+// 1.12.2 reads the argument count to tell the two cases apart.
+func parseOptionalScoreHolder(p *parser.Parser) (ast.Arg, error) {
+	if !p.More() {
+		return &ast.StringArg{Value: ""}, nil
+	}
+	return parseScoreHolder(p)
+}
+
+// parseScoreHolders parses the players of `scoreboard teams join` and
+// `scoreboard teams leave`.
+//
+// 1.12.2 takes one player or more, and the executor itself when none is
+// named.
+func parseScoreHolders(p *parser.Parser) ([]ast.Arg, error) {
+	var out []ast.Arg
+	for p.More() {
+		holder, err := parseScoreHolder(p)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, holder)
+	}
+	return out, nil
+}
+
+// resolveTeamHolders resolves the players of `scoreboard teams join` and
+// `scoreboard teams leave`.
+//
+// 1.12.2 leaves the player out of the command when the executor is the
+// player itself, but only a player may be the executor in that case: a
+// console has to name somebody. The check cannot happen while parsing,
+// because the executor is only known when the command runs.
+func resolveTeamHolders(ctx *exec.Context, args []ast.Arg, usageKey string) ([]string, error) {
+	if len(args) == 0 {
+		if ctx.Source.Entity == nil || !ctx.Source.Entity.IsPlayer {
+			return nil, usageErrorf(usageKey)
+		}
+		return []string{exec.ScoreboardHolder(ctx.Source.Entity)}, nil
+	}
+	var out []string
+	for _, arg := range args {
+		holders, err := resolveHolders(ctx, arg)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, holders...)
+	}
+	return out, nil
+}
+
+// usageErrorf builds the error 1.12.2 answers a usage mistake with.
+//
+// The server sends `commands.generic.usage` with the usage line of the
+// command, so the message is "Usage: <the line>". It is used where the
+// mistake can only be seen when the command runs, because it depends on
+// who is running it.
+func usageErrorf(key string) error {
+	usage := commandUsage(key)
+	if usage == "" {
+		return exec.Errorf("Usage: %s", key)
+	}
+	return &exec.Error{Msg: fmt.Sprintf(commandUsage("generic"), usage)}
 }
 
 // isTagAction reports whether the scoreboard command being run is

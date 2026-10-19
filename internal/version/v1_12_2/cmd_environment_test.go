@@ -341,7 +341,9 @@ func TestScoreboardTeamsFeedback(t *testing.T) {
 	if len(got) != 2 || got[1] != want {
 		t.Errorf("list said %q, want %q", got, want)
 	}
-	got, err = runLineFeedback(e, "scoreboard teams leave red Steve")
+	// 1.12.2's `teams leave` takes only the player: it takes them out of
+	// whichever team they are on.
+	got, err = runLineFeedback(e, "scoreboard teams leave Steve")
 	if err != nil {
 		t.Fatalf("scoreboard teams leave: %v", err)
 	}
@@ -349,13 +351,14 @@ func TestScoreboardTeamsFeedback(t *testing.T) {
 	if len(got) != 1 || got[0] != want {
 		t.Errorf("leave said %q, want %q", got, want)
 	}
-	got, err = runLineFeedback(e, "scoreboard teams empty red")
-	if err != nil {
-		t.Fatalf("scoreboard teams empty: %v", err)
+	// The team is empty now, and emptying an empty team is an error.
+	_, err = runLineFeedback(e, "scoreboard teams empty red")
+	if err == nil {
+		t.Fatal("expected an error for an already empty team")
 	}
-	want = "Removed all 0 player(s) from team red"
-	if len(got) != 1 || got[0] != want {
-		t.Errorf("empty said %q, want %q", got, want)
+	want = "Team red is already empty, cannot remove nonexistant players"
+	if err.Error() != want {
+		t.Errorf("empty said %q, want %q", err.Error(), want)
 	}
 	got, err = runLineFeedback(e, "scoreboard teams remove red")
 	if err != nil {

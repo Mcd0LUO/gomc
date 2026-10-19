@@ -155,6 +155,26 @@ func (s *Scoreboard) ResetScore(holder, objective string) {
 	}
 }
 
+// TrackedPlayers returns the holders that have at least one score, sorted.
+//
+// 1.12.2's `Scoreboard.getPlayers()` returns the keys of the map that
+// holds the scores, so a holder is listed once no matter how many
+// objectives it has a score in.
+func (s *Scoreboard) TrackedPlayers() []string {
+	seen := map[string]bool{}
+	for _, m := range s.scores {
+		for h := range m {
+			seen[h] = true
+		}
+	}
+	out := make([]string, 0, len(seen))
+	for h := range seen {
+		out = append(out, h)
+	}
+	sort.Strings(out)
+	return out
+}
+
 // Holders returns the holders tracked by an objective, sorted.
 func (s *Scoreboard) Holders(objective string) []string {
 	m := s.scores[objective]
@@ -346,4 +366,29 @@ func (s *Scoreboard) RemoveTeamMember(team, holder string) bool {
 	}
 	delete(t.Members, holder)
 	return true
+}
+
+// RemoveHolderFromTeam removes a holder from the team it is on.
+//
+// It reports whether the holder was on a team at all, which is what
+// 1.12.2's `Scoreboard.removePlayerFromTeam(String)` reports: a holder
+// that is on no team cannot be removed from one, so the command that
+// calls it can tell the player apart from the failure.
+func (s *Scoreboard) RemoveHolderFromTeam(holder string) bool {
+	t := s.TeamOf(holder)
+	if t == nil {
+		return false
+	}
+	delete(t.Members, holder)
+	return true
+}
+
+// MemberList returns the names of the team members, sorted.
+func (t *Team) MemberList() []string {
+	out := make([]string, 0, len(t.Members))
+	for m := range t.Members {
+		out = append(out, m)
+	}
+	sort.Strings(out)
+	return out
 }

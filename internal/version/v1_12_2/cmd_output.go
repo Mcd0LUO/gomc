@@ -2,6 +2,7 @@ package v1_12_2
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/mcsim/gomc/internal/ast"
@@ -275,8 +276,9 @@ func validSoundCategory(name string) bool {
 
 // particleCmd implements `/particle`.
 //
-// The 1.12.2 syntax is `particle <name> <x> <y> <z> <dx> <dy> <dz>
-// [<speed>] [<count>] [<force|normal>] [<viewers>]`.
+// The 1.12.2 syntax is `/particle <name> <x> <y> <z> <xd> <yd> <zd>
+// <speed> [count] [mode] [player] [params]`: the speed is required, it
+// is the eighth argument.
 type particleCmd struct{}
 
 // Name implements exec.Handler.
@@ -284,7 +286,7 @@ func (c *particleCmd) Name() string { return "particle" }
 
 // Usage implements exec.Handler.
 func (c *particleCmd) Usage() string {
-	return "/particle <name> <x> <y> <z> <dx> <dy> <dz> [<speed>] [<count>] [<force|normal>] [<viewers>]"
+	return "/particle <name> <x> <y> <z> <xd> <yd> <zd> <speed> [count] [mode] [player] [params]"
 }
 
 // Parse implements exec.Handler.
@@ -293,16 +295,14 @@ func (c *particleCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	if err != nil {
 		return nil, err
 	}
-	coords := make([]*ast.Coord, 0, 3)
-	for i := 0; i < 3; i++ {
-		pos, err := p.Coord(ast.Coord{})
-		if err != nil {
-			return nil, err
-		}
-		coords = append(coords, &ast.Coord{
-			X: pos.X, Y: pos.Y, Z: pos.Z,
-			RelativeX: pos.RelativeX, RelativeY: pos.RelativeY, RelativeZ: pos.RelativeZ,
-		})
+	// The position is one triple of coordinates.
+	pos, err := p.Coord(ast.Coord{})
+	if err != nil {
+		return nil, err
+	}
+	coords := &ast.Coord{
+		X: pos.X, Y: pos.Y, Z: pos.Z,
+		RelativeX: pos.RelativeX, RelativeY: pos.RelativeY, RelativeZ: pos.RelativeZ,
 	}
 	spread := make([]*ast.FloatArg, 0, 3)
 	for i := 0; i < 3; i++ {
@@ -312,15 +312,12 @@ func (c *particleCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 		}
 		spread = append(spread, &ast.FloatArg{Value: v})
 	}
-	speed := 0.0
-	if p.More() {
-		v, err := p.Float()
-		if err != nil {
-			return nil, err
-		}
-		speed = v
+	// The speed is the eighth argument and 1.12.2 insists on it.
+	speed, err := p.Float()
+	if err != nil {
+		return nil, err
 	}
-	count := 1
+	count := 0
 	if p.More() {
 		n, err := p.Int()
 		if err != nil {
@@ -334,30 +331,152 @@ func (c *particleCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 		if err != nil {
 			return nil, err
 		}
-		mode = strings.ToLower(m)
+		if strings.EqualFold(m, "force") {
+			mode = "force"
+		}
 	}
-	switch mode {
-	case "normal", "force":
-	default:
-		return nil, p.Errorf("expected normal or force, got %q", mode)
+	// The viewer is optional.
+	viewer := ast.Arg(&ast.StringArg{Value: ""})
+	if p.More() {
+		viewer, err = parseEntityTarget(p)
+		if err != nil {
+			return nil, err
+		}
+	}
+	// The particle parameters are read at run time, because how many
+	// there are depends on the particle itself.
+	params := &ast.ListArg{}
+	for p.More() {
+		t, _ := p.Next()
+		params.Items = append(params.Items, &ast.StringArg{Value: t.Text})
 	}
 	return []ast.Arg{
 		&ast.StringArg{Value: name},
-		coords[0], coords[1], coords[2],
+		coords,
 		spread[0], spread[1], spread[2],
 		&ast.FloatArg{Value: speed},
 		&ast.IntArg{Value: count},
 		&ast.StringArg{Value: mode},
+		viewer,
+		params,
 	}, nil
 }
 
 // Run implements exec.Handler.
 func (c *particleCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	name := args[0].(*ast.StringArg).Value
-	count := args[9].(*ast.IntArg).Value
+	count := args[6].(*ast.IntArg).Value
+	params, ok := lookupParticle(name)
+	if !ok {
+		return 0, exec.Errorf("Unknown effect name (%s)", name)
+	}
+	if count < 0 {
+		return 0, exec.Errorf("The number you have entered (%d) is too small, it must be at least 0", count)
+	}
+	// The viewer, when there is one, has to exist.
+	if viewer := particleViewer(args[8]); viewer != nil {
+		if _, err := resolveEntityTargets(ctx, viewer); err != nil {
+			return 0, err
+		}
+	}
+	// Only as many parameters as the particle takes are read, and they
+	// have to be numbers.
+	list := args[9].(*ast.ListArg)
+	for i := 0; i < params && i < len(list.Items); i++ {
+		raw := list.Items[i].(*ast.StringArg).Value
+		if _, err := strconv.Atoi(raw); err != nil {
+			return 0, exec.Errorf("Invalid param given (%s)", raw)
+		}
+	}
+	// 1.12.2 reports at least one effect, even when no count was given.
+	times := count
+	if times < 1 {
+		times = 1
+	}
 	ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-		fmt.Sprintf("Playing effect %s for %d times", name, count))
-	return count, nil
+		fmt.Sprintf("Playing effect %s for %d times", name, times))
+	return times, nil
+}
+
+// particleViewer returns the viewer argument of `/particle`, or nil when
+// the command did not name one.
+func particleViewer(arg ast.Arg) ast.Arg {
+	switch v := arg.(type) {
+	case *ast.StringArg:
+		if v.Value == "" {
+			return nil
+		}
+	case *ast.Selector:
+		if v.Raw == "" {
+			return nil
+		}
+	}
+	return arg
+}
+
+// particles holds the 1.12.2 particle names and the number of parameters
+// each of them takes.
+//
+// The names come from the 1.12.2 server's `EnumParticle` registry. The
+// parameter count is the number of extra numbers the particle needs: the
+// block id for the block particles and the block id plus the damage for
+// the item particles.
+var particles = map[string]int{
+	"explode":          0,
+	"largeexplode":     0,
+	"hugeexplosion":    0,
+	"fireworksSpark":   0,
+	"bubble":           0,
+	"splash":           0,
+	"wake":             0,
+	"suspended":        0,
+	"depthsuspend":     0,
+	"crit":             0,
+	"magicCrit":        0,
+	"smoke":            0,
+	"largesmoke":       0,
+	"spell":            0,
+	"instantSpell":     0,
+	"mobSpell":         0,
+	"mobSpellAmbient":  0,
+	"witchMagic":       0,
+	"dripWater":        0,
+	"dripLava":         0,
+	"angryVillager":    0,
+	"happyVillager":    0,
+	"townaura":         0,
+	"note":             0,
+	"portal":           0,
+	"enchantmenttable": 0,
+	"flame":            0,
+	"lava":             0,
+	"footstep":         0,
+	"cloud":            0,
+	"reddust":          0,
+	"snowballpoof":     0,
+	"snowshovel":       0,
+	"slime":            0,
+	"heart":            0,
+	"barrier":          0,
+	"iconcrack":        2,
+	"blockcrack":       1,
+	"blockdust":        1,
+	"droplet":          0,
+	"take":             0,
+	"mobappearance":    0,
+	"dragonbreath":     0,
+	"endRod":           0,
+	"damageIndicator":  0,
+	"sweepAttack":      0,
+	"fallingdust":      1,
+	"totem":            0,
+	"spit":             0,
+}
+
+// lookupParticle returns how many parameters a particle takes.
+func lookupParticle(name string) (int, bool) {
+	n, ok := particles[name]
+	return n, ok
 }
 
 // meCmd implements `/me`.
