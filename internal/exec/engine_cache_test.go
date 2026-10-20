@@ -6,11 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mcsim/gomc/internal/ast"
-	"github.com/mcsim/gomc/internal/exec"
-	"github.com/mcsim/gomc/internal/parser"
-	"github.com/mcsim/gomc/internal/version/v1_12_2"
-	"github.com/mcsim/gomc/internal/world"
+	"github.com/Mcd0LUO/gomc/internal/ast"
+	"github.com/Mcd0LUO/gomc/internal/exec"
+	"github.com/Mcd0LUO/gomc/internal/parser"
+	"github.com/Mcd0LUO/gomc/internal/version/v1_12_2"
+	"github.com/Mcd0LUO/gomc/internal/world"
 )
 
 // The tests in this file cover the cache of parsed function commands.

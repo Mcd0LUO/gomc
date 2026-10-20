@@ -8,7 +8,7 @@ package main
 import (
 	"os"
 
-	"github.com/mcsim/gomc/internal/cli"
+	"github.com/Mcd0LUO/gomc/internal/cli"
 )
 
 func main() {

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/mcsim/gomc/internal/ast"
-	"github.com/mcsim/gomc/internal/exec"
-	"github.com/mcsim/gomc/internal/parser"
+	"github.com/Mcd0LUO/gomc/internal/ast"
+	"github.com/Mcd0LUO/gomc/internal/exec"
+	"github.com/Mcd0LUO/gomc/internal/parser"
 )
 
 // timeCmd implements `/time`.

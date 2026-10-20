@@ -3,8 +3,8 @@ package v1_12_2
 import (
 	"testing"
 
-	"github.com/mcsim/gomc/internal/nbt"
-	"github.com/mcsim/gomc/internal/world"
+	"github.com/Mcd0LUO/gomc/internal/nbt"
+	"github.com/Mcd0LUO/gomc/internal/world"
 )
 
 func TestGiveAndClear(t *testing.T) {

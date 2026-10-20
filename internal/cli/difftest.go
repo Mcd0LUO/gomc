@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/mcsim/gomc/internal/difftest"
+	"github.com/Mcd0LUO/gomc/internal/difftest"
 )
 
 // runDifftest dispatches the difftest subcommands.

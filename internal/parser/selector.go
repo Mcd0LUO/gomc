@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/mcsim/gomc/internal/ast"
+	"github.com/Mcd0LUO/gomc/internal/ast"
 )
 
 // Selector argument names supported by 1.12.2.

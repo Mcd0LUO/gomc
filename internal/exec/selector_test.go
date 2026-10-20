@@ -3,9 +3,9 @@ package exec
 import (
 	"testing"
 
-	"github.com/mcsim/gomc/internal/nbt"
-	"github.com/mcsim/gomc/internal/parser"
-	"github.com/mcsim/gomc/internal/world"
+	"github.com/Mcd0LUO/gomc/internal/nbt"
+	"github.com/Mcd0LUO/gomc/internal/parser"
+	"github.com/Mcd0LUO/gomc/internal/world"
 )
 
 // testWorld builds a world with a handful of entities to filter against.

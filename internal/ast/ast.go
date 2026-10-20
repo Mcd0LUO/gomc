@@ -5,7 +5,7 @@
 // version-specific parsing rules live in the version packages.
 package ast
 
-import "github.com/mcsim/gomc/internal/nbt"
+import "github.com/Mcd0LUO/gomc/internal/nbt"
 
 // Node is any AST node.
 type Node interface {

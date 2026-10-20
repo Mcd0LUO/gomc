@@ -3,9 +3,9 @@ package v1_12_2
 import (
 	"strings"
 
-	"github.com/mcsim/gomc/internal/exec"
-	"github.com/mcsim/gomc/internal/parser"
-	"github.com/mcsim/gomc/internal/world"
+	"github.com/Mcd0LUO/gomc/internal/exec"
+	"github.com/Mcd0LUO/gomc/internal/parser"
+	"github.com/Mcd0LUO/gomc/internal/world"
 )
 
 // expandMessage replaces the selectors in a message with the names of the

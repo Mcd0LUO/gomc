@@ -10,9 +10,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/mcsim/gomc/internal/ast"
-	"github.com/mcsim/gomc/internal/lexer"
-	"github.com/mcsim/gomc/internal/nbt"
+	"github.com/Mcd0LUO/gomc/internal/ast"
+	"github.com/Mcd0LUO/gomc/internal/lexer"
+	"github.com/Mcd0LUO/gomc/internal/nbt"
 )
 
 // Kind classifies a parse error.

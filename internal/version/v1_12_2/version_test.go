@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mcsim/gomc/internal/ast"
-	"github.com/mcsim/gomc/internal/exec"
-	"github.com/mcsim/gomc/internal/parser"
-	"github.com/mcsim/gomc/internal/world"
+	"github.com/Mcd0LUO/gomc/internal/ast"
+	"github.com/Mcd0LUO/gomc/internal/exec"
+	"github.com/Mcd0LUO/gomc/internal/parser"
+	"github.com/Mcd0LUO/gomc/internal/world"
 )
 
 // newTestEngine builds an engine with the 1.12.2 command set.

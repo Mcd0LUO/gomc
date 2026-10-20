@@ -4,9 +4,9 @@
 // exactly which source it was built from:
 //
 //	go build -ldflags "\
-//	  -X github.com/mcsim/gomc/internal/buildinfo.Version=v0.1.0 \
-//	  -X github.com/mcsim/gomc/internal/buildinfo.Commit=$(git rev-parse --short HEAD) \
-//	  -X github.com/mcsim/gomc/internal/buildinfo.Date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+//	  -X github.com/Mcd0LUO/gomc/internal/buildinfo.Version=v0.1.0 \
+//	  -X github.com/Mcd0LUO/gomc/internal/buildinfo.Commit=$(git rev-parse --short HEAD) \
+//	  -X github.com/Mcd0LUO/gomc/internal/buildinfo.Date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
 //	  -o gomc.exe ./cmd/gomc
 //
 // The defaults describe a build straight from the working tree.

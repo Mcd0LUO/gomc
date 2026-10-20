@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mcsim/gomc/internal/nbt"
+	"github.com/Mcd0LUO/gomc/internal/nbt"
 )
 
 // Pos is a block position.

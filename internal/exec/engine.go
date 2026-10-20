@@ -6,10 +6,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/mcsim/gomc/internal/ast"
-	"github.com/mcsim/gomc/internal/lexer"
-	"github.com/mcsim/gomc/internal/parser"
-	"github.com/mcsim/gomc/internal/world"
+	"github.com/Mcd0LUO/gomc/internal/ast"
+	"github.com/Mcd0LUO/gomc/internal/lexer"
+	"github.com/Mcd0LUO/gomc/internal/parser"
+	"github.com/Mcd0LUO/gomc/internal/world"
 )
 
 // Function is a loaded mcfunction.

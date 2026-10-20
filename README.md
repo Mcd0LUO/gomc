@@ -129,6 +129,12 @@ D:\game\McServer\1.12.2\cache\patched_1.12.2.jar
 
 ## 快速开始
 
+```
+go install github.com/Mcd0LUO/gomc/cmd/gomc@latest
+```
+
+或者从源码构建：
+
 ```powershell
 go build -o gomc.exe ./cmd/gomc
 
@@ -313,3 +319,8 @@ lexer 里有一个专门防死循环的回归测试（`TestTokenizeOffsetsAdvanc
   mcfunction 没有意义。
 - 1.12.2 **没有独立的 `/tag` 命令**（这一点是跑真实服务端验证出来的），
   实体标签用 `scoreboard players tag <target> <add|remove|list> [tag]` 管理。
+
+## 许可证
+
+[MIT](LICENSE)。本仓库只包含本项目自己的代码；反编译出来的 Mojang 代码和服务端
+jar 都在 `.ref/` 下，**不入库**（见 `.gitignore`）。

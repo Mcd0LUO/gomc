@@ -16,9 +16,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/mcsim/gomc/internal/exec"
-	"github.com/mcsim/gomc/internal/parser"
-	"github.com/mcsim/gomc/internal/world"
+	"github.com/Mcd0LUO/gomc/internal/exec"
+	"github.com/Mcd0LUO/gomc/internal/parser"
+	"github.com/Mcd0LUO/gomc/internal/world"
 )
 
 // perfEntities is the number of entities the selector benchmarks walk.

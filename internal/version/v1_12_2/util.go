@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/mcsim/gomc/internal/parser"
+	"github.com/Mcd0LUO/gomc/internal/parser"
 )
 
 // parseIntSafe parses a decimal integer, reporting a friendly error.

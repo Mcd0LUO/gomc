@@ -113,5 +113,5 @@
 - 实体没有建模 UUID：非玩家实体的计分板持有者用内部 id，真服用 UUID。
   UUID 不可读，实际用选择器（`@e[type=zombie]`）指定就行，那条路是通的。
 
-[未发布]: https://github.com/mcsim/gomc/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/mcsim/gomc/releases/tag/v0.1.0
+[未发布]: https://github.com/Mcd0LUO/gomc/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/Mcd0LUO/gomc/releases/tag/v0.1.0

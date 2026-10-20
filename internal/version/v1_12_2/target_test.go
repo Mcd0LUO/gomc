@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mcsim/gomc/internal/exec"
-	"github.com/mcsim/gomc/internal/nbt"
-	"github.com/mcsim/gomc/internal/world"
+	"github.com/Mcd0LUO/gomc/internal/exec"
+	"github.com/Mcd0LUO/gomc/internal/nbt"
+	"github.com/Mcd0LUO/gomc/internal/world"
 )
 
 // testSource is the source the commands of the tests run as.

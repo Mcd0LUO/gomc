@@ -1,6 +1,6 @@
 package v1_12_2
 
-import "github.com/mcsim/gomc/internal/parser"
+import "github.com/Mcd0LUO/gomc/internal/parser"
 
 // commandUsages holds the usage line 1.12.2 prints for a command.
 //

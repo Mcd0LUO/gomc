@@ -15,7 +15,7 @@
 //     `gameLoopFunction` game rule.
 package v1_12_2
 
-import "github.com/mcsim/gomc/internal/exec"
+import "github.com/Mcd0LUO/gomc/internal/exec"
 
 // Register adds every 1.12.2 command to the registry.
 func Register(reg *exec.Registry) {

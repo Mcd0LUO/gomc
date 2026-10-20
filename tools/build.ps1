@@ -52,9 +52,9 @@ try {
 	$date = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
 
 	$ldflags = @(
-		"-X github.com/mcsim/gomc/internal/buildinfo.Version=$Version",
-		"-X github.com/mcsim/gomc/internal/buildinfo.Commit=$commit",
-		"-X github.com/mcsim/gomc/internal/buildinfo.Date=$date"
+		"-X github.com/Mcd0LUO/gomc/internal/buildinfo.Version=$Version",
+		"-X github.com/Mcd0LUO/gomc/internal/buildinfo.Commit=$commit",
+		"-X github.com/Mcd0LUO/gomc/internal/buildinfo.Date=$date"
 	) -join ' '
 
 	go build -ldflags $ldflags -o $Output ./cmd/gomc

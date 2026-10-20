@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mcsim/gomc/internal/exec"
-	"github.com/mcsim/gomc/internal/parser"
+	"github.com/Mcd0LUO/gomc/internal/exec"
+	"github.com/Mcd0LUO/gomc/internal/parser"
 )
 
 func TestReportErrorShowsTheContext(t *testing.T) {

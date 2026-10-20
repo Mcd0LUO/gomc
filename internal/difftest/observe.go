@@ -5,9 +5,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/mcsim/gomc/internal/exec"
-	"github.com/mcsim/gomc/internal/version/v1_12_2"
-	"github.com/mcsim/gomc/internal/world"
+	"github.com/Mcd0LUO/gomc/internal/exec"
+	"github.com/Mcd0LUO/gomc/internal/version/v1_12_2"
+	"github.com/Mcd0LUO/gomc/internal/world"
 )
 
 // Scope selects how much of an observation is rendered.
