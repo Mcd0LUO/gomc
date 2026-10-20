@@ -99,6 +99,9 @@ func (c *executeCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 		if err != nil {
 			return nil, err
 		}
+		if err := checkBlockName(p, block); err != nil {
+			return nil, err
+		}
 		a.detectBlock = block
 		// The data value is required in 1.12.2: the detect block is five
 		// arguments, the last one the data value. A value of -1 means

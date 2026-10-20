@@ -60,6 +60,12 @@
   物品命名实体的，而服务端语言文件里没有那个键，所以真服直接打印键本身：
   钻石剑是 `item.item.swordDiamond`、石头是 `item.tile.stone.stone`、铁砧是
   `item.tile.anvil.intact`。gomc 之前只显示实体类型的名字（`Item`）。
+- **方块注册表**（新，`internal/world/blockregistry.go`）：1.12.2 的 **254 个
+  方块名**（`Block` 类注册旧命名、`Blocks` 类注册 1.12 命名，两套都认）。
+  名字写错现在会报真服那句 `There is no such block with name minecraft:<名字>`
+  （命名空间和大小写按 `MinecraftKey` 规范化）。变种（`granite`、`white_wool`）
+  是数据值不是方块名，仍会报错。校验放在解析期——和真服一样，函数照常加载，
+  错误在运行到那条命令时才出现。
 - **`scoreboard players tag list` 的标题**用计分板持有者名（玩家是用户名），
   不是实体 id；**没有 tag 的实体不打标题**（真服 `CommandScoreboard.java:735`），
   命令报的计数是 tag 的个数而不是实体数。tag 列表的连接符也跟真服一样。

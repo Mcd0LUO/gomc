@@ -31,6 +31,9 @@ func (c *setBlockCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := checkBlockName(p, block); err != nil {
+		return nil, err
+	}
 	ref := &ast.BlockRef{Name: block, Data: -1}
 	if p.More() {
 		// The next argument is either a data value or a replace mode.
@@ -158,6 +161,9 @@ func (c *fillCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := checkBlockName(p, block); err != nil {
+		return nil, err
+	}
 	ref := &ast.BlockRef{Name: block, Data: -1}
 	if p.More() {
 		// The data value is the eighth argument. 1.12.2 reads that slot
@@ -193,6 +199,9 @@ func (c *fillCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 		} else {
 			replaceBlock, err = p.String()
 			if err != nil {
+				return nil, err
+			}
+			if err := checkBlockName(p, replaceBlock); err != nil {
 				return nil, err
 			}
 		}
@@ -435,6 +444,9 @@ func (c *testForBlockCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	}
 	block, err := p.String()
 	if err != nil {
+		return nil, err
+	}
+	if err := checkBlockName(p, block); err != nil {
 		return nil, err
 	}
 	ref := &ast.BlockRef{Name: block, Data: -1}

@@ -643,6 +643,36 @@ spectatorsGenerateChunks  true      spawnRadius                10
 
 ## 6. 方块
 
+### 6.0 方块的注册名 [验]
+
+1.12.2 的方块注册名有 **254** 个（**不是** 390——390 是 `blockstates.json` 的
+条目数，把变种也算进去了）。名字写错会报：
+
+```
+There is no such block with name minecraft:<名字>
+```
+
+名字按 `MinecraftKey` 解析：转小写，冒号只有在**不是第 1 位也不是第 2 位**时
+才是命名空间分隔符，而注册表里只有 `minecraft` 这一个命名空间。所以
+
+- `stone`、`minecraft:stone`、`:stone`、`a:stone` 都是同一个方块 ✓
+- `foo:stone` 是别的命名空间，报 `There is no such block with name foo:stone`
+- `stone:1` 是命名空间 `stone` 的键 `1`，报 `There is no such block with name stone:1`
+- 数字形式（`setblock 0 4 0 1`）不行，报 `There is no such block with name minecraft:1`
+
+**1.12.2 同时保留两套命名**：旧版的（`stonebrick`、`planks`、`log`）和 1.12 的
+（`cobblestone`、`stone`），两套都认。
+
+**变种不是独立的方块**：`granite`、`polished_granite`、`white_wool` 这些是方块的
+**数据值**，不是方块注册名，写进去会报"没有这个方块"。
+
+校验放在**解析期**——那正是 1.12.2 做这件事的时机，所以函数里的方块名写错时，
+函数**照样加载**，错误在**运行到那条命令时**才出现。
+
+表是从服务端 jar 的字节码里挖出来的（`Block` 类注册旧命名、`Blocks` 类注册
+1.12 命名），见 `internal/world/blockregistry.go`；再用真服把 254 个名字逐个
+放一遍确认过。
+
 ### 6.1 `/setblock` 的模式 [读]
 
 ```
@@ -827,19 +857,6 @@ say @a（无匹配） → Selector '@a' found nothing
 
 **还没对齐的**（下一批）：
 
-- **方块的注册表**：真服有 390 个方块注册名，名字写错会报
-  `There is no such block with name minecraft:<名字>`；gomc 现在不校验方块名。
-  消息里方块的**显示名**已经对齐（语言文件的 `tile.<id>.name`，比如 `Stone`、
-  `Grass Block`），但变种方块（石头系、染色方块）走的是可读化近似。
-  > 这条没做的原因：方块注册名在 1.12.2 的 `Block.class` 常量池里不是
-  > `minecraft:<名字>` 形式的字符串（只有裸名），而语言文件里的两级键
-  > （`tile.stone.graniteSmooth.name`）推不出注册名（`polished_granite`）。
-  > 猜错会误报"方块不存在"，所以宁可先不校验。
-  >
-  > 补法已经验证可行：`javap -p -c` 读每个 `Block*.class`，取
-  > `setRegistryName` 调用前最近的 `ldc` 字符串常量。1.12.2 的注册名是
-  > **下划线风格**（`acacia_door`、`crafting_table`、`sandstone`、`stonebrick`……），
-  > 和 gomc 现在用的命名一致；驼峰那批（`acaciaFence`）是物品/模型名，不是方块名。
 - **实体重力**：真服的实体会落到地面上（见 2.5），所以"实体的位置"通常是落地后的
   位置，而不是 `/summon` 时给的那个。gomc 明确**不模拟**重力（见第 11 节），
   `/summon` 的实体留在给定坐标上——凡是依赖"落地后位置"的相对坐标，两边会差一格。

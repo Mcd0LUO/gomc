@@ -83,6 +83,9 @@ func (c *cloneCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 		if err != nil {
 			return nil, err
 		}
+		if err := checkBlockName(p, name); err != nil {
+			return nil, err
+		}
 		filter = &ast.BlockRef{Name: name, Data: -1}
 		if p.More() {
 			data, err := p.String()
