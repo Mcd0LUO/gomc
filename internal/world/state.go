@@ -180,6 +180,19 @@ type World struct {
 	Entities map[string]*Entity
 	// entityOrder preserves spawn order for deterministic iteration.
 	entityOrder []string
+	// entityCache holds the entities of entityOrder, in the same order.
+	//
+	// The cache exists so that the hot paths — a selector walking the
+	// entities, above all — do not have to copy the whole table every
+	// time. It is written by the same two calls that write entityOrder,
+	// so the two cannot fall out of step.
+	entityCache []*Entity
+	// entityCacheOK tells whether the cache is known to hold exactly the
+	// entities of the map, in spawn order.
+	//
+	// It is false only when a change could not be applied to the cache
+	// exactly, in which case the cache is rebuilt on the next read.
+	entityCacheOK bool
 	// Scoreboard holds objectives, scores and teams.
 	Scoreboard *Scoreboard
 	// Rules holds the game rules.
@@ -214,31 +227,56 @@ type World struct {
 // NewWorld returns a world with default state.
 func NewWorld() *World {
 	return &World{
-		Blocks:       NewBlockStore(),
-		Entities:     map[string]*Entity{},
-		Scoreboard:   NewScoreboard(),
-		Rules:        NewGameRules(),
-		EntityTypes:  NewEntityRegistry(),
-		Time:         0,
-		DayTime:      0,
-		Weather:      WeatherState{Kind: WeatherClear},
-		Difficulty:   DifficultyNormal,
-		PlayerSpawns: map[string]Pos{},
-		Border:       DefaultWorldBorder(),
+		Blocks:        NewBlockStore(),
+		Entities:      map[string]*Entity{},
+		Scoreboard:    NewScoreboard(),
+		Rules:         NewGameRules(),
+		EntityTypes:   NewEntityRegistry(),
+		Time:          0,
+		DayTime:       0,
+		Weather:       WeatherState{Kind: WeatherClear},
+		Difficulty:    DifficultyNormal,
+		PlayerSpawns:  map[string]Pos{},
+		Border:        DefaultWorldBorder(),
+		entityCacheOK: true,
 	}
 }
 
 // AddEntity inserts an entity, assigning an id when it has none.
+//
+// An entity whose id is already taken replaces the old one and keeps the
+// place the old one had in the spawn order.
 func (w *World) AddEntity(e *Entity) *Entity {
 	if e.ID == "" {
 		w.nextEntityID++
 		e.ID = fmt.Sprintf("entity-%d", w.nextEntityID)
 	}
-	if _, exists := w.Entities[e.ID]; !exists {
+	if old, exists := w.Entities[e.ID]; exists {
+		// The id is taken: the order stays, only the entity changes.
+		if old != e {
+			w.replaceEntity(e)
+		}
+	} else {
 		w.entityOrder = append(w.entityOrder, e.ID)
+		w.entityCache = append(w.entityCache, e)
 	}
 	w.Entities[e.ID] = e
 	return e
+}
+
+// replaceEntity puts an entity in the place of the one it replaces.
+//
+// The entity keeps its id, so it keeps its place in the spawn order.
+func (w *World) replaceEntity(e *Entity) {
+	for i, cached := range w.entityCache {
+		if cached.ID == e.ID {
+			w.entityCache[i] = e
+			return
+		}
+	}
+	// The old entity is not in the cache, so the cache cannot be patched
+	// and has to be rebuilt on the next read.
+	w.entityCacheOK = false
 }
 
 // RemoveEntity deletes an entity by id.
@@ -250,6 +288,20 @@ func (w *World) RemoveEntity(id string) bool {
 	for i, eid := range w.entityOrder {
 		if eid == id {
 			w.entityOrder = append(w.entityOrder[:i], w.entityOrder[i+1:]...)
+			// The cache runs parallel to the order, so the entity to
+			// drop sits at the same index.
+			if i < len(w.entityCache) {
+				n := len(w.entityCache)
+				w.entityCache = append(w.entityCache[:i], w.entityCache[i+1:]...)
+				// The slot the last entity moved out of still holds
+				// it, so it is cleared when there is room for it.
+				if n <= cap(w.entityCache) {
+					spare := w.entityCache[:n]
+					spare[n-1] = nil
+				}
+			} else {
+				w.entityCacheOK = false
+			}
 			break
 		}
 	}
@@ -258,16 +310,47 @@ func (w *World) RemoveEntity(id string) bool {
 
 // EntityList returns the entities in spawn order.
 //
+// The caller gets a copy of its own and may keep and modify it.
+//
 // Deterministic ordering matters: selectors iterate entities in a stable
 // sequence, and a test harness must produce the same result every run.
 func (w *World) EntityList() []*Entity {
-	out := make([]*Entity, 0, len(w.entityOrder))
+	cache := w.EntitySlice()
+	out := make([]*Entity, len(cache))
+	copy(out, cache)
+	return out
+}
+
+// EntitySlice returns the entities in spawn order, without copying them.
+//
+// The slice is the world's own cache: the caller must not modify it, not
+// even the order of its elements. It is meant for the read-only hot
+// paths, and it stays valid until the next AddEntity or RemoveEntity.
+//
+// The world is the only writer of the entity table, so the slice always
+// agrees with the Entities map. Should the map be changed behind the
+// world's back, the slice notices the change of the entity count and
+// rebuilds itself.
+func (w *World) EntitySlice() []*Entity {
+	if !w.entityCacheOK || len(w.Entities) != len(w.entityCache) {
+		w.rebuildEntityCache()
+	}
+	return w.entityCache
+}
+
+// rebuildEntityCache fills the cache from the spawn order and the map.
+//
+// It is the safety net for a table that was changed behind the world's
+// back; the world's own calls keep the cache up to date instead.
+func (w *World) rebuildEntityCache() {
+	cache := make([]*Entity, 0, len(w.entityOrder))
 	for _, id := range w.entityOrder {
 		if e, ok := w.Entities[id]; ok {
-			out = append(out, e)
+			cache = append(cache, e)
 		}
 	}
-	return out
+	w.entityCache = cache
+	w.entityCacheOK = true
 }
 
 // EntityCount returns the number of entities.
@@ -276,7 +359,7 @@ func (w *World) EntityCount() int { return len(w.Entities) }
 // Players returns the player entities in spawn order.
 func (w *World) Players() []*Entity {
 	var out []*Entity
-	for _, e := range w.EntityList() {
+	for _, e := range w.EntitySlice() {
 		if e.IsPlayer {
 			out = append(out, e)
 		}

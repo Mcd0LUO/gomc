@@ -1,7 +1,6 @@
 package exec
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/mcsim/gomc/internal/nbt"
@@ -460,17 +459,23 @@ func TestSelectorSelf(t *testing.T) {
 		t.Errorf("@s = %v, want p1", got)
 	}
 
-	// A console has no entity, so @s has no executor.
+	// A console has no entity, so @s has no executor and matches
+	// nothing. The wording of the failure belongs to the command that
+	// used the selector: 1.12.2 answers "Entity '@s' cannot be found"
+	// for `kill @s` and "Selector '@s' found nothing" for a message that
+	// expands @s.
 	plain := &Source{Name: "Server", World: "world", PermissionLevel: 4}
 	sel, err := parser.ParseSelector("@s")
 	if err != nil {
 		t.Fatalf("ParseSelector: %v", err)
 	}
 	r := &SelectorResolver{World: w}
-	if _, err := r.Resolve(plain, sel); err == nil {
-		t.Error("expected an error when @s has no executor")
-	} else if !strings.Contains(err.Error(), "no executor") {
-		t.Errorf("error = %q, want it to mention the missing executor", err.Error())
+	selfResolved, resolveErr := r.Resolve(plain, sel)
+	if resolveErr != nil {
+		t.Errorf("@s without an executor: %v, want no error", resolveErr)
+	}
+	if len(selfResolved) != 0 {
+		t.Errorf("@s without an executor = %v, want nothing", selfResolved)
 	}
 }
 

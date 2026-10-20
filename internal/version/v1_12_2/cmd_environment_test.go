@@ -518,23 +518,32 @@ func TestWorldBorderFeedback(t *testing.T) {
 	}
 }
 
-// TestTargetResolutionWording pins down the three ways 1.12.2 reports a
-// target that cannot be resolved.
+// TestTargetResolutionWording pins down the ways 1.12.2 reports a target
+// that cannot be resolved.
+//
+// The measurements come from a real 1.12.2 server (Paper 1.12.2):
+//
+//	gamemode creative @a      → nothing at all
+//	gamemode creative @p      → Player '@p' cannot be found
+//	gamemode creative Nobody  → Player 'Nobody' cannot be found
+//	kill @p                   → Entity '@p' cannot be found
+//	kill NoSuchPlayer         → Entity 'NoSuchPlayer' cannot be found
+//
+// A target *list* that matches nothing is not an error at all: the
+// dispatcher expands the list and the command runs zero times.
 func TestTargetResolutionWording(t *testing.T) {
 	e := newTestEngine(t)
-	err := runLine(e, "gamemode creative @a")
+	// A list that matches nothing is silent.
+	if err := runLine(e, "gamemode creative @a"); err != nil {
+		t.Errorf("gamemode creative @a: %v, want no error", err)
+	}
+	// A single target that matches nothing is reported, and the wording
+	// follows the kind of target the command takes.
+	err := runLine(e, "gamemode creative @p")
 	if err == nil {
 		t.Fatal("expected an error for a selector that matches nothing")
 	}
-	want := "Selector '@a' found nothing"
-	if err.Error() != want {
-		t.Errorf("the error was %q, want %q", err.Error(), want)
-	}
-	err = runLine(e, "gamemode creative @p")
-	if err == nil {
-		t.Fatal("expected an error for a selector that matches nothing")
-	}
-	want = "Entity '@p' cannot be found"
+	want := "Player '@p' cannot be found"
 	if err.Error() != want {
 		t.Errorf("the error was %q, want %q", err.Error(), want)
 	}
@@ -543,6 +552,15 @@ func TestTargetResolutionWording(t *testing.T) {
 		t.Fatal("expected an error for a player that is not online")
 	}
 	want = "Player 'Nobody' cannot be found"
+	if err.Error() != want {
+		t.Errorf("the error was %q, want %q", err.Error(), want)
+	}
+	// The commands that resolve an entity use the entity wording.
+	err = runLine(e, "kill @p")
+	if err == nil {
+		t.Fatal("expected an error for a selector that matches nothing")
+	}
+	want = "Entity '@p' cannot be found"
 	if err.Error() != want {
 		t.Errorf("the error was %q, want %q", err.Error(), want)
 	}

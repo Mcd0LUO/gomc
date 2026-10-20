@@ -18,7 +18,7 @@ type summonCmd struct{}
 func (c *summonCmd) Name() string { return "summon" }
 
 // Usage implements exec.Handler.
-func (c *summonCmd) Usage() string { return "/summon <entity> [x y z] [nbt]" }
+func (c *summonCmd) Usage() string { return "/summon <entityname> [x] [y] [z] [dataTag]" }
 
 // Parse implements exec.Handler.
 func (c *summonCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
@@ -55,7 +55,16 @@ func (c *summonCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	name := args[0].(*ast.EntityTypeArg).Name
 	canonical, ok := ctx.World.EntityTypes.ParseEntityTypeName(name)
 	if !ok {
-		return 0, exec.Errorf("unknown entity type %q", name)
+		// 1.12.2 does not check the type name at all: the command puts
+		// the raw text into the NBT "id" and lets the entity factory
+		// build the entity. Every name the factory cannot build is
+		// reported the same way.
+		return 0, exec.Errorf("Unable to summon object")
+	}
+	if def := ctx.World.EntityTypes.Get(canonical); def == nil || def.IsPlayer {
+		// 1.12.2 keeps the players out of the entity registry, so a
+		// player is not something `/summon` can bring into the world.
+		return 0, exec.Errorf("Unable to summon object")
 	}
 	posArg := args[1].(*ast.Coord)
 	pos := world.Vec{X: posArg.X, Y: posArg.Y, Z: posArg.Z}
@@ -70,7 +79,7 @@ func (c *summonCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	}
 	e, ok := ctx.World.EntityTypes.NewEntity(canonical, "")
 	if !ok {
-		return 0, exec.Errorf("unknown entity type %q", name)
+		return 0, exec.Errorf("Unable to summon object")
 	}
 	e.Pos = pos
 	if data := exec.NBTOf(args, 2); data != nil {

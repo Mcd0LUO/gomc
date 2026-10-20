@@ -32,6 +32,7 @@ func expandMessage(ctx *exec.Context, msg string) (string, error) {
 		}
 		resolver := &exec.SelectorResolver{World: ctx.World}
 		entities, err := resolver.Resolve(ctx.Source, sel)
+		selectorWarnings(ctx, resolver)
 		if err != nil {
 			return "", exec.Errorf("%v", err)
 		}
@@ -42,7 +43,16 @@ func expandMessage(ctx *exec.Context, msg string) (string, error) {
 		for _, e := range entities {
 			names = append(names, scoreboardDisplayName(e))
 		}
-		parts = append(parts, strings.Join(names, ", "))
+		// 1.12.2 hands the names to `CommandAbstract.a(List<IChatBaseComponent>)`
+		// (CommandAbstract.java:510), which puts " and " in front of the
+		// last name and ", " between the others. So two names read
+		// "A and B", three read "A, B and C" and four read
+		// "A, B, C and D". That is the same rule `joinVanillaList`
+		// implements.
+		//
+		// (Measured: `say @e[type=armor_stand]` with three armour
+		// stands named A, B and C prints "A, B and C".)
+		parts = append(parts, joinVanillaList(names))
 	}
 	return strings.Join(parts, " "), nil
 }

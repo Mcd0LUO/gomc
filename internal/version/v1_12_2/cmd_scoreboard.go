@@ -79,13 +79,19 @@ func resolveHolders(ctx *exec.Context, arg ast.Arg) ([]string, error) {
 	case *ast.Selector:
 		resolver := &exec.SelectorResolver{World: ctx.World}
 		entities, err := resolver.Resolve(ctx.Source, t)
+		selectorWarnings(ctx, resolver)
 		if err != nil {
 			return nil, exec.Errorf("%v", err)
 		}
 		if len(entities) == 0 {
 			// The score holder is a target list, so the dispatcher
-			// expands it; an empty list is an error there.
-			return nil, exec.Errorf("Selector '%s' found nothing", selectorText(t))
+			// expands it and the command runs once per matched entity.
+			// An empty list means the command runs zero times, and the
+			// server says nothing at all.
+			//
+			// (Measured: `scoreboard players set @e[type=zombie] obj 1`
+			// on a server without zombies prints nothing and succeeds.)
+			return nil, nil
 		}
 		byEntity := isTagAction(ctx)
 		out := make([]string, 0, len(entities))

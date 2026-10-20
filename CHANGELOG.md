@@ -35,6 +35,30 @@
   （`EntityHuman.getName()` 覆写了父类）；`type=` 的键必须是 1.12.2 的注册名
   （`type=pigzombie` 不认，1.12.2 已改名 `zombie_pigman`）；`m=!<未知模式>`
   命中全部玩家。实体类型表也补齐到 85 条，与真服注册名逐字对应。
+- **空匹配在命令层**（真服实测，见 SPEC 3.10）：**列表**选择器匹配不到东西时
+  **不是错误**——命令跑 0 次、什么都不说、命令成功。gomc 之前一律变成
+  `Selector '...' found nothing`。**单实体目标**（`@p`、`c=1`、裸名字）仍然
+  报错，而且措辞跟着命令的目标类型走：解析成实体的命令说 `Entity`，
+  解析成玩家的说 `Player`（`gamemode creative @p` 现在说
+  `Player '@p' cannot be found`）。
+- **消息展开的连接符**：真服 2 个用 `" and "`、3 个用 `", … and "`
+  （`say @e[...]` 三个实体是 `A, B and C`），gomc 之前一律用 `", "`。
+- **`/summon` 的类型集**：从 34 种可用补到 **79 种**，与真服能 summon 的种数
+  一样；类型名按 1.12.2 的 `MinecraftKey` 规则解析（`minecraft:zombie`、
+  `:zombie`、`a:zombie`、`ZOMBIE` 都认，`foo:zombie` 不认）。失败文案从
+  `unknown entity type "x"` 改成真服的 `Unable to summon object`。
+  活体实体的初始血量按真服 `/entitydata` 实测值写入（史莱姆、 magma cube、
+  马 family 是随机 roll，没写死）。
+- **`scoreboard players tag list` 的标题**用计分板持有者名（玩家是用户名），
+  不是实体 id；**没有 tag 的实体不打标题**（真服 `CommandScoreboard.java:735`），
+  命令报的计数是 tag 的个数而不是实体数。tag 列表的连接符也跟真服一样。
+- **`scoreboard players tag` 能按玩家名用**：真服 `scoreboard players tag Steve list`
+  是有效的，gomc 之前什么都不打。
+- **探针工具的假失败**：`tools/probe/probe.ps1` 之前把 `spawn-animals`、
+  `spawn-npcs` 设成 false、难度设成 peaceful。CraftBukkit 的
+  `World.addEntity` 会因此让**动物、怪物和村民在真服上 summon 不了**，
+  测出来是大面积假失败。现在这三项都打开。
+
 
 ### 性能
 

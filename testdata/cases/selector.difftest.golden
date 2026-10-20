@@ -22,9 +22,7 @@ step 7: scoreboard players tag @e[type=zombie] list
   feedback: Tags on entity entity-1 are:
   feedback: marked
 step 8: scoreboard players tag @e[type=!zombie] list
-  count: 1
-  feedback: Tags on entity entity-2 are:
-  feedback: 
+  count: 0
 step 9: say --- tag ---
   count: 1
   feedback: [Server] --- tag ---
@@ -33,11 +31,9 @@ step 10: scoreboard players tag @e[tag=marked] list
   feedback: Tags on entity entity-1 are:
   feedback: marked
 step 11: scoreboard players tag @e[tag=!marked] list
-  count: 1
-  feedback: Tags on entity entity-2 are:
-  feedback: 
+  count: 0
 step 12: scoreboard players tag @e[tag=marked,tag=other] list
-  error: Selector '@e[tag=marked,tag=other]' found nothing
+  count: 0
 step 13: say --- score ---
   count: 1
   feedback: [Server] --- score ---
@@ -54,7 +50,7 @@ step 16: scoreboard players tag @e[score_kills_min=5] list
   feedback: Tags on entity entity-1 are:
   feedback: marked
 step 17: scoreboard players tag @e[score_kills_min=6] list
-  error: Selector '@e[score_kills_min=6]' found nothing
+  count: 0
 step 18: say --- volume ---
   count: 1
   feedback: [Server] --- volume ---

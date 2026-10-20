@@ -99,6 +99,12 @@ func (c *clearCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	maxCount := args[3].(*ast.IntArg).Value
 	tag := exec.NBTOf(args, 4)
 
+	// An empty target list makes the command run zero times on the
+	// server, so it says nothing at all.
+	if len(holders) == 0 {
+		return 0, nil
+	}
+
 	removed := 0
 	for _, e := range holders {
 		removed += clearInventory(e, item, data, maxCount, tag)
@@ -264,6 +270,11 @@ func (c *replaceItemCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	// An empty target list makes the command run zero times on the
+	// server, so it says nothing at all.
+	if len(holders) == 0 {
+		return 0, nil
+	}
 	index, ok := slotIndex(slot)
 	if !ok {
 		return 0, exec.Errorf("unknown slot %q", slot)
@@ -375,10 +386,15 @@ func (c *enchantCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	if level < 1 {
 		level = 1
 	}
+	// An empty target list makes the command run zero times on the
+	// server, so it says nothing at all.
+	if len(holders) == 0 {
+		return 0, nil
+	}
 	for _, e := range holders {
 		stack := mainHand(e)
 		if stack == nil {
-			return 0, exec.Errorf("the target is not holding an item")
+			return 0, exec.Errorf("The target doesn't hold an item")
 		}
 		list, _ := stack.Get("Enchantments").(*nbt.List)
 		if list == nil {
@@ -471,6 +487,11 @@ func (c *xpCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	holders, err := resolveEntityTargets(ctx, args[1])
 	if err != nil {
 		return 0, err
+	}
+	// An empty target list makes the command run zero times on the
+	// server, so it says nothing at all.
+	if len(holders) == 0 {
+		return 0, nil
 	}
 	for _, e := range holders {
 		if levels {

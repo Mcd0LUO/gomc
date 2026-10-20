@@ -284,41 +284,106 @@ func (r *EntityRegistry) NewEntity(name string, id string) (*Entity, bool) {
 
 // defaultEntityTypes lists the entity types this runtime understands.
 //
-// The NBT defaults mirror the values 1.12.2 gives a freshly spawned entity,
-// because selectors and `/testfor` compare against them.
+// The list is the entity registry of 1.12.2 (`EntityTypes.c()`) without
+// the types the server cannot bring into the world:
+//
+//   - the four fireballs (`fireball`, `small_fireball`, `wither_skull` and
+//     `dragon_fireball`) and the thrown potion: 1.12.2 only builds them
+//     as the shot of something else, and `/summon` fails for them;
+//   - the player: 1.12.2 keeps the players out of the entity registry and
+//     handles them separately.
+//
+// The player is listed here anyway, because the runtime has to be able to
+// create player entities; `/summon` refuses them.
+//
+// The NBT defaults mirror the values 1.12.2 gives a freshly spawned
+// entity, because selectors and `/testfor` compare against them. The
+// health values are the ones the real server reports for a freshly
+// summoned entity.
+//
+// The slimes and the horse family have no health here: 1.12.2 rolls their
+// health per entity (a slime comes with 1 or 16, a horse with 16 to 29),
+// so there is no single value to write down.
 var defaultEntityTypes = []*EntityType{
-	{Name: "armor_stand", DefaultNBT: nbt.NewCompound()},
 	{Name: "item", DefaultNBT: compoundWith("Item", nbt.NewCompound())},
-	{Name: "zombie", DefaultNBT: compoundWith("Health", nbt.Float(20))},
-	{Name: "skeleton", DefaultNBT: compoundWith("Health", nbt.Float(20))},
-	{Name: "creeper", DefaultNBT: compoundWith("Health", nbt.Float(20))},
-	{Name: "spider", DefaultNBT: compoundWith("Health", nbt.Float(20))},
-	{Name: "villager", DefaultNBT: compoundWith("Health", nbt.Float(20))},
-	{Name: "pig", DefaultNBT: compoundWith("Health", nbt.Float(10))},
-	{Name: "cow", DefaultNBT: compoundWith("Health", nbt.Float(10))},
-	{Name: "sheep", DefaultNBT: compoundWith("Health", nbt.Float(8))},
-	{Name: "chicken", DefaultNBT: compoundWith("Health", nbt.Float(4))},
-	{Name: "horse", DefaultNBT: compoundWith("Health", nbt.Float(15))},
-	{Name: "wolf", DefaultNBT: compoundWith("Health", nbt.Float(8))},
+	{Name: "xp_orb", DefaultNBT: nbt.NewCompound()},
+	{Name: "area_effect_cloud", DefaultNBT: nbt.NewCompound()},
+	{Name: "elder_guardian", DefaultNBT: compoundWith("Health", nbt.Float(80))},
+	{Name: "wither_skeleton", DefaultNBT: compoundWith("Health", nbt.Float(20))},
+	{Name: "stray", DefaultNBT: compoundWith("Health", nbt.Float(20))},
+	{Name: "egg", DefaultNBT: nbt.NewCompound()},
+	{Name: "leash_knot", DefaultNBT: nbt.NewCompound()},
+	{Name: "painting", DefaultNBT: nbt.NewCompound()},
 	{Name: "arrow", DefaultNBT: nbt.NewCompound()},
 	{Name: "snowball", DefaultNBT: nbt.NewCompound()},
-	{Name: "egg", DefaultNBT: nbt.NewCompound()},
 	{Name: "ender_pearl", DefaultNBT: nbt.NewCompound()},
-	{Name: "fireball", DefaultNBT: nbt.NewCompound()},
-	{Name: "small_fireball", DefaultNBT: nbt.NewCompound()},
-	{Name: "shulker_bullet", DefaultNBT: nbt.NewCompound()},
+	{Name: "eye_of_ender_signal", DefaultNBT: nbt.NewCompound()},
 	{Name: "xp_bottle", DefaultNBT: nbt.NewCompound()},
-	{Name: "xp_orb", DefaultNBT: nbt.NewCompound()},
+	{Name: "item_frame", DefaultNBT: nbt.NewCompound()},
 	{Name: "tnt", DefaultNBT: compoundWith("Fuse", nbt.Int(80))},
 	{Name: "falling_block", DefaultNBT: nbt.NewCompound()},
+	{Name: "fireworks_rocket", DefaultNBT: nbt.NewCompound()},
+	{Name: "husk", DefaultNBT: compoundWith("Health", nbt.Float(20))},
+	{Name: "spectral_arrow", DefaultNBT: nbt.NewCompound()},
+	{Name: "shulker_bullet", DefaultNBT: nbt.NewCompound()},
+	{Name: "zombie_villager", DefaultNBT: compoundWith("Health", nbt.Float(20))},
+	{Name: "skeleton_horse", DefaultNBT: compoundWith("Health", nbt.Float(15))},
+	{Name: "zombie_horse", DefaultNBT: compoundWith("Health", nbt.Float(15))},
+	{Name: "armor_stand", DefaultNBT: compoundWith("Health", nbt.Float(20))},
+	{Name: "donkey", DefaultNBT: nbt.NewCompound()},
+	{Name: "mule", DefaultNBT: nbt.NewCompound()},
+	{Name: "evocation_fangs", DefaultNBT: nbt.NewCompound()},
+	{Name: "evocation_illager", DefaultNBT: compoundWith("Health", nbt.Float(24))},
+	{Name: "vex", DefaultNBT: compoundWith("Health", nbt.Float(14))},
+	{Name: "vindication_illager", DefaultNBT: compoundWith("Health", nbt.Float(24))},
+	{Name: "illusion_illager", DefaultNBT: compoundWith("Health", nbt.Float(32))},
+	{Name: "commandblock_minecart", DefaultNBT: nbt.NewCompound()},
 	{Name: "boat", DefaultNBT: nbt.NewCompound()},
 	{Name: "minecart", DefaultNBT: nbt.NewCompound()},
-	{Name: "item_frame", DefaultNBT: nbt.NewCompound()},
-	{Name: "painting", DefaultNBT: nbt.NewCompound()},
+	{Name: "chest_minecart", DefaultNBT: nbt.NewCompound()},
+	{Name: "furnace_minecart", DefaultNBT: nbt.NewCompound()},
+	{Name: "tnt_minecart", DefaultNBT: nbt.NewCompound()},
+	{Name: "hopper_minecart", DefaultNBT: nbt.NewCompound()},
+	{Name: "spawner_minecart", DefaultNBT: nbt.NewCompound()},
+	{Name: "creeper", DefaultNBT: compoundWith("Health", nbt.Float(20))},
+	{Name: "skeleton", DefaultNBT: compoundWith("Health", nbt.Float(20))},
+	{Name: "spider", DefaultNBT: compoundWith("Health", nbt.Float(16))},
+	{Name: "giant", DefaultNBT: compoundWith("Health", nbt.Float(100))},
+	{Name: "zombie", DefaultNBT: compoundWith("Health", nbt.Float(20))},
+	{Name: "slime", DefaultNBT: nbt.NewCompound()},
+	{Name: "ghast", DefaultNBT: compoundWith("Health", nbt.Float(10))},
+	{Name: "zombie_pigman", DefaultNBT: compoundWith("Health", nbt.Float(20))},
+	{Name: "enderman", DefaultNBT: compoundWith("Health", nbt.Float(40))},
+	{Name: "cave_spider", DefaultNBT: compoundWith("Health", nbt.Float(12))},
+	{Name: "silverfish", DefaultNBT: compoundWith("Health", nbt.Float(8))},
+	{Name: "blaze", DefaultNBT: compoundWith("Health", nbt.Float(20))},
+	{Name: "magma_cube", DefaultNBT: nbt.NewCompound()},
+	{Name: "ender_dragon", DefaultNBT: compoundWith("Health", nbt.Float(200))},
+	{Name: "wither", DefaultNBT: compoundWith("Health", nbt.Float(300))},
+	{Name: "bat", DefaultNBT: compoundWith("Health", nbt.Float(6))},
+	{Name: "witch", DefaultNBT: compoundWith("Health", nbt.Float(26))},
+	{Name: "endermite", DefaultNBT: compoundWith("Health", nbt.Float(8))},
+	{Name: "guardian", DefaultNBT: compoundWith("Health", nbt.Float(30))},
+	{Name: "shulker", DefaultNBT: compoundWith("Health", nbt.Float(30))},
+	{Name: "pig", DefaultNBT: compoundWith("Health", nbt.Float(10))},
+	{Name: "sheep", DefaultNBT: compoundWith("Health", nbt.Float(8))},
+	{Name: "cow", DefaultNBT: compoundWith("Health", nbt.Float(10))},
+	{Name: "chicken", DefaultNBT: compoundWith("Health", nbt.Float(4))},
+	{Name: "squid", DefaultNBT: compoundWith("Health", nbt.Float(10))},
+	{Name: "wolf", DefaultNBT: compoundWith("Health", nbt.Float(8))},
+	{Name: "mooshroom", DefaultNBT: compoundWith("Health", nbt.Float(10))},
+	{Name: "snowman", DefaultNBT: compoundWith("Health", nbt.Float(4))},
+	{Name: "ocelot", DefaultNBT: compoundWith("Health", nbt.Float(10))},
+	{Name: "villager_golem", DefaultNBT: compoundWith("Health", nbt.Float(100))},
+	{Name: "horse", DefaultNBT: nbt.NewCompound()},
+	{Name: "rabbit", DefaultNBT: compoundWith("Health", nbt.Float(3))},
+	{Name: "polar_bear", DefaultNBT: compoundWith("Health", nbt.Float(30))},
+	{Name: "llama", DefaultNBT: nbt.NewCompound()},
+	{Name: "llama_spit", DefaultNBT: nbt.NewCompound()},
+	{Name: "parrot", DefaultNBT: compoundWith("Health", nbt.Float(6))},
+	{Name: "villager", DefaultNBT: compoundWith("Health", nbt.Float(20))},
+	{Name: "ender_crystal", DefaultNBT: nbt.NewCompound()},
 	{Name: "lightning_bolt", DefaultNBT: nbt.NewCompound()},
-	{Name: "wither_skull", DefaultNBT: nbt.NewCompound()},
-	{Name: "fireworks_rocket", DefaultNBT: nbt.NewCompound()},
-	{Name: "leash_knot", DefaultNBT: nbt.NewCompound()},
 	{Name: "player", DefaultNBT: compoundWith("Health", nbt.Float(20)), IsPlayer: true},
 }
 
@@ -347,10 +412,23 @@ func NormalizeEntityType(name string) string {
 }
 
 // ParseEntityTypeName resolves a possibly namespaced entity type.
+//
+// 1.12.2 builds a `MinecraftKey` from the text: the namespace is only
+// read from the name when the colon is neither the first nor the second
+// character, and the registry holds the "minecraft" namespace only. So
+// "zombie", "minecraft:zombie", ":zombie" and "a:zombie" are the same
+// key, while "foo:zombie" is a key of the "foo" namespace and names no
+// type the server knows.
+//
+// The rule is the one of `IsRegisteredEntityType`, which the `type=`
+// argument of a selector uses.
 func (r *EntityRegistry) ParseEntityTypeName(name string) (string, bool) {
-	n := NormalizeEntityType(name)
-	if r.Has(n) {
-		return n, true
+	namespace, key := EntityTypeKey(name)
+	if namespace != "minecraft" {
+		return "", false
+	}
+	if r.Has(key) {
+		return key, true
 	}
 	return "", false
 }

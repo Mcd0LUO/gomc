@@ -337,20 +337,71 @@ d5 = b(d2, astring[7], false)            // detect 位置 Z
 
 实测：真服里盔甲架的输出前缀是 `[Armor Stand]`，不是 `[ArmorStand]`。
 
-### 3.10 还没对齐的选择器细节 [验]
+### 3.10 空匹配在命令层的处理 [验]
+
+**列表**选择器（`@e` / `@a`，也就是 `c` 不为 1 的那种）匹配不到东西时
+**不是错误**：真服上命令跑 0 次，什么都不说，命令成功。
+
+实测（Paper 1.12.2，用 `say MARKER-x` 把命令隔开，定位错误落在哪一条）：
+
+```
+scoreboard players set @e[type=zombie] obj 1   → 静默
+kill @e[type=zombie]                            → 静默
+gamemode creative @a                            → 静默
+scoreboard players tag @e[type=zombie] list     → 静默
+execute @e[type=zombie] ~ ~ ~ say HELLO         → 静默
+say @e[type=zombie]                             → Selector '@e[type=zombie]' found nothing
+kill @p                                         → Entity '@p' cannot be found
+gamemode creative @p                            → Player '@p' cannot be found
+kill NoSuchPlayer                               → Entity 'NoSuchPlayer' cannot be found
+```
+
+三条要点：
+
+- **只有消息展开**（把选择器写进消息里的那些命令）才报
+  "Selector '...' found nothing"——那是命令自己的检查
+  （`CommandAbstract.b` → `PlayerSelector.getPlayerNames` 返回 null）。
+- **单实体目标**（`@p`、`c=1`、裸名字）匹配不到时**要报错**，而且措辞
+  跟着命令的目标类型走：解析成实体的命令说 "Entity"，解析成玩家的说
+  "Player"。
+- `execute` 包着的子命令如果影响了 0 个实体，`execute` 报
+  "All invocations failed: '<子命令>'"。
+
+> ⚠️ **源码和真服对不上**：vanilla 的分发器（`CommandHandler.java:59-61`）
+> 在列表参数为空时是会抛 `ExceptionPlayerNotFound("commands.generic.selector.notFound")`
+> 的，字节码里也确实有这段。但参照服务端（Paper 1.12.2）跑出来是**静默**。
+> 本项目以**真服实测**为准。
+
+### 3.11 列表连接符 [验]
+
+真服把一组名字拼成一行时，最后一个前面用 `" and "`，其余之间用 `", "`：
+
+```
+say @e[type=armor_stand]        → A, B and C
+say @e[type=armor_stand,c=2]    → A and B
+say @e[type=armor_stand,c=1]    → A
+```
+
+这是 `CommandAbstract.a(List<IChatBaseComponent>)`（`CommandAbstract.java:510`）
+的规则，和 `CommandAbstract.a(Object[])` 一样。
+
+### 3.12 还没对齐的选择器细节 [验]
 
 - **缺 `Entity type 'x' is invalid` 那条提示**。真服在 `type=` 指向未注册
-  类型时会发一条红字，然后**匹配为空、命令照样成功**；gomc 只做到了
-  "匹配为空、不报错"，没有那条提示（选择器层没有反馈通道）。
-- **空匹配在命令层仍会失败**。真服上 `kill @e[type=pigzombie]` 只打印提示、
-  命令成功；gomc 把空匹配一律变成 `Selector '...' found nothing` 错误。
-  其它命令（真服确实报 not found 的那些）行为是对的。
-- **消息展开的连接符**：真服 2 个用 `" and "`、3 个用 `", … and "`；
-  gomc 一律用 `", "`。
-- **`/summon` 支持的类型是子集**：gomc 能 summon 的只有 35 种，真服 83 种
-  （`summon zombie_pigman` 在 gomc 上报 unknown entity type）。
+  类型时会发一条红字（`commands.generic.entity.invalidType`，名字是带命名空间的
+  完整键，比如 `Entity type 'minecraft:pigzombie' is invalid`），然后
+  **匹配为空、命令照样成功**；gomc 只做到了"匹配为空、不报错"，没有那条提示
+  （选择器层没有反馈通道）。
+- **`/summon` 支持的类型是子集**：gomc 能 summon 的有 **79** 种，真服也是
+  **79** 种，但**不是同一批**——真服有 6 种 summon 不了（`player`、`potion`、
+  `fireball`、`small_fireball`、`wither_skull`、`dragon_fireball`），gomc 把
+  `item` 也放行了（真服上裸 `summon item` 会失败，实体没有物品栏就立刻死掉）。
 - **`scoreboard players tag list` 的标题名**：真服用解析后的用户名 / UUID，
-  gomc 用实体 id。
+  gomc 对**玩家**已经改成用户名了，但非玩家实体仍是内部 id（gomc 不建模 UUID，
+  见第 12 节）。
+- **tag list 对没有 tag 的实体不打标题**。这条已经对齐：真服的
+  `CommandScoreboard.java:735-741` 只在 tag 集合非空时才发标题和列表，
+  命令报的计数是**tag 的个数**。
 
 ---
 

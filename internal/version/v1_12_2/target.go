@@ -35,12 +35,15 @@ func parseEntityTarget(p *parser.Parser) (ast.Arg, error) {
 // A selector goes through the selector resolver, a bare name is looked up
 // among the players.
 //
-// An empty result is an error, and 1.12.2 words the cases differently:
+// 1.12.2 says three different things about a target it cannot resolve:
 //
-//   - a target *list* selector that matches nothing is reported by the
-//     command dispatcher as "Selector '<text>' found nothing"
+//   - a target *list* selector that matches nothing is **not** an error:
+//     the dispatcher expands the list and the command runs zero times, so
+//     the server says nothing at all
 //   - a selector that is limited to a single entity is resolved by the
-//     command itself, which reports "Entity '<text>' cannot be found"
+//     command itself, which reports "Entity '<text>' cannot be found" or
+//     "Player '<text>' cannot be found", depending on the kind of target
+//     the command takes
 //   - a player name that is not online is reported by the command itself
 //     as "Player '<name>' cannot be found"
 func resolveEntityTargets(ctx *exec.Context, arg ast.Arg) ([]*world.Entity, error) {
@@ -67,6 +70,13 @@ func resolveEntityTargetsEntity(ctx *exec.Context, arg ast.Arg) ([]*world.Entity
 // as "Entity '<name>' cannot be found". The other commands resolve a
 // *player* with `CommandAbstract.b(server, listener, s)`, which reports
 // "Player '<name>' cannot be found".
+//
+// The table also decides what an empty target *list* means. 1.12.2
+// expands such a list in the command dispatcher, and the command then
+// runs once per matched entity. Measured on a real server, a list that
+// matches nothing makes the command run zero times and say nothing at
+// all -- but only the commands that resolve an entity do that; the ones
+// that resolve a player still report the selector as empty.
 var entityTargetCommands = map[string]bool{
 	// CommandExecute: CommandAbstract.a(..., Entity.class)
 	"execute": true,
@@ -94,6 +104,18 @@ func entityTargetCommand(ctx *exec.Context) bool {
 	return entityTargetCommands[ctx.Command.Name]
 }
 
+// selectorWarnings copies the notes a selector produced into the output of
+// the command.
+//
+// 1.12.2 sends them next to the command's own output: `kill
+// @e[type=pigzombie]` answers "Entity type 'minecraft:pigzombie' is
+// invalid" and then succeeds.
+func selectorWarnings(ctx *exec.Context, r *exec.SelectorResolver) {
+	for _, w := range r.Warnings {
+		ctx.Engine.Feedback = append(ctx.Engine.Feedback, w)
+	}
+}
+
 // resolveTarget resolves a target argument into entities.
 //
 // entityVariant selects the wording of the failure message for a bare
@@ -104,18 +126,41 @@ func resolveTarget(ctx *exec.Context, arg ast.Arg, entityVariant bool) ([]*world
 	case *ast.Selector:
 		resolver := &exec.SelectorResolver{World: ctx.World}
 		entities, err := resolver.Resolve(ctx.Source, t)
+		selectorWarnings(ctx, resolver)
 		if err != nil {
 			return nil, exec.Errorf("%v", err)
 		}
 		if len(entities) == 0 {
 			if selectorIsList(t) {
-				// The dispatcher expands a target list, and an empty
-				// list is an error there.
-				return nil, exec.Errorf("Selector '%s' found nothing", selectorText(t))
+				// A target *list* is expanded by the command dispatcher:
+				// the command runs once per matched entity. When the
+				// list is empty the command runs zero times, and the
+				// server says nothing at all.
+				//
+				// (Measured: `kill @e[type=zombie]` on a server without
+				// zombies prints no message and counts as a command
+				// that affected no entity; an enclosing `execute`
+				// reports "All invocations failed: 'kill @e[type=zombie]'"
+				// instead of the selector being reported as empty.)
+				//
+				// That holds for every command, not only for the ones
+				// that resolve an entity: `gamemode creative @a` on a
+				// server without players is just as silent.
+				return nil, nil
 			}
 			// A selector that is limited to one entity is resolved by
-			// the command, which reports a missing entity.
-			return nil, exec.Errorf("Entity '%s' cannot be found", selectorText(t))
+			// the command, which reports the missing target. The wording
+			// follows the kind of target the command takes: the ones
+			// that resolve an entity say "Entity", the ones that
+			// resolve a player say "Player".
+			//
+			// (Measured: `kill @p` says "Entity '@p' cannot be found"
+			// and `gamemode creative @p` says "Player '@p' cannot be
+			// found".)
+			if entityVariant {
+				return nil, exec.Errorf("Entity '%s' cannot be found", selectorText(t))
+			}
+			return nil, exec.Errorf("Player '%s' cannot be found", selectorText(t))
 		}
 		return entities, nil
 	case *ast.StringArg:

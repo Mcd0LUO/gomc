@@ -40,6 +40,13 @@ import (
 type SelectorResolver struct {
 	// World is the state to resolve against.
 	World *world.World
+	// Warnings collects the notes the server prints while it resolves a
+	// selector.
+	//
+	// 1.12.2 sends them next to the command's own output — a red
+	// message about an entity type it does not know, for example — so
+	// the command layer has to pass them on.
+	Warnings []string
 }
 
 // Resolve returns the entities matched by the selector.
@@ -49,10 +56,16 @@ func (r *SelectorResolver) Resolve(src *Source, sel *ast.Selector) ([]*world.Ent
 	}
 	if sel.Base == "s" {
 		// @s is the executing entity. A console, or a function that is
-		// not run through /execute, has no executor, and saying so is
-		// more helpful than a bare "no matching entities".
+		// not run through /execute, has no executor, and then @s
+		// matches nothing.
+		//
+		// 1.12.2 says so in the wording of the command that used it:
+		// `kill @s` from the console answers "Entity '@s' cannot be
+		// found", and a message that expands @s answers "Selector
+		// '@s' found nothing". The command layer owns that wording, so
+		// the resolver just reports an empty result.
 		if src == nil || src.Entity == nil {
-			return nil, fmt.Errorf("@s has no executor in this context: the command was not run through /execute")
+			return nil, nil
 		}
 		matched := r.filter(src, sel)
 		for _, e := range matched {
@@ -131,13 +144,31 @@ func (r *SelectorResolver) Resolve(src *Source, sel *ast.Selector) ([]*world.Ent
 
 // onlyPlayers keeps the player entities of a list.
 func onlyPlayers(entities []*world.Entity) []*world.Entity {
-	out := make([]*world.Entity, 0, len(entities))
+	var out []*world.Entity
 	for _, e := range entities {
 		if e.IsPlayer {
-			out = append(out, e)
+			out = appendEntity(out, e)
 		}
 	}
 	return out
+}
+
+// appendEntity adds an entity to the result of a selector.
+//
+// A selector matches a handful of entities at most, so the result starts
+// out small instead of being sized after the number of candidates.
+//
+// The growth is by doubling, which is what `append` does too, but the
+// first step matters: `append` on an empty slice gives a capacity of one,
+// so matching two or three entities would allocate two or three times.
+// Starting at four covers the usual case in one allocation.
+func appendEntity(out []*world.Entity, e *world.Entity) []*world.Entity {
+	if len(out) == cap(out) {
+		grown := make([]*world.Entity, len(out), max(2*cap(out), 4))
+		copy(grown, out)
+		out = grown
+	}
+	return append(out, e)
 }
 
 // defaultCount returns the count a selector falls back to.
@@ -162,19 +193,61 @@ func typeFilterApplies(base string) bool {
 	return base == "e" || base == "r" || base == "s"
 }
 
+// typeNorms remembers the canonical form of the entity types it has seen.
+//
+// A world holds few entity types, so the canonical form of a type is worth
+// remembering: computing it again for every entity of the world is the
+// price of a type filter.
+type typeNorms struct {
+	raws  [4]string
+	norms [4]string
+	count int
+}
+
+// of returns the canonical form of an entity type.
+//
+// It is the very same value `world.NormalizeEntityType` returns; the
+// remembered ones are only reused, never computed differently.
+func (t *typeNorms) of(raw string) string {
+	for i := 0; i < t.count; i++ {
+		if t.raws[i] == raw {
+			return t.norms[i]
+		}
+	}
+	norm := world.NormalizeEntityType(raw)
+	if t.count < len(t.raws) {
+		t.raws[t.count] = raw
+		t.norms[t.count] = norm
+		t.count++
+	}
+	return norm
+}
+
 // filter applies the selector's filters to the world's entities.
 func (r *SelectorResolver) filter(src *Source, sel *ast.Selector) []*world.Entity {
 	// 1.12.2 checks the type argument before anything else: a type the
 	// entity registry does not know makes the whole selector match
 	// nothing, whatever the base is. The server also says the type is
-	// invalid, but the result is an empty one and not a failure.
+	// invalid, and then matches nothing without failing.
+	//
+	// (Measured: `kill @e[type=pigzombie]` answers "Entity type
+	// 'minecraft:pigzombie' is invalid" and succeeds. The negated
+	// spelling `type=!pigzombie` gets the same note, without the `!`.)
 	if v, ok := parser.SelectorString(sel, "type"); ok {
-		if !world.IsRegisteredEntityType(strings.TrimPrefix(v, "!")) {
+		name := strings.TrimPrefix(v, "!")
+		if !world.IsRegisteredEntityType(name) {
+			namespace, key := world.EntityTypeKey(name)
+			r.Warnings = append(r.Warnings,
+				fmt.Sprintf("Entity type '%s:%s' is invalid", namespace, key))
 			return nil
 		}
 	}
 
-	candidates := r.World.EntityList()
+	// The candidates are the entities of the world in spawn order. The
+	// world hands out its own slice for them, which is only read here:
+	// the result of the selector is a slice of its own, so the world
+	// keeps the order of its entities whatever the selector does.
+	candidates := r.World.EntitySlice()
 
 	// A `type` filter restricts to one entity type. The negation form
 	// `type=!zombie` excludes that type.
@@ -220,10 +293,24 @@ func (r *SelectorResolver) filter(src *Source, sel *ast.Selector) []*world.Entit
 	pitch, hasPitch := r.parseRotation(sel, "rx", "rxm")
 	yaw, hasYaw := r.parseRotation(sel, "ry", "rym")
 
-	out := make([]*world.Entity, 0, len(candidates))
+	var out []*world.Entity
+	var types typeNorms
 	for _, e := range candidates {
 		if hasType {
-			isType := world.NormalizeEntityType(e.Type) == typeFilter
+			// The type of an entity is compared in the canonical form
+			// 1.12.2 uses, and the filter is canonical itself: the
+			// check above only lets a type through that the server
+			// knows, and such a type carries neither a namespace nor
+			// an upper-case letter. An entity whose type is the filter
+			// is therefore of that type, and comparing the two strings
+			// is much cheaper than normalising the type of every
+			// entity of the world. Every other entity still has to be
+			// normalised, because it may spell the same type in
+			// another way.
+			isType := e.Type == typeFilter
+			if !isType {
+				isType = types.of(e.Type) == typeFilter
+			}
 			if isType == typeNegated {
 				continue
 			}
@@ -273,7 +360,7 @@ func (r *SelectorResolver) filter(src *Source, sel *ast.Selector) []*world.Entit
 		if hasYaw && !matchRotation(e.Rot.Yaw, yaw) {
 			continue
 		}
-		out = append(out, e)
+		out = appendEntity(out, e)
 	}
 	return out
 }

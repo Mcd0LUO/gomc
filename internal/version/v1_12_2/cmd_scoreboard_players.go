@@ -3,7 +3,6 @@ package v1_12_2
 import (
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/mcsim/gomc/internal/ast"
 	"github.com/mcsim/gomc/internal/exec"
@@ -206,6 +205,19 @@ func parseScoreHolder(p *parser.Parser) (ast.Arg, error) {
 		return nil, err
 	}
 	return &ast.StringArg{Value: name}, nil
+}
+
+// tagEntity finds the entity a tag action applies to.
+//
+// The holder of a tag action is an entity id when it comes from a
+// selector, and a player name when it was written by hand: 1.12.2
+// resolves the name with `CommandAbstract.c`, which finds the player
+// first and the entity by its id second.
+func tagEntity(ctx *exec.Context, holder string) *world.Entity {
+	if e := ctx.World.FindEntity(holder); e != nil {
+		return e
+	}
+	return ctx.World.FindPlayer(holder)
 }
 
 // runPlayers executes the `scoreboard players` subtree.
@@ -413,7 +425,7 @@ func runPlayers(ctx *exec.Context, args []ast.Arg) (int, error) {
 		case "add", "remove":
 			tag := args[4].(*ast.StringArg).Value
 			for _, h := range holders {
-				e := ctx.World.FindEntity(h)
+				e := tagEntity(ctx, h)
 				if e == nil {
 					continue
 				}
@@ -431,20 +443,38 @@ func runPlayers(ctx *exec.Context, args []ast.Arg) (int, error) {
 			}
 			return len(holders), nil
 		case "list":
+			// 1.12.2 prints a heading and then the tags joined
+			// with " and " on the next line -- but only when the
+			// entity carries tags at all. An entity without tags
+			// makes the command report nothing and the number of
+			// tags it has.
+			//
+			// (CommandScoreboard.java:735-741: the heading and the
+			// tag list are sent only when the set of tags is not
+			// empty, and the count the command reports is the size
+			// of that set.)
+			tags := 0
 			for _, h := range holders {
-				e := ctx.World.FindEntity(h)
+				e := tagEntity(ctx, h)
 				if e == nil {
 					continue
 				}
-				// 1.12.2 prints a heading and then the tags joined
-				// with " and " on the next line.
-				tags := e.TagList()
+				// The heading names the entity the way the scoreboard
+				// does: `CommandAbstract.f` answers a player with its
+				// user name and every other entity with its UUID.
+				// The runtime does not model UUIDs, so a non-player
+				// entity is named by its internal id.
+				list := e.TagList()
+				if len(list) == 0 {
+					continue
+				}
 				ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-					fmt.Sprintf("Tags on entity %s are:", h))
+					fmt.Sprintf("Tags on entity %s are:", exec.ScoreboardHolder(e)))
 				ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-					strings.Join(tags, " and "))
+					joinVanillaList(list))
+				tags += len(list)
 			}
-			return len(holders), nil
+			return tags, nil
 		}
 		return 0, exec.Errorf("expected add, remove or list, got %q", action)
 	}

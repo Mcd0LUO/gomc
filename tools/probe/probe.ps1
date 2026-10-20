@@ -151,9 +151,20 @@ function New-ServerSkeleton {
 		# 保持 16（vanilla 默认值）：这样出生点区块会被服务端加载，
 		# /setblock 和 /summon 才不会因为"区块没加载"而失败。
 		'spawn-protection=16'
-		'difficulty=peaceful'
-		'spawn-animals=false'
-		'spawn-npcs=false'
+		# 这三条不能关。
+		#
+		# CraftBukkit 的 `World.addEntity` 会拦：动物、怪物和村民只要
+		# 对应的开关是关的，就直接 `entity.dead = true` 然后返回 false ——
+		# 于是 `/summon zombie` 在真服上会失败，**不是**因为 1.12.2 的
+		# 实体工厂造不出僵尸。同理 `difficulty=peaceful` 也会让怪物
+		# summon 不了。
+		#
+		# 代价是世界里可能自然刷怪，但探针是纯控制台驱动、没有玩家，
+		# 而 1.12.2 的刷怪是围着玩家发生的，所以实际上不会刷出来。
+		'difficulty=normal'
+		'spawn-animals=true'
+		'spawn-monsters=true'
+		'spawn-npcs=true'
 		'allow-nether=false'
 		'generate-structures=false'
 		'enable-command-block=false'
@@ -194,8 +205,8 @@ function Initialize-Template {
 	$server = Start-Server -Dir $staging -ConsoleFile (Join-Path $staging 'console-init.txt')
 	# setworldspawn 会写进 level.dat；关服时一起落盘。
 	& $server.Send 'setworldspawn 0 4 0'
-	& $server.Send 'gamerule doMobSpawning true'
-	& $server.Send 'difficulty peaceful'
+	& $server.Send 'gamerule doMobSpawning false'
+	& $server.Send 'difficulty normal'
 	& $server.Send 'save-all'
 	$null = & $server.Finish
 
