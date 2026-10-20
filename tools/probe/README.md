@@ -204,6 +204,15 @@ PowerShell 7 里，返回出去的 scriptblock 在别处调用时**看不到**�
 报出来并以退出码 1 结束。没有 `.expected` 的用例**只跑一遍**，不算失败，但会
 在结尾列出来（免得被当成"通过了"）。
 
+`compare-with-gomc.ps1` 是**对拍**的机器版本：它把真服的输出和 gomc 那边
+同名用例的 `.golden` 按命令逐条对齐，一条一条比。探针用例和 difftest 用例
+的命令要一字不差，两边才对得上。
+
+```powershell
+.\compare-with-gomc.ps1 -Case .\cases\34-blockstates.case `
+    -Golden ..\..\..\testdata\cases\blockstates.difftest.golden
+```
+
 需要**在线玩家**的用例（`/advancement`、`/recipe`）在用例文件里写一行注释
 声明要谁：
 
