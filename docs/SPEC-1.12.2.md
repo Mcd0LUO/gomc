@@ -673,6 +673,14 @@ There is no such block with name minecraft:<名字>
 1.12 命名），见 `internal/world/blockregistry.go`；再用真服把 254 个名字逐个
 放一遍确认过。
 
+**方块的显示名**也一并对齐了：1.12.2 显示的是**注册名**对应的名字，而
+**1.12 复用了 1.11 的几个名字**（`stonebrick` 在 1.11 是圆石、在 1.12.2 是
+石砖），所以查表时**新表优先**、旧表其次。254 个方块的显示名是用真服逐个量
+出来的（`setblock` 之后用 `testforblock` 读回来），见
+`internal/world/blockdisplaynames.go`。服务端的语言文件是**精简版**，所以有些
+方块的名字在真服上就是**未翻译的键**（`tile.bed.name`）——那也是真服的真实
+输出 ✓
+
 ### 6.1 `/setblock` 的模式 [读]
 
 ```

@@ -33,3 +33,33 @@ func TestBlockDisplayNameCoversCommonBlocks(t *testing.T) {
 		}
 	}
 }
+
+// 1.12.2 reuses some of the names of 1.11 for a different block, and it
+// still takes the old names. The table of the registry names comes first,
+// so the meaning of 1.12.2 wins.
+//
+// (Measured on a real 1.12.2 server: "stonebrick" is the stone bricks
+// there, while in 1.11 it was the cobblestone.)
+func TestBlockDisplayNamePrefersTheRegistryName(t *testing.T) {
+	cases := map[string]string{
+		// 1.12.2 reuses the name, and it means the stone bricks now.
+		"stonebrick": "Stone Bricks",
+		// The names of 1.12.
+		"end_stone":    "End Stone",
+		"cobblestone":  "Cobblestone",
+		"hay_block":    "Hay Bale",
+		"carpet":       "Carpet",
+		"nether_brick": "Nether Brick",
+		// The names of 1.11 still work, and they are looked up in the
+		// table of the older names.
+		"whiteStone": "End Stone",
+		"doorWood":   "Wooden Door",
+		"woolCarpet": "Carpet",
+		"hayBlock":   "Hay Bale",
+	}
+	for name, want := range cases {
+		if got := BlockDisplayName(name); got != want {
+			t.Errorf("BlockDisplayName(%q) = %q, want %q", name, got, want)
+		}
+	}
+}

@@ -231,6 +231,12 @@ var blockDisplayNames = map[string]string{
 
 // BlockDisplayName returns the name 1.12.2 shows for a block.
 //
+// The name of the block is looked up in the table of the registry names
+// first, because 1.12.2 reuses some of the names of 1.11 for a
+// different block: "stonebrick" is the cobblestone in 1.11 and the stone
+// bricks in 1.12.2. The table of the older names comes second, since
+// 1.12.2 still takes those.
+//
 // An unknown id is turned into something readable rather than being
 // dropped, so a message still says which block was meant.
 func BlockDisplayName(name string) string {
@@ -240,6 +246,9 @@ func BlockDisplayName(name string) string {
 	key := name
 	if strings.HasPrefix(key, "minecraft:") {
 		key = strings.TrimPrefix(key, "minecraft:")
+	}
+	if display, ok := blockRegistryDisplayNames[key]; ok {
+		return display
 	}
 	if display, ok := blockDisplayNames[key]; ok {
 		return display
