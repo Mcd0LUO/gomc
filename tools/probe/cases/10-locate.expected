@@ -1,0 +1,35 @@
+[Server] M01
+Usage: /locate <feature>
+[Server] M02
+Usage: /locate <feature>
+[Server] M03
+Usage: /locate <feature>
+[Server] M04
+Unable to locate any plains feature
+[Server] M05
+Usage: /locate <feature>
+[Server] M06
+Unable to locate any stronghold feature
+[Server] M07
+Unable to locate any Stronghold feature
+[Server] M08
+Unable to locate any village feature
+[Server] M09
+Unable to locate any Village feature
+[Server] M10
+Unable to locate any mineshaft feature
+[Server] M11
+Unable to locate any monument feature
+[Server] M12
+Unable to locate any mansion feature
+[Server] M13
+Unable to locate any endcity feature
+[Server] M14
+Unable to locate any fortress feature
+[Server] M15
+Unable to locate any temple feature
+[Server] M16
+Unable to locate any bogus feature
+[Server] M17
+Usage: /locate <feature>
+[Server] M18

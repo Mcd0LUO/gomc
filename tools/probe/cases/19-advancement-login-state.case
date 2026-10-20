@@ -1,0 +1,36 @@
+# 验证：玩家刚登录时，那 12 个"奖励指向别的进度"的进度是什么状态。
+#
+# 这一轮先测、再发任何会改变状态的命令，所以测到的就是登录时的状态。
+#
+# 期望：登录时玩家既没有配方，这些进度也都没完成。
+
+--- console ---
+say M01
+advancement test Steve minecraft:recipes/misc/coal
+say M02
+advancement test Steve minecraft:recipes/misc/bone_meal_from_block
+say M03
+advancement test Steve minecraft:recipes/misc/wheat
+say M04
+advancement test Steve minecraft:recipes/misc/gold_nugget
+say M05
+advancement test Steve minecraft:recipes/misc/iron_nugget
+say M06
+advancement test Steve minecraft:recipes/redstone/redstone
+say M07
+advancement test Steve minecraft:recipes/misc/diamond
+say M08
+advancement test Steve minecraft:recipes/misc/emerald
+say M09
+advancement test Steve minecraft:recipes/misc/gold_ingot_from_block
+say M10
+advancement test Steve minecraft:recipes/misc/iron_ingot_from_block
+say M11
+advancement test Steve minecraft:recipes/misc/lapis_lazuli
+say M12
+advancement test Steve minecraft:recipes/misc/slime_ball
+say M13
+advancement test Steve minecraft:recipes/building_blocks/coal_block
+say M14
+advancement test Steve minecraft:recipes/root
+say M15

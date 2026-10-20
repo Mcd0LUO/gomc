@@ -1,7 +1,11 @@
-# /locate 在一个**有结构**的超平坦世界里的行为
+# /locate 在一个**有结构**的世界里的行为
 #
-# 平坦世界的 generator-settings 第 4 段是结构表（village / mineshaft /
-# stronghold / oceanmonument / biome_1），第 3 段是生物群系 id。
+# 注意：这个用例需要**普通世界**（level-type=NORMAL + generate-structures=true）。
+# 探针默认的超平坦模板里没有结构，在那个世界里跑，每个名字都是
+# "Unable to locate any ... feature"——见 10-locate.case。
+#
+# 记录这个用例的基线时，要用普通世界的模板，否则录下来的就不是这里
+# 记的东西了。
 --- console ---
 say N01
 locate Stronghold

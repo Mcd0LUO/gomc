@@ -1,0 +1,18 @@
+# /recipe 的回显文本。
+#
+# 控制台上没有玩家，所以这里只能测两种回显：用法错误，和"玩家不在线"。
+# 真服先查玩家、再查配方（`CommandRecipe.execute` 先取玩家列表），
+# 所以控制台测不到配方那一半——"给一个配方"的成功路径要玩家在线。
+#
+# 2026-10-20 实测（Paper 1.12.2）：四种用法错误都回
+# "Usage: /recipe <give|take> [player] <name|*>"，玩家不在线都回
+# "Player 'Nobody' cannot be found"。
+
+--- console ---
+recipe
+recipe give
+recipe take
+recipe foo Nobody stone_slab
+recipe give Nobody stone_slab
+recipe take Nobody stone_slab
+recipe give Nobody *

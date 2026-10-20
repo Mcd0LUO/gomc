@@ -1,0 +1,23 @@
+# /locate 的补充用例：单参数的名字、带引号的名字、搜索中心
+#
+# 这个世界是**普通世界**（不是超平坦），所以结构是生成的，
+# /locate 能找到东西。
+#
+# 注意：这个用例需要普通世界（level-type=NORMAL + generate-structures=true），
+# 探针默认的超平坦模板里没有结构，跑出来的结果不一样。
+--- console ---
+say N01
+locate biome
+say N02
+locate structure
+say N03
+locate "Village"
+say N04
+locate Stronghold
+say N05
+summon armor_stand 30 4 30
+say N06
+execute @e[type=armor_stand] ~ ~ ~ locate Stronghold
+say N07
+execute @e[type=armor_stand] ~ ~ ~ locate Village
+say N08

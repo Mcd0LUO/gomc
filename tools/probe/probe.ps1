@@ -92,7 +92,12 @@ param(
 	[switch]$Record,
 	[switch]$Keep,
 	[switch]$RebuildTemplate,
-	[switch]$Fast
+	[switch]$Fast,
+	# 机器人的名字：非空时先让它登录进去，再喂命令。
+	#
+	# 有些命令只对**在线玩家**有用（/advancement 和 /recipe），控制台上没有
+	# 玩家，所以要靠一个协议机器人（mcbot.py）登录进去。
+	[string]$Bot = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -124,6 +129,19 @@ function Fail($msg) {
 
 function Write-Step($msg) {
 	Write-Host "==> $msg" -ForegroundColor Cyan
+}
+
+# Normalize-Uuid replaces the UUIDs of the given lines with a placeholder.
+#
+# 1.12.2 gives every entity a **random** UUID, and the server is started
+# fresh for every probe, so the same command names a different UUID every
+# time. The expectation file keeps the real UUID (it is easier to read),
+# but the comparison is made on the placeholder.
+function Normalize-Uuid([string[]]$lines) {
+	if (-not $lines) { return $lines }
+	return $lines | ForEach-Object {
+		$_ -replace '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}', '<uuid>'
+	}
 }
 
 # ---------------------------------------------------------------- 服务端骨架
@@ -438,8 +456,40 @@ try {
 
 	Write-Step "跑用例"
 	$server = Start-Server -Dir $Work -ConsoleFile (Join-Path $Work 'console-case.txt')
+	# 注意：PowerShell 的变量名**不区分大小写**，所以这里不能叫 $bot ——
+	# 那会把参数 $Bot 一起清空。
+	$botProc = $null
+	if ($Bot) {
+		# 有些命令**只对在线玩家**有用：/advancement 和 /recipe 就是两条。
+		# 控制台上没有玩家，所以要靠一个协议机器人登录进去。
+		$BotScript = Join-Path $PSScriptRoot 'mcbot.py'
+		if (-not (Test-Path $BotScript)) { Fail "找不到 $BotScript" }
+		Write-Step "让机器人 $Bot 登录"
+		$botLog = Join-Path $Work 'bot.log'
+		$botProc = Start-Process -FilePath 'python' `
+			-ArgumentList @($BotScript, '127.0.0.1', $Port, $Bot, '300') `
+			-NoNewWindow -PassThru `
+			-RedirectStandardOutput $botLog -RedirectStandardError "$botLog.err"
+		# 等它登录完：登录之后服务端才认这个玩家。
+		$deadline = (Get-Date).AddSeconds(30)
+		while ((Get-Date) -lt $deadline) {
+			if (Test-Path $botLog) {
+				$seen = Get-Content $botLog -ErrorAction SilentlyContinue
+				if ($seen -match 'logged in as') { break }
+				if ($seen -match 'login refused|never logged in') {
+					Fail "机器人登录被拒绝：$($seen -join ' ')"
+				}
+			}
+			Start-Sleep -Milliseconds 300
+		}
+		Write-Step "机器人已登录"
+	}
 	foreach ($c in $spec.Commands) { & $server.Send $c }
 	$null = & $server.Finish
+	if ($botProc) {
+		# 机器人不需要活到用例结束，但也不能留在后台。
+		try { $botProc | Stop-Process -Force -ErrorAction SilentlyContinue } catch { }
+	}
 
 	$observed = Select-Observation -ConsoleFile (Join-Path $Work 'console-case.txt')
 
@@ -456,8 +506,12 @@ try {
 	}
 	if ($Compare) {
 		if (-not (Test-Path $expectedPath)) { Fail "找不到期望文件 $expectedPath" }
-		$expected = Get-Content $expectedPath
-		$diff = Compare-Object -ReferenceObject $expected -DifferenceObject $observed
+		# 真服每次开服给的实体 UUID 都不一样，所以比较之前把两边的
+		# UUID 换成同一个占位符。期望文件里留着真的 UUID（好看），比的
+		# 是占位符。
+		$expected = Normalize-Uuid (Get-Content $expectedPath)
+		$actual = Normalize-Uuid $observed
+		$diff = Compare-Object -ReferenceObject $expected -DifferenceObject $actual
 		if ($diff) {
 			Write-Host ""
 			Write-Host "---- 与期望不一致 ----" -ForegroundColor Red

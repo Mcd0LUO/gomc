@@ -1,4 +1,8 @@
 # /locate 的行为：参数个数、名字大小写、能不能找到、找不到怎么说
+#
+# 这个用例在探针默认的**超平坦**世界里跑。那个世界的 generator-settings
+# 里没有结构，所以每一个名字都找不到——这正是探针能测到的部分。
+# （有结构的世界见 11-locate-struct.case 和 12-locate-extra.case。）
 --- console ---
 say M01
 locate

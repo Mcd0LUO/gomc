@@ -1,0 +1,27 @@
+# /advancement 的成功路径需要一个**在线玩家**。
+#
+# 控制台上没有玩家，所以这一轮用协议机器人（mcbot.py）登录成 Steve，
+# 再跑命令。探针的 -Bot 开关负责登录那一步。
+#
+# 期望（2026-10-21 真服实测）：
+#   - "Granted every advancement (481 total granted) to Steve"
+#   - "Revoked every advancement (488 total revoked) from Steve"
+#
+# 481 和 488 的差别是 1.12.2 自己的机制：命令执行过程中，完成的进度会发
+# rewards.recipes 里的配方，配方解锁又点亮盯着它的进度，于是命令走到那
+# 7 个进度时它们已经完成，被跳过、不计数。
+#
+# **这个用例不录基线**：真服的这个数字**有时序依赖**——命令紧跟着玩家登录
+# 执行时（登录时解锁的那批配方还没发出去）真服报 488，稍晚一点执行就是 481。
+# 同一套命令、同一个服，两次跑出来的数字不一样。
+
+--- console ---
+say V01
+advancement grant Steve everything
+say V02
+advancement revoke Steve everything
+say V03
+advancement grant Steve everything
+say V04
+recipe give Steve stone_slab
+say V05

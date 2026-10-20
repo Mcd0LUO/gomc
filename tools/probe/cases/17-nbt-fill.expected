@@ -1,0 +1,16 @@
+[Server] W01
+Object successfully summoned
+[Server] W02
+Data tag parsing failed: Expected value at: {Tags:<--[HERE]
+[Server] W03
+Data tag parsing failed: Expected ':' but got '<EOF>' at: {Tags<--[HERE]
+[Server] W04
+'{Tags:' is not a state for block minecraft:stone
+[Server] W05
+There is no such block with name {tags:
+[Server] W06
+'replace' is not a state for block minecraft:stone
+[Server] W07
+'{Tags:' is not a state for block minecraft:stone
+[Server] W08
+[Server] W09

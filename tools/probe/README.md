@@ -37,6 +37,23 @@ gomc 的行为基准来自两处：**反编译服务端 jar**（"读"）和**跑
 | `-Port` | 25599 | 测试服端口 |
 | `-Compare` / `-Record` / `-Keep` | | 比对 / 录制 / 保留环境 |
 | `-RebuildTemplate` | | 强制重建世界模板 |
+| `-Fast` | | 跳过每条命令前的 1.5 秒等待 |
+| `-Bot <名字>` | | 让一个协议机器人先登录进去（见下） |
+
+### 需要在线玩家的命令
+
+有些命令**只对在线玩家**有用：`/advancement` 和 `/recipe` 就是两条——进度和
+配方书都是**玩家**的状态。控制台上没有玩家，所以只测得到它们的错误消息。
+
+`mcbot.py` 是一个最小的 1.12.2 协议机器人：握手 + 离线登录 + 回 Keep Alive，
+进去之后就一直挂着。探针的 `-Bot` 开关会先让它登录，再喂命令：
+
+```powershell
+.\probe.ps1 -Case .\cases\24-advancement-bot.case -Port 25599 -Bot Steve
+```
+
+服务端必须用 `online-mode=false`（探针已经是这样），所以登录不需要加密。
+机器人需要 `python` 在 PATH 上。
 
 ---
 
