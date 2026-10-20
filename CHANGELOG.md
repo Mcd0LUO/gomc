@@ -24,6 +24,28 @@
   它被标记成**扩展命令**（`exec.Registry.SetExtension`），所以 `gomc check`
   会明确说：这个函数在真服上**加载就会失败**（1.12.2 拒绝含未知命令的函数），
   而不是让这个差异悄悄过去。
+- **`/advancement` 认数据包里自定义的进度**：1.12.2 把自定义进度放在
+  **`<世界>/advancements/<命名空间>/<路径>.json`**（不是 1.13+ 的
+  `data/<命名空间>/advancements/`），gomc 现在也读它。命名规则和别的
+  `MinecraftKey` 一样：命名空间可省（默认 `minecraft`），两段都小写。
+  进度文件的 `requirements` 也按 1.12.2 的形状读：一个组里任一条件成立即可；
+  **没有** `requirements` 时每个条件自成一组、全部要成立。
+- **`grant everything` 的数字对齐真服**：真服报 **481**，gomc 之前报 488。
+  差别**不是**登录时给了玩家一批配方（实测：刚登录时 `recipe give` 说
+  "Successfully given"，玩家本来什么配方都没有），而是**命令执行过程中**
+  的连锁反应：进度完成 → 发 `rewards.recipes` 里的配方 →
+  `minecraft:recipe_unlocked` 触发器把"盯着这个配方"的进度条件点亮 →
+  命令走到那个进度时它已经完成 → 跳过、不计数。
+  gomc 建模了这条机制，所以数字对上了（`revoke everything` 两边都是 488；
+  **revoke 之后再 grant** 也是 488，因为触发器只对玩家还不认识的配方生效）。
+  **没有写死"跳过这 7 个"的列表**——模型是"玩家已解锁的配方会完成盯着它的
+  进度"，数据来自服务端 jar 的 `rewards.recipes`，遍历顺序也复刻了服务端的
+  `java.util.HashMap`（所以跳过的是**同样那 7 个**）。
+- **`/recipe` 认 `<世界>/recipes/<名字>.json`**——**这一条是 gomc 的扩展，
+  真服没有**：1.12.2 只从自己的 assets 根读配方（jar 或服务端目录的
+  `assets/`），三种世界目录布局（`recipes/`、`data/recipes/`、
+  `data/minecraft/recipes/`）在真服上实测全是 `is an unknown recipe`。
+  gomc 读世界目录，是给写函数的人一个能用的地方，差别记在 SPEC 里。
 
 - **四条命令**（命令数 46 → 50）：`/advancement`、`/recipe`、`/spreadplayers`、`/stats`。
   每一条都对着真实 1.12.2 服务端逐条实测过，规格记在
@@ -144,6 +166,26 @@
   `{Health:20}` 报 `The dataTag does not match`。
 - **用法消息不再被打印两遍**：1.12.2 回答用法错误时给的就是用法行本身，所以
   错误报告里不该再补一遍 `usage:`。命令的用法行仍然照旧附在描述性错误后面。
+- **玩家专属命令的目标真的只接受玩家**：1.12.2 里 give / gamemode / title /
+  tellraw / playsound / stopsound / trigger / xp / clear / spawnpoint 的目标是
+  用 `CommandAbstract.b` 解析的，那个变体**只找玩家**；gomc 用的是通用解析，
+  任何实体都收。实测（2026-10-21）：
+  - 目标匹配到**非玩家**时，报的是那个实体的 **UUID**
+    （`give @e[type=armor_stand] stone` → `Player '8de4ef1b-...' cannot be found`）
+  - 目标匹配 **0 个**时**什么都不说**（列表选择器展开成零次执行）
+  - 名字找不到玩家 → `Player '<名字>' cannot be found`
+
+  顺带修掉一个由此暴露的老偏差：gomc 之前能用**内部 id** 当玩家目标
+  （`title p1 title ...` 能跑），真服只认玩家名。
+  `effect` / `enchant` / `kill` / `testfor` / `replaceitem` / `particle` 的
+  目标**本来就是**实体变体（逐条实测确认），一个字没动。
+- **坏 dataTag 的措辞对齐真服**：词法器不再因为 NBT 的花括号不配平而拒绝
+  整条命令，坏 dataTag 交给 NBT 解析器报错，措辞是
+  `Data tag parsing failed: <reason>`（scoreboard 那边是
+  `Could not parse dataTag, reason: <reason>`）。原因用 MojangsonParser 的
+  原话，只显示**最后 35 个字符**（长了前面加 `...`）。dataTag 的解析推到
+  运行期，所以**目标先于 dataTag** 被报出来——真服上
+  `testfor @e[type=armor_stand {Tags:` 先报实体找不到。
 
 
 ### 性能

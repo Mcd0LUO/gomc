@@ -38,6 +38,8 @@ func Register(reg *exec.Registry) {
 	registerRecipe(reg)
 	registerSpreadPlayers(reg)
 	registerStats(reg)
+	// The command that looks for a structure in the world.
+	registerLocate(reg)
 	// The commands gomc adds on top of the 1.12.2 set. They are marked as
 	// extensions, so `gomc check` says that a function using one of them
 	// would not load on a real server.

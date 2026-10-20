@@ -183,6 +183,7 @@ var commandPermissions = map[string]int{
 	"gamerule":        2,
 	"give":            2,
 	"kill":            2,
+	"locate":          2,
 	"particle":        2,
 	"playsound":       2,
 	"replaceitem":     2,

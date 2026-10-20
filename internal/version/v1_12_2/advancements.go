@@ -18,9 +18,8 @@ import (
 // in the "minecraft" namespace.
 //
 // A datapack may add more, under `<world>/advancements/<namespace>/<path>.json`
-// (`AdvancementDataWorld.d`). gomc does not read those: it has no JSON
-// parser, and the advancements the command is about are the ones the
-// 1.12.2 server ships with.
+// (`AdvancementDataWorld.d`). Those are read by advancements_custom.go and
+// are presented to the command as the same kind of advancement.
 type advancementDef struct {
 	// name is the namespaced id, e.g. "minecraft:story/root".
 	name string
@@ -2062,45 +2061,108 @@ var advancementRegistry = []advancementDef{
 	{"minecraft:story/upgrade_tools", "minecraft:story/mine_stone", []string{"stone_pickaxe"}, requireAll},
 }
 
-// advancementIndex indexes the registry by name.
+// advancement is what the command needs to know about one advancement.
 //
-// The index is built once, when the package is loaded.
-var advancementIndex = func() map[string]int {
-	idx := make(map[string]int, len(advancementRegistry))
-	for i := range advancementRegistry {
-		idx[advancementRegistry[i].name] = i
-	}
-	return idx
-}()
+// The built-in advancements of the server jar are the entries of
+// advancementRegistry; a datapack adds more, and those are read from the
+// world directory. Both are presented as an advancement, so the command
+// does not have to care where one came from.
+type advancement struct {
+	// name is the namespaced id, e.g. "minecraft:story/root".
+	name string
+	// parent is the parent's namespaced id. It is empty for a root
+	// advancement, one that has no parent.
+	parent string
+	// criteria are the criterion names.
+	criteria []string
+	// groups are the requirement groups: every group has to be satisfied,
+	// and a group is satisfied as soon as one of its criteria is done.
+	groups [][]string
+	// recipe is the recipe the advancement watches, if it watches one.
+	recipe *advancementRecipe
+}
 
-// advancementChildren holds the children of every advancement.
+// advancementRecipe is the recipe side of an advancement.
 //
-// The children of an advancement are the ones that name it as their
-// parent.
-var advancementChildren = func() map[string][]*advancementDef {
-	children := map[string][]*advancementDef{}
+// The recipe advancements of 1.12.2 watch a recipe: the criterion named
+// "has_the_recipe" is completed by the "minecraft:recipe_unlocked" trigger
+// when the player learns that recipe. Completing an advancement hands out
+// the recipes of its "rewards" block, and learning a recipe completes the
+// advancement that watches it.
+type advancementRecipe struct {
+	// criterion is the criterion that watches the recipe.
+	criterion string
+	// watch is the recipe the criterion watches, e.g. "minecraft:acacia_planks".
+	watch string
+	// rewards are the recipes the advancement hands out when it is done.
+	rewards []string
+}
+
+// advancementSet is the set of advancements of one world.
+//
+// It holds the advancements of the server jar and the ones the world's
+// datapack adds.
+type advancementSet struct {
+	// root is the world directory the set was read from.
+	root string
+	// all holds every advancement of the set, in the order the command
+	// walks them.
+	all []*advancement
+	// index holds the advancements by name.
+	index map[string]*advancement
+	// children holds the children of every advancement, by the name of the
+	// parent.
+	children map[string][]*advancement
+	// watchers holds the advancements that watch a recipe, by the recipe.
+	watchers map[string][]*advancement
+}
+
+// newAdvancementSet builds the set of a world.
+//
+// The advancements of the server jar and the ones of the datapack are put
+// into the set in the order 1.12.2 walks them, which is the order of the
+// map the server keeps them in.
+func newAdvancementSet(root string, custom []*advancement) *advancementSet {
+	builtIn := make([]*advancement, 0, len(advancementRegistry))
 	for i := range advancementRegistry {
-		a := &advancementRegistry[i]
-		children[a.parent] = append(children[a.parent], a)
+		def := &advancementRegistry[i]
+		builtIn = append(builtIn, &advancement{
+			name:     def.name,
+			parent:   def.parent,
+			criteria: def.criteria,
+			groups:   def.requirementGroups(),
+			recipe:   builtInAdvancementRecipe(def.name),
+		})
 	}
-	for parent := range children {
-		list := children[parent]
+	s := &advancementSet{
+		root:     root,
+		all:      advancementOrder(builtIn, custom),
+		index:    make(map[string]*advancement, len(builtIn)+len(custom)),
+		children: map[string][]*advancement{},
+		watchers: map[string][]*advancement{},
+	}
+	for _, a := range s.all {
+		s.index[a.name] = a
+		s.children[a.parent] = append(s.children[a.parent], a)
+		if a.recipe != nil && a.recipe.watch != "" {
+			s.watchers[a.recipe.watch] = append(s.watchers[a.recipe.watch], a)
+		}
+	}
+	for parent := range s.children {
+		list := s.children[parent]
 		sort.Slice(list, func(i, j int) bool { return list[i].name < list[j].name })
 	}
-	return children
-}()
+	return s
+}
 
-// lookupAdvancement finds the advancement a command named.
+// lookup finds the advancement a command named.
 //
 // 1.12.2 reads the name as a `MinecraftKey`, so the namespace defaults to
 // "minecraft" and the whole text is lower-cased: "story/root" and
 // "minecraft:story/root" are the same advancement.
-func lookupAdvancement(name string) (*advancementDef, bool) {
-	i, ok := advancementIndex[advancementKey(name)]
-	if !ok {
-		return nil, false
-	}
-	return &advancementRegistry[i], true
+func (s *advancementSet) lookup(name string) (*advancement, bool) {
+	a, ok := s.index[advancementKey(name)]
+	return a, ok
 }
 
 // advancementKey turns the text of an advancement name into the key the
@@ -2114,22 +2176,22 @@ func advancementKey(name string) string {
 	return namespace + ":" + key
 }
 
-// children returns the advancements whose parent is the given one.
+// childrenOf returns the advancements whose parent is the given one.
 //
 // The result is sorted by name, so the order in which the descendants of
 // an advancement are granted does not depend on the order of the registry.
-func children(parent string) []*advancementDef {
-	return advancementChildren[parent]
+func (s *advancementSet) childrenOf(parent string) []*advancement {
+	return s.children[parent]
 }
 
-// ancestors returns the parents of an advancement, closest one first.
+// ancestorsOf returns the parents of an advancement, closest one first.
 //
 // 1.12.2 walks the parents of an advancement in the same order, and the
 // order matters only for the order in which the advancements are granted.
-func ancestors(a *advancementDef) []*advancementDef {
-	var out []*advancementDef
+func (s *advancementSet) ancestorsOf(a *advancement) []*advancement {
+	var out []*advancement
 	for parent := a.parent; parent != ""; {
-		p, ok := lookupAdvancement(parent)
+		p, ok := s.index[parent]
 		if !ok {
 			break
 		}
@@ -2139,37 +2201,55 @@ func ancestors(a *advancementDef) []*advancementDef {
 	return out
 }
 
+// requirementGroups returns the requirement groups of a built-in
+// advancement.
+//
+// The built-in advancements only ever need one group or none: 438 of them
+// declare a single group holding every criterion, so one done criterion is
+// enough (requireAny), and the other 50 declare no "requirements" at all,
+// so the server makes one group per criterion and every criterion has to
+// be done (requireAll).
+func (d *advancementDef) requirementGroups() [][]string {
+	switch d.kind {
+	case requireAny:
+		return [][]string{d.criteria}
+	default:
+		out := make([][]string, 0, len(d.criteria))
+		for _, criterion := range d.criteria {
+			out = append(out, []string{criterion})
+		}
+		return out
+	}
+}
+
 // done reports whether the player has completed the advancement.
 //
 // 1.12.2 reads the "requirements" array of the advancement JSON: every
 // group has to be satisfied, and a group is satisfied as soon as one of
 // its criteria is done. An advancement without any criterion is never
 // done.
-func (a *advancementDef) done(obtained map[string]bool) bool {
-	if len(a.criteria) == 0 {
+func (a *advancement) done(obtained map[string]bool) bool {
+	if len(a.groups) == 0 {
 		return false
 	}
-	switch a.kind {
-	case requireAny:
-		for _, c := range a.criteria {
-			if obtained[c] {
-				return true
+	for _, group := range a.groups {
+		satisfied := false
+		for _, criterion := range group {
+			if obtained[criterion] {
+				satisfied = true
+				break
 			}
 		}
-		return false
-	default:
-		for _, c := range a.criteria {
-			if !obtained[c] {
-				return false
-			}
+		if !satisfied {
+			return false
 		}
-		return true
 	}
+	return true
 }
 
 // hasCriterion reports whether the advancement has a criterion of that
 // name.
-func (a *advancementDef) hasCriterion(name string) bool {
+func (a *advancement) hasCriterion(name string) bool {
 	for _, c := range a.criteria {
 		if c == name {
 			return true

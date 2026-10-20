@@ -1,6 +1,7 @@
 package v1_12_2
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/Mcd0LUO/gomc/internal/exec"
@@ -72,8 +73,13 @@ func TestGomcPlayerLetsThePlayerCommandsRun(t *testing.T) {
 	if err := runLine(e, "advancement grant Steve everything"); err != nil {
 		t.Errorf("advancement could not find the player: %v", err)
 	}
+	// The recipe may well be one the player already has -- 1.12.2 hands a
+	// player a few recipes when it logs in -- but it must not be reported
+	// as a missing player.
 	if err := runLine(e, "recipe give Steve stone_slab"); err != nil {
-		t.Errorf("recipe could not find the player: %v", err)
+		if strings.Contains(err.Error(), "cannot be found") {
+			t.Errorf("recipe could not find the player: %v", err)
+		}
 	}
 	if err := runLine(e, "gamemode creative Steve"); err != nil {
 		t.Errorf("gamemode could not find the player: %v", err)

@@ -1,6 +1,8 @@
 package v1_12_2
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -83,10 +85,16 @@ func TestAdvancementGrantModes(t *testing.T) {
 		t.Errorf("the message was %q, want %q", got, want)
 	}
 	// "everything" reaches every advancement of the registry.
+	//
+	// The number is smaller than the registry holds: an advancement the
+	// recipe trigger completed before the command reached it is skipped,
+	// and the command does not count it.
+	//
+	// (Measured on a real 1.12.2 server: 481.)
 	e4 := newAdvancementEngine(t)
 	addPlayer(t, e4, "Steve")
 	if got, want := advancementFeedback(t, e4, "advancement grant Steve everything"),
-		"Granted every advancement (488 total granted) to Steve"; got != want {
+		"Granted every advancement (481 total granted) to Steve"; got != want {
 		t.Errorf("the message was %q, want %q", got, want)
 	}
 	// Granting everything twice changes nothing, and the server says so.
@@ -368,6 +376,7 @@ func TestAdvancementRegistry(t *testing.T) {
 	if roots != 6 {
 		t.Errorf("the registry holds %d roots, want 6", roots)
 	}
+	set := newAdvancementSet("", nil)
 	for _, c := range []struct {
 		name     string
 		parent   string
@@ -379,7 +388,7 @@ func TestAdvancementRegistry(t *testing.T) {
 		{"minecraft:adventure/kill_all_mobs", "minecraft:adventure/kill_a_mob", 22},
 		{"minecraft:recipes/root", "", 1},
 	} {
-		a, ok := lookupAdvancement(c.name)
+		a, ok := set.lookup(c.name)
 		if !ok {
 			t.Errorf("the registry does not hold %q", c.name)
 			continue
@@ -398,8 +407,194 @@ func TestAdvancementRegistry(t *testing.T) {
 		if a.parent == "" {
 			continue
 		}
-		if _, ok := lookupAdvancement(a.parent); !ok {
+		if _, ok := set.lookup(a.parent); !ok {
 			t.Errorf("%q has the parent %q, which is not in the registry", a.name, a.parent)
 		}
+	}
+}
+
+// writeAdvancementFile writes an advancement file of a datapack.
+//
+// The path is relative to the "advancements" directory of the world.
+func writeAdvancementFile(t *testing.T, root, name, body string) {
+	t.Helper()
+	path := filepath.Join(root, "advancements", filepath.FromSlash(name))
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("creating %s: %v", filepath.Dir(path), err)
+	}
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatalf("writing %s: %v", path, err)
+	}
+}
+
+// TestAdvancementCustomDatapack pins down the custom advancements of a
+// world.
+//
+// 1.12.2 keeps them in `<world>/advancements/<namespace>/<name>.json` and
+// reads them when the server starts. The namespace is the first segment
+// of the path and the name is the rest, and both are lower-cased like
+// every other `MinecraftKey`.
+func TestAdvancementCustomDatapack(t *testing.T) {
+	root := t.TempDir()
+	writeAdvancementFile(t, root, "my_pack/thing.json", `{
+		"parent": "minecraft:story/root",
+		"criteria": {"done": {"trigger": "minecraft:impossible"}},
+		"requirements": [["done"]]
+	}`)
+	e := newAdvancementEngine(t)
+	e.SetRoot(root)
+	addPlayer(t, e, "Steve")
+
+	if got, want := advancementFeedback(t, e, "advancement grant Steve only my_pack:thing"),
+		"Granted the entire advancement 'my_pack:thing' to Steve"; got != want {
+		t.Errorf("the message was %q, want %q", got, want)
+	}
+	if got, want := advancementFeedback(t, e, "advancement test Steve my_pack:thing"),
+		"Player Steve has completed advancement 'my_pack:thing'"; got != want {
+		t.Errorf("the message was %q, want %q", got, want)
+	}
+	// The name of the advancement is read as a `MinecraftKey`, so the
+	// namespace of the pack is needed.
+	if got, want := advancementError(t, e, "advancement test Steve thing"),
+		"No advancement was found by the name 'thing'"; got != want {
+		t.Errorf("the error was %q, want %q", got, want)
+	}
+	// The advancements of the server jar are still there.
+	if got, want := advancementError(t, e, "advancement test Steve minecraft:story/root"),
+		"Player Steve has not completed advancement 'minecraft:story/root'"; got != want {
+		t.Errorf("the error was %q, want %q", got, want)
+	}
+}
+
+// TestAdvancementCustomRequirements pins down the "requirements" array of
+// a custom advancement.
+//
+// 1.12.2 reads the array: every group has to be satisfied, and a group is
+// satisfied as soon as one of its criteria is done. An advancement
+// without a "requirements" array needs all of its criteria.
+func TestAdvancementCustomRequirements(t *testing.T) {
+	root := t.TempDir()
+	writeAdvancementFile(t, root, "my_pack/grouped.json", `{
+		"criteria": {"a": {"trigger": "minecraft:impossible"}, "b": {"trigger": "minecraft:impossible"}},
+		"requirements": [["a", "b"]]
+	}`)
+	writeAdvancementFile(t, root, "my_pack/all.json", `{
+		"criteria": {"a": {"trigger": "minecraft:impossible"}, "b": {"trigger": "minecraft:impossible"}}
+	}`)
+	e := newAdvancementEngine(t)
+	e.SetRoot(root)
+	addPlayer(t, e, "Steve")
+
+	// One criterion of the group is enough.
+	advancementFeedback(t, e, "advancement grant Steve only my_pack:grouped a")
+	if got, want := advancementFeedback(t, e, "advancement test Steve my_pack:grouped"),
+		"Player Steve has completed advancement 'my_pack:grouped'"; got != want {
+		t.Errorf("the message was %q, want %q", got, want)
+	}
+	// An advancement without a "requirements" array needs all of them.
+	advancementFeedback(t, e, "advancement grant Steve only my_pack:all a")
+	if got, want := advancementError(t, e, "advancement test Steve my_pack:all"),
+		"Player Steve has not completed advancement 'my_pack:all'"; got != want {
+		t.Errorf("the error was %q, want %q", got, want)
+	}
+}
+
+// TestAdvancementCustomBrokenFile pins down what happens to a file the
+// server would not accept.
+//
+// 1.12.2 refuses an advancement without criteria, one that requires a
+// criterion it does not have, and one that has a criterion no requirement
+// asks for. Such a file does not become an advancement at all.
+func TestAdvancementCustomBrokenFile(t *testing.T) {
+	root := t.TempDir()
+	writeAdvancementFile(t, root, "my_pack/no_criteria.json", `{
+		"criteria": {}
+	}`)
+	writeAdvancementFile(t, root, "my_pack/unknown_criterion.json", `{
+		"criteria": {"a": {"trigger": "minecraft:impossible"}},
+		"requirements": [["b"]]
+	}`)
+	writeAdvancementFile(t, root, "my_pack/unused_criterion.json", `{
+		"criteria": {"a": {"trigger": "minecraft:impossible"}, "b": {"trigger": "minecraft:impossible"}},
+		"requirements": [["a"]]
+	}`)
+	e := newAdvancementEngine(t)
+	e.SetRoot(root)
+	addPlayer(t, e, "Steve")
+
+	for _, name := range []string{"my_pack:no_criteria", "my_pack:unknown_criterion", "my_pack:unused_criterion"} {
+		if got, want := advancementError(t, e, "advancement test Steve "+name),
+			"No advancement was found by the name '"+name+"'"; got != want {
+			t.Errorf("the error was %q, want %q", got, want)
+		}
+	}
+	// Every broken file is reported in the log of the server.
+	if len(e.Logs) != 3 {
+		t.Errorf("the server logged %d problems, want 3", len(e.Logs))
+	}
+}
+
+// TestAdvancementRecipeUnlock pins down the recipe trigger.
+//
+// 1.12.2 hands out the recipes of the "rewards" block of an advancement
+// when the advancement is completed, and learning a recipe completes the
+// advancement that is about that recipe. The trigger only fires for a
+// recipe the player does not know yet.
+//
+// Twelve of the recipe advancements hand out a recipe that is about
+// another advancement, so the trigger completes that other advancement
+// before the command reaches it -- and the command skips it.
+//
+// (Measured on a real 1.12.2 server: after `advancement grant <player>
+// everything`, seven of them are only half done, and the command answered
+// "Granted every advancement (481 total granted) to <player>" both times.)
+func TestAdvancementRecipeUnlock(t *testing.T) {
+	e := newAdvancementEngine(t)
+	addPlayer(t, e, "Steve")
+	advancementFeedback(t, e, "advancement grant Steve everything")
+
+	// The advancements the trigger completed before the command reached
+	// them, and the criterion of each that the command did not grant.
+	skipped := map[string]string{
+		"minecraft:recipes/misc/coal":                  "has_coal_block",
+		"minecraft:recipes/misc/diamond":               "has_diamond_block",
+		"minecraft:recipes/misc/emerald":               "has_emerald_block",
+		"minecraft:recipes/misc/gold_ingot_from_block": "has_gold_block",
+		"minecraft:recipes/misc/lapis_lazuli":          "has_lapis_block",
+		"minecraft:recipes/misc/slime_ball":            "has_slime",
+		"minecraft:recipes/redstone/redstone":          "has_redstone_block",
+	}
+	// The ones the command reached first, so it granted all of them.
+	granted := map[string]string{
+		"minecraft:recipes/misc/bone_meal_from_block":  "has_bone_block",
+		"minecraft:recipes/misc/wheat":                 "has_hay_block",
+		"minecraft:recipes/misc/gold_nugget":           "has_gold_ingot",
+		"minecraft:recipes/misc/iron_nugget":           "has_iron_ingot",
+		"minecraft:recipes/misc/iron_ingot_from_block": "has_iron_block",
+	}
+	for advancement, criterion := range skipped {
+		if got, want := advancementFeedback(t, e, "advancement test Steve "+advancement+" has_the_recipe"),
+			"Player Steve has completed criterion 'has_the_recipe' of advancement '"+advancement+"'"; got != want {
+			t.Errorf("the message was %q, want %q", got, want)
+		}
+		if got, want := advancementError(t, e, "advancement test Steve "+advancement+" "+criterion),
+			"Player Steve has not completed criterion '"+criterion+"' of advancement '"+advancement+"'"; got != want {
+			t.Errorf("the error was %q, want %q", got, want)
+		}
+	}
+	for advancement, criterion := range granted {
+		if got, want := advancementFeedback(t, e, "advancement test Steve "+advancement+" "+criterion),
+			"Player Steve has completed criterion '"+criterion+"' of advancement '"+advancement+"'"; got != want {
+			t.Errorf("the message was %q, want %q", got, want)
+		}
+	}
+	// The player knows the recipes the advancements handed out.
+	p := e.World.FindPlayer("Steve")
+	known := knownRecipes(p)
+	if !known["minecraft:gold_ingot_from_block"] {
+		t.Errorf("the player does not know the gold ingot recipe")
+	}
+	if !known["minecraft:acacia_planks"] {
+		t.Errorf("the player does not know the acacia planks recipe")
 	}
 }

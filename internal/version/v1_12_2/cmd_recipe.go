@@ -2,6 +2,7 @@ package v1_12_2
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/Mcd0LUO/gomc/internal/ast"
@@ -88,11 +89,15 @@ func (c *recipeCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	}
 	raw := args[2].(*ast.StringArg).Value
 
+	// The recipes of the world directory are read once and kept, like the
+	// recipes of the server.
+	custom := customRecipes(ctx.Engine.Root)
+
 	// "*" is every recipe the server can hand out.
 	if raw == "*" {
 		for _, p := range players {
 			if give {
-				learnAllRecipes(p)
+				learnAllRecipes(p, custom)
 				ctx.Engine.Feedback = append(ctx.Engine.Feedback,
 					fmt.Sprintf("Successfully given all recipes to %s", p.DisplayName()))
 			} else {
@@ -105,7 +110,7 @@ func (c *recipeCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	}
 
 	key := recipeKey(raw)
-	name, known := recipeNames[key]
+	name, known := recipeName(ctx.Engine.Root, key)
 	if !known {
 		// The eleven recipes the server builds in code cannot be made in
 		// a crafting table, so it refuses to hand them out.
@@ -193,6 +198,22 @@ func recipeKey(name string) string {
 // recipeNames maps a recipe id to the name the server calls the recipe.
 var recipeNames = buildRecipeNames()
 
+// recipeName returns the name the server calls a recipe.
+//
+// The recipes of the server come first, then the recipes of the world
+// directory: a custom recipe has the id of its file, so it cannot be one
+// of the recipes of the server.
+func recipeName(root, key string) (string, bool) {
+	if name, ok := recipeNames[key]; ok {
+		return name, true
+	}
+	custom, ok := customRecipeByKey(root, key)
+	if !ok {
+		return "", false
+	}
+	return custom.name, true
+}
+
 // specialRecipes are the recipes the server refuses to hand out.
 var specialRecipes = buildSpecialRecipes()
 
@@ -243,6 +264,11 @@ func playerRecipes(e *world.Entity) map[string]bool {
 }
 
 // setPlayerRecipes stores the recipes the player knows.
+//
+// The recipes of the world directory have no entry in the registry of the
+// server, so they are written by their key. They are written in the order
+// of their keys, so the list does not depend on the order the map is
+// walked in.
 func setPlayerRecipes(e *world.Entity, known map[string]bool) {
 	if e == nil || e.NBT == nil {
 		return
@@ -253,6 +279,16 @@ func setPlayerRecipes(e *world.Entity, known map[string]bool) {
 			list.Append(nbt.String(r.key))
 		}
 	}
+	extra := make([]string, 0, len(known))
+	for key := range known {
+		if _, ok := recipeNames[key]; !ok {
+			extra = append(extra, key)
+		}
+	}
+	sort.Strings(extra)
+	for _, key := range extra {
+		list.Append(nbt.String(key))
+	}
 	book := nbt.NewCompound()
 	book.Set("recipes", list)
 	e.NBT.Set("recipeBook", book)
@@ -262,7 +298,7 @@ func setPlayerRecipes(e *world.Entity, known map[string]bool) {
 //
 // Unlocking a recipe grants the advancement that is about it, and that
 // advancement rewards other recipes as well, so the player learns those
-// too.
+// too. A custom recipe has no advancement, so it brings nothing with it.
 func learnRecipe(e *world.Entity, key string) {
 	known := playerRecipes(e)
 	seen := map[string]bool{}
@@ -291,9 +327,12 @@ func forgetRecipe(e *world.Entity, key string) {
 }
 
 // learnAllRecipes gives the player every recipe the server can hand out.
-func learnAllRecipes(e *world.Entity) {
+func learnAllRecipes(e *world.Entity, custom []customRecipe) {
 	known := playerRecipes(e)
 	for _, r := range recipeRegistry {
+		known[r.key] = true
+	}
+	for _, r := range custom {
 		known[r.key] = true
 	}
 	setPlayerRecipes(e, known)

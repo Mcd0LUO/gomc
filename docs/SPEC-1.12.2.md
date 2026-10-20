@@ -919,6 +919,7 @@ say @a（无匹配） → Selector '@a' found nothing
 |---|---|
 | 实体落地后的精确位置 | 真服有重力，gomc 不模拟（见 2.5） |
 | 函数内命令失败何时报错 | 真实服务端有的报有的不报，gomc 统一报 |
+| `/fill` 的 dataValue 位置 | **位置是对的**（方块之后的第 8 个参数），但 gomc **允许省略**它：方块之后如果下一个参数不是数字，gomc 把它当成模式，真服则**一定**把它当数据值来读，于是报错。实测（Paper 1.12.2）：`fill 2 4 2 3 4 3 stone {Tags:` 真服说 `'{Tags:' is not a state for block minecraft:stone`，gomc 却当成模式、把区域填满了。修它要跟着 Paper 的方块状态检查走，措辞还依赖方块名，所以单独做 |
 
 ### 实体 UUID 已经建模（2026-10-21 改）
 
@@ -1001,10 +1002,47 @@ variant 位）。同一个实体永远是同一个 UUID，不同实体一定不�
 | `advancement grant NoSuchPlayer everything` | `Player 'NoSuchPlayer' cannot be found` |
 | `advancement test Steve minecraft:nosuchadv` | `No advancement was found by the name 'minecraft:nosuchadv'` |
 
-**已知偏差**：`grant everything` 在真服上是 481，在 gomc 上是 488。原因是真服
-登录时 `minecraft:recipe_unlocked` 那类条件**自动完成**了 7 个进度，所以轮到
-它们时已经完成了。gomc 不建模条件的触发，所以没有进度会自动完成。**文字**
-完全一致，只有**数字**不同——要修就得建模触发机制，而不是把数字改小。
+### 13.1a 自定义的进度 [验][读]
+
+1.12.2 把自定义进度放在 **`<世界>/advancements/<命名空间>/<路径>.json`**——
+**不是** 1.13+ 的 `data/<命名空间>/advancements/`（`AdvancementDataWorld.d`
+读的就是这个目录）。gomc 现在也读它。
+
+命名规则和别的 `MinecraftKey` 一样：命名空间可省（默认 `minecraft`），两段
+都小写。进度文件的形状（**JSON**，不是 SNBT）：
+
+```json
+{
+  "parent": "minecraft:story/root",
+  "criteria": { "名字": { "trigger": "minecraft:impossible" } },
+  "requirements": [["a", "b"]],
+  "rewards": { "recipes": ["minecraft:gold_ingot_from_block"] }
+}
+```
+
+`requirements` 的形状和内置进度一样：一个组里**任一**条件成立即可；**没有**
+`requirements` 时每个条件自成一组、全部要成立。
+
+### 13.1b `grant everything` 的数字 [验]
+
+真服报 **481**，gomc 也报 481（`revoke everything` 两边都是 488；**revoke 之后
+再 grant** 也是 488，因为触发器只对玩家还不认识的配方生效）。
+
+差的那 7 个来自**命令执行过程中**的连锁反应：进度完成 → 发 `rewards.recipes`
+里的配方 → `minecraft:recipe_unlocked` 触发器把"盯着这个配方"的进度条件点亮 →
+命令走到那个进度时它已经完成 → 跳过、不计数。
+
+**要修就得建模机制，而不是把数字改小**——这一点是 2026-10-21 记在这里的
+教训。
+
+**真服的这个数字有时序依赖**：命令紧跟着玩家登录执行时（登录时解锁的那批
+配方还没发出去），真服会报 **488**；稍晚一点执行就是 **481**。同一套命令、同
+一个服，两次跑出来的数字不一样，所以 `tools/probe/cases/24-advancement-bot.case`
+**不录基线**——录了也会自己跟自己对不上。gomc 取的是稳定值 481。
+
+**没有写死"跳过这 7 个"的列表**——模型是"玩家已解锁的配方会完成盯着它的
+进度"，数据来自服务端 jar 的 `rewards.recipes`，遍历顺序也复刻了服务端的
+`java.util.HashMap`（所以跳过的是**同样那 7 个**）。
 
 ### 13.2 `/recipe` [验][读]
 
@@ -1061,6 +1099,28 @@ An unknown error occurred while attempting to perform this command
 
 配方的状态存在玩家自己的 NBT 里（`recipeBook` → `recipes`），这是原版自己的
 位置。
+
+#### 自定义配方：**gomc 的扩展，真服没有**
+
+gomc 还认 **`<世界>/recipes/<名字>.json`**（平铺一层，命名规则同上）。
+**真服没有这个**：1.12.2 只从自己的 **assets 根**读配方（jar 里或服务端
+目录的 `assets/`），靠改 classpath 的 assets 根来换掉它。实测三种世界目录
+布局在真服上全是 `is an unknown recipe`：
+
+| 位置 | 真服 |
+|---|---|
+| `<世界>/recipes/xxx.json` | `xxx is an unknown recipe` |
+| `<世界>/data/recipes/xxx.json` | `xxx is an unknown recipe` |
+| `<世界>/data/minecraft/recipes/xxx.json` | `xxx is an unknown recipe` |
+
+gomc 读世界目录，是给写函数的人一个能用的地方——**这是有意加的，不是
+"对齐"**。它认的配方类型是**裸名** `crafting_shaped` / `crafting_shapeless`
+（`minecraft:crafting_shaped` 那种 1.13 写法不认，和真服一样），结果物品
+必须是 1.12.2 认识的物品。
+
+三处没做：子目录不支持（真服的 assets 布局支持）；坏文件只跳过（真服是
+**一个坏文件就中止后面所有配方**）；染料和旗帜这类名字跟着数据值变的物品，
+只按数据值 0 给名字。
 
 ### 13.3 `/spreadplayers` [验][读]
 
@@ -1192,3 +1252,164 @@ warning: <路径>:<行>
   "gomcplayer" is a gomc-only command: it brings a player into the world, which 1.12.2 itself cannot do
   a real 1.12.2 server does not know it and refuses the function
 ```
+
+---
+
+## 15. 目标解析的两套语义
+
+1.12.2 解析目标有两种方式，差别很大：
+
+| 变体 | 1.12.2 的方法 | 接受什么 |
+|---|---|---|
+| **实体** | `CommandAbstract.c` → `a(server, listener, s, Entity.class)` | 任何实体 |
+| **玩家** | `CommandAbstract.b` → `a(server, listener, s, EntityPlayer.class)` | **只有玩家** |
+
+**实体变体**的命令：`kill` / `testfor` / `tp` / `teleport` / `entitydata` /
+`execute` / `replaceitem entity` / `effect` / `enchant` / `particle` 的观察者 /
+`function` 的条件。
+
+**玩家变体**的命令：`give` / `gamemode` / `title` / `tellraw` / `playsound` /
+`stopsound` / `trigger` / `xp` / `clear` / `spawnpoint` / `advancement` /
+`recipe`。
+
+（`enchant` 和 `effect` 接受的是**生物**，不是玩家：真服上
+`enchant @e[type=armor_stand] sharpness 1` 报的是 "The target doesn't hold an
+item"，`effect @e[type=armor_stand] minecraft:speed 30 1` 好好地给了速度。）
+
+### 15.1 玩家变体碰到非玩家时，报的是那个实体的 UUID
+
+真服实测（2026-10-21，世界里有一个盔甲架）：
+
+| 命令 | 真服输出 |
+|---|---|
+| `give @e[type=armor_stand] stone` | `Player '<那个盔甲架的 UUID>' cannot be found` |
+| `gamemode creative @e[type=armor_stand]` | 同上 |
+| `title @e[type=armor_stand] title hi` | 同上 |
+| `tellraw @e[type=armor_stand] {...}` | 同上 |
+| `xp 1 @e[type=armor_stand]` | 同上 |
+| `clear @e[type=armor_stand]` | 同上 |
+| `spawnpoint @e[type=armor_stand]` | 同上 |
+| `playsound ... player @e[type=armor_stand] ...` | 同上 |
+| `stopsound @e[type=armor_stand] master ...` | 同上 |
+
+报的是**匹配到的那个实体的 UUID**，不是选择器的原文——因为 1.12.2 的选择器
+解析器先把匹配到的实体按"是不是玩家"筛一遍，筛完空了，它就把第一个匹配实体
+的 UUID 当成"没找到的玩家"报出来。
+
+### 15.2 匹配 0 个时**什么都不说**
+
+| 命令 | 真服输出 |
+|---|---|
+| `give @e[type=zombie] stone`（世界里没有僵尸） | **无输出**，命令成功 |
+| `stopsound @e[type=zombie] master ...` | **无输出** |
+| `give NoSuchPlayer stone` | `Player 'NoSuchPlayer' cannot be found` |
+
+列表选择器匹配 0 个 → 列表展开成零次执行 → 什么都不说（和 3.10 一致）。
+**名字**找不到 → 报"找不到"。
+
+### 15.3 名字就是玩家名，不是内部 id
+
+真服按**玩家名**找玩家。gomc 之前能用**内部 id** 当玩家目标
+（`title p1 title ...` 能跑），那是 gomc 自己的方便，不是真服的行为——
+真服上 `title p1 title ...` 会说 `Player 'p1' cannot be found`。
+
+## 16. 坏 dataTag 的措辞
+
+1.12.2 先把命令按空格切成参数，再把 dataTag 交给 NBT 解析器，所以坏
+dataTag 的失败是**命令的失败**，不是读命令的失败。
+
+**词法器不配平花括号**：真服不预读花括号，它只是把最后一个参数原样交给
+NBT 解析器。gomc 之前在词法阶段就拒绝整行（`unbalanced {`），现在改成把
+不配平的 `{` 组原样交出去。
+
+**措辞**分两种前缀：
+
+| 命令 | 前缀 |
+|---|---|
+| `scoreboard players set/add/remove` | `Could not parse dataTag, reason: ` |
+| `scoreboard players tag` | `Players tag command failed, reason: ` |
+| `testfor` / `entitydata` / `summon` / `setblock` / `blockdata` / `fill` | `Data tag parsing failed: ` |
+
+**原因**的措辞都一样，是 MojangsonParser 的原话：
+
+| dataTag | 原因 |
+|---|---|
+| `{Tags` | `Expected ':' but got '<EOF>' at: {Tags<--[HERE]` |
+| `{Tags:` | `Expected value at: {Tags:<--[HERE]` |
+| `{Tags:1` | `Expected '}' but got '<EOF>' at: {Tags:1<--[HERE]` |
+| `{` | `Expected '}' but got '<EOF>' at: {<--[HERE]` |
+| `{Tags:1,` | `Expected key at: {Tags:1,<--[HERE]` |
+| `{Tags:"abc` | `Missing termination quote at: {Tags:"abc<--[HERE]` |
+
+`MojangsonParseException` 只显示**最后 35 个字符**，长了前面加 `...`。
+
+**顺序**：目标先于 dataTag。真服上 `testfor @e[type=armor_stand {Tags:` 先报
+`Entity '@e[type=armor_stand' cannot be found`，因为选择器本身就写坏了，
+dataTag 根本没被看到。
+
+---
+
+## 17. `/locate`
+
+**1.12.2 的 `/locate` 只有一个参数**，而且它**完全不知道生物群系**：
+
+```
+/locate <feature>
+```
+
+`<biome|structure> <名字>` 那是 **1.13** 的语法。1.12.2 的 `CommandLocate`
+只读一个参数，读到两个就报用法。而且 1.12.2 的世界里**没有生物群系这回事**
+——`/locate biome plains` 在 1.12.2 上就是用法错误。
+
+它认的是**结构生成器**的名字，而且查找是**区分大小写**的。真服在超世界里的
+结构生成器有六个：
+
+| 名字 | 在哪个维度 |
+|---|---|
+| `Stronghold` | 超世界 |
+| `Monument` | 超世界 |
+| `Village` | 超世界 |
+| `Mansion` | 超世界 |
+| `Temple` | 超世界 |
+| `Mineshaft` | 超世界 |
+| `EndCity` | 末地 |
+| `Fortress` | 下界 |
+
+找不到时报的是**原样重复名字**的一句：
+
+```
+Unable to locate any <名字> feature
+```
+
+找到时报的是（注意 `(y?)` 是 1.12.2 的原文，它不报高度）：
+
+```
+Located <名字> at <x> (y?) <z>
+```
+
+真服找的是**最近**的那个：从命令来源所在区块向外按环扩 100 步"区域"（区域的
+步长是结构自己的间距：村庄 32 区块、丛林神庙 32、海底神殿 32、林地府邸 80）。
+
+### 17.1 gomc 只能回答"找不到"
+
+`/locate` 找的是**世界里生成出来的结构**，而 gomc **不模拟世界生成**（见第 11
+节），所以它的世界里一个结构也没有，查找**永远**不会成功。
+
+于是 gomc 对**每一个**输入都回答"找不到"。这和真服在**它也找不到**的输入上
+（不认识的名字、不在这个维度的结构）**逐字一致**。
+
+对真服**能**找到的那些名字（上面表里超世界那六个），两边会不一样：真服给出
+一个坐标，gomc 给出"找不到"。gomc 在这种时候会**额外附一条提示**，把这个差别
+摆出来，而不是让它悄悄过去：
+
+```
+Unable to locate any Stronghold feature
+  hint: gomc does not simulate world generation, so it has no structures to locate
+```
+
+### 17.2 两处没能复现的
+
+| 地方 | 真服 | gomc | 为什么 |
+|---|---|---|---|
+| 成功路径 | `Located Stronghold at 808 (y?) -1144` | 找不到 | gomc 的世界里没有生成的结构，编一个坐标就是把偏差固化成假象 |
+| 引号 | `locate "Village"` → `Unable to locate any "Village" feature`（**引号保留**） | 引号被去掉 | 词法器层面的**全局**差异（`/recipe`、`/scoreboard` 同款），为一条命令破例不值得 |

@@ -125,8 +125,9 @@ func runAdvancementTest(ctx *exec.Context, args []ast.Arg) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	set := advancementSetOfCommand(ctx)
 	name := args[2].(*ast.StringArg).Value
-	advancement, ok := lookupAdvancement(name)
+	advancement, ok := set.lookup(name)
 	if !ok {
 		return 0, exec.Errorf("No advancement was found by the name '%s'", name)
 	}
@@ -170,6 +171,7 @@ func runAdvancementChange(ctx *exec.Context, args []ast.Arg, action string) (int
 	}
 	playerName := advancementPlayerName(player)
 	store := advancementStoreOf(ctx.World)
+	set := advancementSetOfCommand(ctx)
 
 	if filter == "everything" {
 		// "everything" takes no advancement, so any further argument is a
@@ -178,8 +180,8 @@ func runAdvancementChange(ctx *exec.Context, args []ast.Arg, action string) (int
 			return 0, advancementPlainUsageError(commandUsage("advancement " + action + " everything"))
 		}
 		count := 0
-		for i := range advancementRegistry {
-			if changeAdvancement(store, playerName, action, &advancementRegistry[i]) {
+		for _, a := range set.all {
+			if changeAdvancement(store, set, player, action, a) {
 				count++
 			}
 		}
@@ -196,7 +198,7 @@ func runAdvancementChange(ctx *exec.Context, args []ast.Arg, action string) (int
 		return 0, advancementPlainUsageError(commandUsage("advancement " + action + " " + filter))
 	}
 	name := args[3].(*ast.StringArg).Value
-	advancement, ok := lookupAdvancement(name)
+	advancement, ok := set.lookup(name)
 	if !ok {
 		return 0, exec.Errorf("No advancement was found by the name '%s'", name)
 	}
@@ -208,7 +210,7 @@ func runAdvancementChange(ctx *exec.Context, args []ast.Arg, action string) (int
 			return 0, exec.Errorf("The advancement '%s' does not contain the criterion '%s'",
 				advancement.name, criterion)
 		}
-		if !changeCriterion(store, playerName, action, advancement.name, criterion) {
+		if !changeCriterion(store, set, player, action, advancement, criterion) {
 			return 0, exec.Errorf("%s", advancementCriterionFailed(action, advancement.name, playerName, criterion))
 		}
 		ctx.Engine.Feedback = append(ctx.Engine.Feedback,
@@ -220,8 +222,8 @@ func runAdvancementChange(ctx *exec.Context, args []ast.Arg, action string) (int
 	}
 
 	count := 0
-	for _, a := range advancementFilterTargets(advancement, filter) {
-		if changeAdvancement(store, playerName, action, a) {
+	for _, a := range advancementFilterTargets(set, advancement, filter) {
+		if changeAdvancement(store, set, player, action, a) {
 			count++
 		}
 	}
@@ -233,21 +235,35 @@ func runAdvancementChange(ctx *exec.Context, args []ast.Arg, action string) (int
 	return count, nil
 }
 
+// advancementSetOfCommand returns the advancements of the world the command
+// runs in.
+//
+// The advancements of the datapack are read the first time they are needed.
+// A file that does not load is reported in the log of the server, the way
+// 1.12.2 reports it.
+func advancementSetOfCommand(ctx *exec.Context) *advancementSet {
+	set, errs := advancementSetOf(ctx.World, ctx.Engine.Root)
+	for _, err := range errs {
+		ctx.Engine.Logs = append(ctx.Engine.Logs, err.Error())
+	}
+	return set
+}
+
 // advancementFilterTargets returns the advancements a filter reaches.
 //
 // 1.12.2 walks the parents of the advancement first, then the advancement
 // itself, then its descendants. The order matters only for the order in
 // which the advancements are granted.
-func advancementFilterTargets(advancement *advancementDef, filter string) []*advancementDef {
-	var out []*advancementDef
+func advancementFilterTargets(set *advancementSet, adv *advancement, filter string) []*advancement {
+	var out []*advancement
 	switch filter {
 	case "until", "through":
-		out = append(out, ancestors(advancement)...)
+		out = append(out, set.ancestorsOf(adv)...)
 	}
-	out = append(out, advancement)
+	out = append(out, adv)
 	switch filter {
 	case "from", "through":
-		out = append(out, advancementDescendants(advancement)...)
+		out = append(out, advancementDescendants(set, adv)...)
 	}
 	return out
 }
@@ -256,11 +272,11 @@ func advancementFilterTargets(advancement *advancementDef, filter string) []*adv
 //
 // 1.12.2 walks the tree depth first, and the children of an advancement
 // are the ones that name it as their parent.
-func advancementDescendants(advancement *advancementDef) []*advancementDef {
-	var out []*advancementDef
-	for _, child := range children(advancement.name) {
+func advancementDescendants(set *advancementSet, adv *advancement) []*advancement {
+	var out []*advancement
+	for _, child := range set.childrenOf(adv.name) {
 		out = append(out, child)
-		out = append(out, advancementDescendants(child)...)
+		out = append(out, advancementDescendants(set, child)...)
 	}
 	return out
 }
@@ -271,14 +287,21 @@ func advancementDescendants(advancement *advancementDef) []*advancementDef {
 // 1.12.2 grants every criterion that is not done yet, unless the
 // advancement is already complete, and it takes away every criterion that
 // is done, unless the player never started the advancement.
-func changeAdvancement(store *advancementStore, player, action string, advancement *advancementDef) bool {
-	obtained := store.obtained(player, advancement.name)
+func changeAdvancement(store *advancementStore, set *advancementSet, player *world.Entity, action string, advancement *advancement) bool {
+	playerName := advancementPlayerName(player)
+	obtained := store.obtained(playerName, advancement.name)
 	if action == "grant" {
 		if advancement.done(obtained) {
 			return false
 		}
 		for _, criterion := range advancement.criteria {
-			store.grant(player, advancement.name, criterion)
+			store.grant(playerName, advancement.name, criterion)
+		}
+		// 1.12.2 hands out the rewards of an advancement when it is
+		// completed, and learning a recipe completes the advancement that
+		// is about that recipe.
+		if advancement.done(store.obtained(playerName, advancement.name)) {
+			grantAdvancementRewards(store, set, player, advancement)
 		}
 		return true
 	}
@@ -294,19 +317,73 @@ func changeAdvancement(store *advancementStore, player, action string, advanceme
 	}
 	for _, criterion := range advancement.criteria {
 		if obtained[criterion] {
-			store.revoke(player, advancement.name, criterion)
+			store.revoke(playerName, advancement.name, criterion)
 		}
 	}
 	return true
 }
 
+// grantAdvancementRewards hands the player the recipes an advancement
+// gives and completes the advancements that are about them.
+//
+// 1.12.2 gives the recipes of the "rewards" block of an advancement when
+// the advancement is completed, and learning a recipe fires the
+// "minecraft:recipe_unlocked" trigger, which completes the criterion of
+// the advancement that watches that recipe. The trigger only fires for a
+// recipe the player does not know yet.
+//
+// This is why a player that is given every advancement is left with a few
+// advancements that only have their "has_the_recipe" criterion: the
+// trigger completed them before the command reached them, so the command
+// skipped them and did not count them.
+//
+// (Measured on a real 1.12.2 server: `advancement grant <player> everything`
+// answers "Granted every advancement (481 total granted) to <player>" for a
+// player that has just logged in, and the advancements that are only half
+// done are the ones the trigger completed.)
+func grantAdvancementRewards(store *advancementStore, set *advancementSet, player *world.Entity, advancement *advancement) {
+	if advancement.recipe == nil {
+		return
+	}
+	playerName := advancementPlayerName(player)
+	known := knownRecipes(player)
+	changed := false
+	for _, recipe := range advancement.recipe.rewards {
+		if known[recipe] {
+			// The trigger only fires for a recipe the player does not
+			// know yet.
+			continue
+		}
+		known[recipe] = true
+		changed = true
+		// The trigger completes the criterion of every advancement that
+		// watches the recipe.
+		for _, watcher := range set.watchers[recipe] {
+			store.grant(playerName, watcher.name, watcher.recipe.criterion)
+		}
+	}
+	if changed {
+		storeKnownRecipes(player, known)
+	}
+}
+
 // changeCriterion changes a single criterion and reports whether it
 // changed.
-func changeCriterion(store *advancementStore, player, action, advancement, criterion string) bool {
+//
+// 1.12.2 hands out the rewards of an advancement when it is completed,
+// and a single criterion can be the one that completes it.
+func changeCriterion(store *advancementStore, set *advancementSet, player *world.Entity, action string, advancement *advancement, criterion string) bool {
+	playerName := advancementPlayerName(player)
 	if action == "grant" {
-		return store.grant(player, advancement, criterion)
+		if !store.grant(playerName, advancement.name, criterion) {
+			return false
+		}
+		if advancement.done(store.obtained(playerName, advancement.name)) {
+			grantAdvancementRewards(store, set, player, advancement)
+		}
+		return true
 	}
-	return store.revoke(player, advancement, criterion)
+	return store.revoke(playerName, advancement.name, criterion)
 }
 
 // isAdvancementFilter reports whether the text names one of the filters
