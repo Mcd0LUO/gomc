@@ -39,7 +39,9 @@
 	真实服务端所在的目录（要能从里面读到 paper jar、libraries、cache）。
 
 .PARAMETER Work
-	隔离环境的落地目录。默认用系统临时目录下的 mc122probe。
+	隔离环境的落地目录。默认用系统临时目录下的 mc122probe-<端口>。
+	**按端口分开**是为了让几个探针可以同时跑——共用一个目录的话，
+	后一个会把前一个正在用的目录删掉。
 
 .PARAMETER Template
 	超平坦世界模板的落地目录。默认用系统临时目录下的 mc122probe-template。
@@ -81,7 +83,7 @@
 [CmdletBinding()]
 param(
 	[string]$ServerHome = 'D:\game\McServer\1.12.2',
-	[string]$Work = (Join-Path $env:TEMP 'mc122probe'),
+	[string]$Work = '',
 	[string]$Template = (Join-Path $env:TEMP 'mc122probe-template'),
 	[string]$Case,
 	[string]$Java = 'D:\tools\jdk\JDK_1.8\bin\java.exe',
@@ -94,6 +96,12 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+# 隔离目录按端口分开：几个探针同时跑时，共用一个目录的话，后一个会把
+# 前一个正在用的目录连同它的日志一起删掉。
+if (-not $Work) {
+	$Work = Join-Path $env:TEMP "mc122probe-$Port"
+}
 
 # 记录这个脚本启动的服务端进程，脚本被打断时据此清理。
 $script:StartedProcs = @()
@@ -205,7 +213,8 @@ function Initialize-Template {
 	param([string]$TemplateDir)
 
 	Write-Step "生成超平坦世界模板：$TemplateDir"
-	$staging = Join-Path $env:TEMP 'mc122probe-init'
+	# 暂存目录带进程号：几个探针同时第一次生成模板时，不会互相删。
+	$staging = Join-Path $env:TEMP "mc122probe-init-$PID"
 	Remove-ProbeServer -Dir $staging
 	New-ServerSkeleton -Dir $staging
 
@@ -222,10 +231,14 @@ function Initialize-Template {
 	}
 
 	# 只把世界搬进模板目录，骨架（jar、配置、junction）不留。
-	if (Test-Path $TemplateDir) { Remove-Item -Recurse -Force $TemplateDir }
-	New-Item -ItemType Directory -Force -Path $TemplateDir | Out-Null
-	Move-Item (Join-Path $staging 'probe') (Join-Path $TemplateDir 'world')
+	# 先搬到旁边再换上去，免得别的探针正好在读这个模板。
+	$ready = "$TemplateDir.new-$PID"
+	Remove-ProbeServer -Dir $ready
+	New-Item -ItemType Directory -Force -Path $ready | Out-Null
+	Move-Item (Join-Path $staging 'probe') (Join-Path $ready 'world')
 	Remove-ProbeServer -Dir $staging
+	if (Test-Path $TemplateDir) { Remove-Item -Recurse -Force $TemplateDir }
+	Move-Item $ready $TemplateDir
 	Write-Step "模板就绪：$TemplateDir\world" -ForegroundColor Green
 }
 

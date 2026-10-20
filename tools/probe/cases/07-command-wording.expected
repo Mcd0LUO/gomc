@@ -1,0 +1,33 @@
+Added new objective 'probe_obj' successfully
+Game rule doFireTick has been updated to false
+Game rule doFireTick has been updated to true
+Set the time to 18000
+Set the time to 1000
+Set game difficulty to Peaceful
+Set game difficulty to Normal
+Set game difficulty to Easy
+The world's default game mode is now Creative Mode
+The world's default game mode is now Survival Mode
+Set the world spawn point to (0, 4, 0)
+Changing to clear weather
+Changing to rainy weather
+Changing to rain and thunder
+[Server] hello world
+* Server waves
+Object successfully summoned
+Block placed
+4 blocks filled
+Usage: /clone <x1> <y1> <z1> <x2> <y2> <z2> <x> <y> <z> [maskMode] [cloneMode]
+Set score of probe_obj for player Steve to 5
+Set score of probe_obj for player Steve to 8
+Set score of probe_obj for player Steve to 7
+Score 7 is in range 5 to 2147483647
+Showing 1 tracked objective(s) for Steve:
+- probe_obj: 7 (probe_obj)
+Added new team 'probe_team' successfully
+Added 1 player(s) to team probe_team: Steve
+Showing 1 teams on the scoreboard:
+- probe_team: 'probe_team' has 1 players
+Showing 1 objective(s) on scoreboard:
+- probe_obj: displays as 'probe_obj' and is type 'dummy'
+Removed objective 'probe_obj' successfully

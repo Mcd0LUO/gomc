@@ -1,0 +1,48 @@
+# 文案体检：常用命令的回显文本。
+#
+# 真服那边每条命令回一行。这份用例是"逐条对照"的回归基线——
+# 2026-10-20 拿它和真服逐条比过，35 条里只有 /seed 的值不同
+# （真服每次随机，gomc 固定 0，因为 gomc 是确定性解释器）。
+#
+# 故意包含几条**没有回显**的命令（give / clear / replaceitem / kill /
+# effect）：目标不存在时真服也不说话，gomc 同样不说话。
+#
+# 故意**不含 /seed**：它的文案对，但值每次都随机（gomc 固定 0，因为它是
+# 确定性解释器），录进基线就对不上了。
+
+--- console ---
+scoreboard objectives add probe_obj dummy
+gamerule doFireTick false
+gamerule doFireTick true
+time set 18000
+time set 1000
+difficulty peaceful
+difficulty normal
+difficulty 1
+defaultgamemode creative
+defaultgamemode survival
+setworldspawn 0 4 0
+weather clear
+weather rain 60
+weather thunder 30
+say hello world
+me waves
+give @a stone 1
+clear @a stone
+replaceitem entity @a slot.hotbar.0 stone
+kill @e[type=armor_stand]
+effect @a minecraft:speed 30 1
+summon armor_stand 1 4 1
+setblock 2 4 2 stone
+fill 3 4 3 4 4 4 stone
+clone 5 4 5 6 4 6
+scoreboard players set Steve probe_obj 5
+scoreboard players add Steve probe_obj 3
+scoreboard players remove Steve probe_obj 1
+scoreboard players test Steve probe_obj 5
+scoreboard players list Steve
+scoreboard teams add probe_team
+scoreboard teams join probe_team Steve
+scoreboard teams list
+scoreboard objectives list
+scoreboard objectives remove probe_obj
