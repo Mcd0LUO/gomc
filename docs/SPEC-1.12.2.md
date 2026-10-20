@@ -387,11 +387,6 @@ say @e[type=armor_stand,c=1]    → A
 
 ### 3.12 还没对齐的选择器细节 [验]
 
-- **缺 `Entity type 'x' is invalid` 那条提示**。真服在 `type=` 指向未注册
-  类型时会发一条红字（`commands.generic.entity.invalidType`，名字是带命名空间的
-  完整键，比如 `Entity type 'minecraft:pigzombie' is invalid`），然后
-  **匹配为空、命令照样成功**；gomc 只做到了"匹配为空、不报错"，没有那条提示
-  （选择器层没有反馈通道）。
 - **`/summon` 支持的类型是子集**：gomc 能 summon 的有 **79** 种，真服也是
   **79** 种，但**不是同一批**——真服有 6 种 summon 不了（`player`、`potion`、
   `fireball`、`small_fireball`、`wither_skull`、`dragon_fireball`），gomc 把
@@ -399,7 +394,22 @@ say @e[type=armor_stand,c=1]    → A
 - **`scoreboard players tag list` 的标题名**：真服用解析后的用户名 / UUID，
   gomc 对**玩家**已经改成用户名了，但非玩家实体仍是内部 id（gomc 不建模 UUID，
   见第 12 节）。
-- **tag list 对没有 tag 的实体不打标题**。这条已经对齐：真服的
+
+### 3.13 已经对齐的几条细节 [验]
+
+下面这几条原来是"没对齐"，现在按真服实测改掉了：
+
+- **空匹配在命令层**——见 3.10。
+- **消息展开的连接符**——见 3.11。
+- **`Entity type 'x' is invalid` 那条提示**。真服在 `type=` 指向未注册类型时
+  会发一条红字，然后**匹配为空、命令照样成功**。名字是**带命名空间的完整键**：
+  `Entity type 'minecraft:pigzombie' is invalid`；否定写法 `type=!pigzombie`
+  得到的是**同一条**（不带 `!`）。gomc 现在也会打这条提示——它不属于命令的
+  错误，而是**选择器解析时产出的附注**，所以走的是命令的输出通道。
+- **`@s` 没有执行者时的措辞**。真服上 `kill @s`（控制台）说
+  `Entity '@s' cannot be found`，而把 `@s` 写进消息里说
+  `Selector '@s' found nothing`——**措辞归命令管，不归选择器管**。
+- **tag list 对没有 tag 的实体不打标题**。真服的
   `CommandScoreboard.java:735-741` 只在 tag 集合非空时才发标题和列表，
   命令报的计数是**tag 的个数**。
 
