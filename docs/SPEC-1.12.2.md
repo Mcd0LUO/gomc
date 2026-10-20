@@ -387,13 +387,16 @@ say @e[type=armor_stand,c=1]    → A
 
 ### 3.12 还没对齐的选择器细节 [验]
 
-- **`/summon` 支持的类型是子集**：gomc 能 summon 的有 **79** 种，真服也是
-  **79** 种，但**不是同一批**——真服有 6 种 summon 不了（`player`、`potion`、
-  `fireball`、`small_fireball`、`wither_skull`、`dragon_fireball`），gomc 把
-  `item` 也放行了（真服上裸 `summon item` 会失败，实体没有物品栏就立刻死掉）。
+- **`/summon` 的物品名不校验**：真服上 `summon item {Item:{id:"notanitem",
+  Count:1b}}` 会失败——那个物品不存在，堆是空的。gomc 没有物品注册表
+  （和方块名一样，见第 12 节），所以只检查堆的结构，不检查物品名。
 - **`scoreboard players tag list` 的标题名**：真服用解析后的用户名 / UUID，
   gomc 对**玩家**已经改成用户名了，但非玩家实体仍是内部 id（gomc 不建模 UUID，
   见第 12 节）。
+- **物品实体的显示名**：真服上 `summon item {Item:{id:"stone",Count:1b}}`
+  建出来的实体叫 `item.tile.stone.stone`（1.12.2 的语言键，方块走
+  `item.tile.<名字>.<变种>`、普通物品走 `item.item.<旧名>`）。gomc 只有
+  实体类型级的显示名（`Item`），要还原得有一整张 1.12.2 物品名表。
 
 ### 3.13 已经对齐的几条细节 [验]
 
@@ -412,6 +415,25 @@ say @e[type=armor_stand,c=1]    → A
 - **tag list 对没有 tag 的实体不打标题**。真服的
   `CommandScoreboard.java:735-741` 只在 tag 集合非空时才发标题和列表，
   命令报的计数是**tag 的个数**。
+- **`/summon item` 需要一个非空的物品堆**。1.12.2 的实体工厂只接受带着
+  非空物品堆的物品实体，空堆的实体建出来就死，所以 summon 直接失败：
+
+  ```
+  summon item                                        → Unable to summon object
+  summon item {Item:{}}                              → Unable to summon object
+  summon item {Item:{id:"stone"}}                    → Unable to summon object
+  summon item {Item:{id:"stone",Count:0b,Slot:0b}}  → Unable to summon object
+  summon item {Item:{id:"stone",Count:256}}          → Unable to summon object
+  summon item {Item:{id:"stone",Count:-1}}           → Unable to summon object
+  summon item {Item:{id:"stone",Count:1b}}           → Object successfully summoned
+  summon item {Item:{id:"stone",Count:1}}            → Object successfully summoned
+  ```
+
+  决定成败的是 **Count**：1.12.2 用 `getByte("Count")` 读它，**任何数字类型都
+  会被截断成一个有符号字节**——所以 `Count:1`（Int）算数，`Count:256` 截断成 0
+  不算，`Count:-1` 是负数也不算；缺省的 Count 就是 0。`Slot` 缺不缺无所谓
+  （默认 0）。另外物品名必须是已注册的物品——`{Item:{id:"notanitem",Count:1b}}`
+  真服也会失败，gomc 查不了（见 3.12）。
 
 ---
 

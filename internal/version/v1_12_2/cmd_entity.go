@@ -85,11 +85,69 @@ func (c *summonCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	if data := exec.NBTOf(args, 2); data != nil {
 		mergeNBT(e.NBT, data)
 	}
+	if def := ctx.World.EntityTypes.Get(canonical); def != nil && def.NeedsItemStack {
+		// 1.12.2's entity factory only accepts an item entity that
+		// carries a non-empty item stack. An empty stack makes the
+		// entity die right after it is created, so the summon fails.
+		//
+		// (Measured on a real 1.12.2 server: `summon item` and
+		// `summon item {Item:{}}` both answer "Unable to summon
+		// object", and so does `summon item {Item:{id:"stone"}}` —
+		// the count is what decides, see hasItemStack. `summon item
+		// {Item:{id:"stone",Count:1b}}` works.)
+		if !hasItemStack(e.NBT) {
+			return 0, exec.Errorf("Unable to summon object")
+		}
+	}
 	ctx.World.AddEntity(e)
 	// 1.12.2 does not say where the entity was put; it only confirms the
 	// summon.
 	ctx.Engine.Feedback = append(ctx.Engine.Feedback, "Object successfully summoned")
 	return 1, nil
+}
+
+// hasItemStack reports whether the entity carries a non-empty item stack.
+//
+// 1.12.2 reads the stack with `ItemStack.a(NBTTagCompound)`: the count
+// comes from `getByte("Count")`, so a missing count counts as zero, and
+// a stack whose id names no item is empty too. An empty stack makes the
+// entity die right after it is created, so the summon fails.
+func hasItemStack(n *nbt.Compound) bool {
+	item, ok := n.Get("Item").(*nbt.Compound)
+	if !ok {
+		return false
+	}
+	id, _ := item.Get("id").(nbt.String)
+	if strings.TrimSpace(string(id)) == "" {
+		return false
+	}
+	return itemStackCount(item.Get("Count")) > 0
+}
+
+// itemStackCount reads the count of an item stack the way 1.12.2 does.
+//
+// `getByte` truncates any number to a **signed** byte, so a count of 256
+// becomes 0 and a count of -1 stays -1. Only a positive byte is a stack
+// with something in it.
+//
+// (Measured on a real 1.12.2 server: `Count:1` as an int, a short, a
+// long and a float all summon, `Count:256` and `Count:-1` do not.)
+func itemStackCount(v nbt.Value) int {
+	switch n := v.(type) {
+	case nbt.Byte:
+		return int(n)
+	case nbt.Short:
+		return int(int8(n))
+	case nbt.Int:
+		return int(int8(n))
+	case nbt.Long:
+		return int(int8(n))
+	case nbt.Float:
+		return int(int8(int32(n)))
+	case nbt.Double:
+		return int(int8(int32(n)))
+	}
+	return 0
 }
 
 // killCmd implements `/kill`.

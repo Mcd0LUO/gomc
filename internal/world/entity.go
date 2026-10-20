@@ -200,6 +200,13 @@ type EntityType struct {
 	DefaultNBT *nbt.Compound
 	// IsPlayer marks player-only types.
 	IsPlayer bool
+	// NeedsItemStack marks a type the 1.12.2 entity factory only accepts
+	// with a non-empty item stack.
+	//
+	// An item entity without a stack is empty and dies right after it is
+	// created, so the server refuses to bring it into the world: `/summon
+	// item` answers "Unable to summon object".
+	NeedsItemStack bool
 	// DisplayName is the name 1.12.2 reports for entities of this type.
 	DisplayName string
 	// Width is the entity's box width, in blocks.
@@ -305,7 +312,7 @@ func (r *EntityRegistry) NewEntity(name string, id string) (*Entity, bool) {
 // health per entity (a slime comes with 1 or 16, a horse with 16 to 29),
 // so there is no single value to write down.
 var defaultEntityTypes = []*EntityType{
-	{Name: "item", DefaultNBT: compoundWith("Item", nbt.NewCompound())},
+	{Name: "item", DefaultNBT: compoundWith("Item", nbt.NewCompound()), NeedsItemStack: true},
 	{Name: "xp_orb", DefaultNBT: nbt.NewCompound()},
 	{Name: "area_effect_cloud", DefaultNBT: nbt.NewCompound()},
 	{Name: "elder_guardian", DefaultNBT: compoundWith("Health", nbt.Float(80))},

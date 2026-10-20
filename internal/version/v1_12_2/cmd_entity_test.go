@@ -33,8 +33,66 @@ func TestSummonEveryKnownType(t *testing.T) {
 		if name == "player" {
 			continue
 		}
-		if err := runLine(e, "summon "+name+" 0 4 0"); err != nil {
+		line := "summon " + name + " 0 4 0"
+		if name == "item" {
+			// The item entity is the one type that needs more than
+			// its name; see TestSummonItemNeedsItsStack.
+			line = `summon item 0 4 0 {Item:{id:"stone",Count:1b}}`
+		}
+		if err := runLine(e, line); err != nil {
 			t.Errorf("summon %s: %v", name, err)
+		}
+	}
+}
+
+// TestSummonItemNeedsItsStack pins down the rule for the item entity.
+//
+// 1.12.2's entity factory only accepts an item entity that carries a
+// non-empty item stack. An empty stack makes the entity die right after
+// it is created, so the server refuses to bring it into the world.
+//
+// (Measured on a real 1.12.2 server: `summon item` and `summon item
+// {Item:{}}` answer "Unable to summon object", and so does `summon item
+// {Item:{id:"stone"}}` — the count is what decides, because 1.12.2
+// reads it with `getByte`. `summon item {Item:{id:"stone",Count:1b}}`
+// works.)
+func TestSummonItemNeedsItsStack(t *testing.T) {
+	e := newTestEngine(t)
+	for _, line := range []string{
+		"summon item 0 4 0",
+		"summon item 0 4 0 {Item:{}}",
+		"summon item 0 4 0 {Item:{id:\"stone\"}}",
+		"summon item 0 4 0 {Item:{id:\"stone\",Count:0b,Slot:0b}}",
+		// getByte truncates to a signed byte, so 256 becomes 0 and -1
+		// stays negative.
+		"summon item 0 4 0 {Item:{id:\"stone\",Count:256}}",
+		"summon item 0 4 0 {Item:{id:\"stone\",Count:-1}}",
+	} {
+		err := runLine(e, line)
+		if err == nil {
+			t.Errorf("%q: expected a failure", line)
+			continue
+		}
+		if got := err.Error(); got != "Unable to summon object" {
+			t.Errorf("%q: message = %q, want %q", line, got, "Unable to summon object")
+		}
+	}
+	// With a stack it works, and the count may be any number type: 1.12.2
+	// reads it with getByte, so a plain int counts as one.
+	for _, line := range []string{
+		"summon item 0 4 0 {Item:{id:\"stone\",Count:1b}}",
+		"summon item 0 4 0 {Item:{id:\"stone\",Count:1}}",
+		"summon item 0 4 0 {Item:{id:\"stone\",Count:1s}}",
+		"summon item 0 4 0 {Item:{id:\"stone\",Count:1L}}",
+		"summon item 0 4 0 {Item:{id:\"stone\",Count:1.0f}}",
+	} {
+		feedback, err := runLineFeedback(e, line)
+		if err != nil {
+			t.Errorf("%q: %v", line, err)
+			continue
+		}
+		if len(feedback) != 1 || feedback[0] != "Object successfully summoned" {
+			t.Errorf("%q: feedback = %v, want [Object successfully summoned]", line, feedback)
 		}
 	}
 }
