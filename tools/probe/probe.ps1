@@ -67,10 +67,16 @@
 .PARAMETER RebuildTemplate
 	强制重建世界模板。
 
+.PARAMETER Fast
+	每条命令发出去之后不等待。默认每条等 1.5 秒，是为了让日志落盘；
+	控制台命令本身是同步执行的，所以命令多的时候可以去掉这个等待——
+	**输出的先后顺序不受影响**（服务端按发出去的顺序处理）。
+
 .EXAMPLE
 	.\probe.ps1 -Case .\cases\01-tag-command.case
 	.\probe.ps1 -Case .\cases\02-execute-multi.case -Compare
 	.\probe.ps1 -Case .\cases\03-new.case -Record
+	.\probe.ps1 -Case .\cases\04-many.case -Fast
 #>
 [CmdletBinding()]
 param(
@@ -83,7 +89,8 @@ param(
 	[switch]$Compare,
 	[switch]$Record,
 	[switch]$Keep,
-	[switch]$RebuildTemplate
+	[switch]$RebuildTemplate,
+	[switch]$Fast
 )
 
 $ErrorActionPreference = 'Stop'
@@ -334,7 +341,9 @@ function Start-Server {
 			$p.StandardInput.WriteLine($c)
 			$p.StandardInput.Flush()
 			# 控制台命令是同步执行的，等一小会儿让日志落盘即可。
-			Start-Sleep -Milliseconds 1500
+			# 命令多的时候可以用 -Fast 去掉这个等待：服务端按发出去的
+			# 顺序处理，所以输出的先后顺序不受影响。
+			if (-not $script:Fast) { Start-Sleep -Milliseconds 1500 }
 		}.GetNewClosure()
 		# 收尾：关服，把输出文件合在一起。
 		Finish = {
