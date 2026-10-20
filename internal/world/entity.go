@@ -92,7 +92,25 @@ func (e *Entity) DisplayName() string {
 	if v, ok := e.NBTValue("CustomName").(nbt.String); ok && string(v) != "" {
 		return string(v)
 	}
+	// An item entity is named after the item it carries. 1.12.2 builds
+	// the name from the stack, and the server's language file has no key
+	// for it, so the name comes out as the raw key.
+	if e.Type == "item" {
+		if name, ok := ItemDisplayName(e.itemID()); ok {
+			return name
+		}
+	}
 	return EntityTypeMeta(e.Type).DisplayName
+}
+
+// itemID returns the registry name of the item the entity carries.
+func (e *Entity) itemID() string {
+	item, ok := e.NBTValue("Item").(*nbt.Compound)
+	if !ok {
+		return ""
+	}
+	id, _ := item.Get("id").(nbt.String)
+	return string(id)
 }
 
 // Rotation is an entity's facing, in degrees.

@@ -67,6 +67,10 @@ func TestSummonItemNeedsItsStack(t *testing.T) {
 		// stays negative.
 		"summon item 0 4 0 {Item:{id:\"stone\",Count:256}}",
 		"summon item 0 4 0 {Item:{id:\"stone\",Count:-1}}",
+		// A name that is not an item leaves the stack empty.
+		"summon item 0 4 0 {Item:{id:\"notanitem\",Count:1b}}",
+		// A block without an item of its own is not an item either.
+		"summon item 0 4 0 {Item:{id:\"portal\",Count:1b}}",
 	} {
 		err := runLine(e, line)
 		if err == nil {
@@ -85,6 +89,12 @@ func TestSummonItemNeedsItsStack(t *testing.T) {
 		"summon item 0 4 0 {Item:{id:\"stone\",Count:1s}}",
 		"summon item 0 4 0 {Item:{id:\"stone\",Count:1L}}",
 		"summon item 0 4 0 {Item:{id:\"stone\",Count:1.0f}}",
+		// The name of the item is read as a MinecraftKey, so the
+		// namespace and the case do not matter.
+		"summon item 0 4 0 {Item:{id:\"minecraft:stone\",Count:1b}}",
+		"summon item 0 4 0 {Item:{id:\"STONE\",Count:1b}}",
+		"summon item 0 4 0 {Item:{id:\"diamond_sword\",Count:1b}}",
+		"summon item 0 4 0 {Item:{id:\"acacia_boat\",Count:1b}}",
 	} {
 		feedback, err := runLineFeedback(e, line)
 		if err != nil {
@@ -93,6 +103,42 @@ func TestSummonItemNeedsItsStack(t *testing.T) {
 		}
 		if len(feedback) != 1 || feedback[0] != "Object successfully summoned" {
 			t.Errorf("%q: feedback = %v, want [Object successfully summoned]", line, feedback)
+		}
+	}
+}
+
+// TestSummonedItemIsNamedAfterItsStack pins down the name of an item
+// entity.
+//
+// 1.12.2 names an item entity after the item it carries, and the
+// server's language file has no key for that name, so the server prints
+// the key itself: a diamond sword is "item.item.swordDiamond" and a
+// stone is "item.tile.stone.stone" — the last part is the variant of
+// the block.
+//
+// (Measured on a real 1.12.2 server.)
+func TestSummonedItemIsNamedAfterItsStack(t *testing.T) {
+	e := newTestEngine(t)
+	for _, tc := range []struct{ id, want string }{
+		{"stone", "item.tile.stone.stone"},
+		{"diamond_sword", "item.item.swordDiamond"},
+		{"acacia_boat", "item.item.boat.acacia"},
+		{"anvil", "item.tile.anvil.intact"},
+		{"dirt", "item.tile.dirt.default"},
+	} {
+		line := "summon item 0 4 0 {Item:{id:\"" + tc.id + "\",Count:1b,Slot:0b}}"
+		if err := runLine(e, line); err != nil {
+			t.Errorf("%q: %v", line, err)
+			continue
+		}
+		found := ""
+		for _, ent := range e.World.EntityList() {
+			if ent.Type == "item" {
+				found = ent.DisplayName()
+			}
+		}
+		if found != tc.want {
+			t.Errorf("the item entity of %s is called %q, want %q", tc.id, found, tc.want)
 		}
 	}
 }

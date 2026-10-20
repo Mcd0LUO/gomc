@@ -87,14 +87,17 @@ func (c *summonCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	}
 	if def := ctx.World.EntityTypes.Get(canonical); def != nil && def.NeedsItemStack {
 		// 1.12.2's entity factory only accepts an item entity that
-		// carries a non-empty item stack. An empty stack makes the
-		// entity die right after it is created, so the summon fails.
+		// carries a non-empty item stack of an item the server knows.
+		// An empty stack makes the entity die right after it is
+		// created, and a stack of a name that is not an item is empty
+		// too, so the summon fails.
 		//
 		// (Measured on a real 1.12.2 server: `summon item` and
 		// `summon item {Item:{}}` both answer "Unable to summon
 		// object", and so does `summon item {Item:{id:"stone"}}` —
 		// the count is what decides, see hasItemStack. `summon item
-		// {Item:{id:"stone",Count:1b}}` works.)
+		// {Item:{id:"stone",Count:1b}}` works, and
+		// `{Item:{id:"notanitem",Count:1b}}` does not.)
 		if !hasItemStack(e.NBT) {
 			return 0, exec.Errorf("Unable to summon object")
 		}
@@ -119,6 +122,10 @@ func hasItemStack(n *nbt.Compound) bool {
 	}
 	id, _ := item.Get("id").(nbt.String)
 	if strings.TrimSpace(string(id)) == "" {
+		return false
+	}
+	if !world.IsKnownItem(string(id)) {
+		// The stack names something that is not an item, so it is empty.
 		return false
 	}
 	return itemStackCount(item.Get("Count")) > 0

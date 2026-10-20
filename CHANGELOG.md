@@ -49,11 +49,17 @@
   `unknown entity type "x"` 改成真服的 `Unable to summon object`。
   活体实体的初始血量按真服 `/entitydata` 实测值写入（史莱姆、 magma cube、
   马 family 是随机 roll，没写死）。
-- **`/summon item` 需要一个非空的物品堆**：真服的实体工厂只接受带着非空物品堆的
-  物品实体，空堆的实体建出来就死，所以 summon 直接失败。决定成败的是 `Count`
-  ——1.12.2 用 `getByte` 读它，**任何数字类型都截断成有符号字节**（`Count:1`
-  算数、`Count:256` 截成 0 不算、`Count:-1` 是负数不算，缺省就是 0）；
-  `Slot` 无关。gomc 之前一律放行。
+- **`/summon item` 需要一个非空、且是已注册物品的物品堆**：真服的实体工厂只接受
+  带着非空物品堆的物品实体，空堆的实体建出来就死，所以 summon 直接失败。决定
+  成败的是 `Count`——1.12.2 用 `getByte` 读它，**任何数字类型都截断成有符号
+  字节**（`Count:1` 算数、`Count:256` 截成 0 不算、`Count:-1` 是负数不算，
+  缺省就是 0）；`Slot` 无关。物品名也必须是已注册的物品。gomc 之前一律放行。
+- **物品注册表**（新，`internal/world/itemnames.go`）：从服务端 jar 的字节码里
+  挖出 1.12.2 的 **409 个物品名**（`Item` 类注册纯物品、`Block` 类注册方块，
+  每个方块自带一个同名物品），顺带得到每个物品实体的**显示名**——真服是按
+  物品命名实体的，而服务端语言文件里没有那个键，所以真服直接打印键本身：
+  钻石剑是 `item.item.swordDiamond`、石头是 `item.tile.stone.stone`、铁砧是
+  `item.tile.anvil.intact`。gomc 之前只显示实体类型的名字（`Item`）。
 - **`scoreboard players tag list` 的标题**用计分板持有者名（玩家是用户名），
   不是实体 id；**没有 tag 的实体不打标题**（真服 `CommandScoreboard.java:735`），
   命令报的计数是 tag 的个数而不是实体数。tag 列表的连接符也跟真服一样。

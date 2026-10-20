@@ -387,16 +387,9 @@ say @e[type=armor_stand,c=1]    → A
 
 ### 3.12 还没对齐的选择器细节 [验]
 
-- **`/summon` 的物品名不校验**：真服上 `summon item {Item:{id:"notanitem",
-  Count:1b}}` 会失败——那个物品不存在，堆是空的。gomc 没有物品注册表
-  （和方块名一样，见第 12 节），所以只检查堆的结构，不检查物品名。
 - **`scoreboard players tag list` 的标题名**：真服用解析后的用户名 / UUID，
   gomc 对**玩家**已经改成用户名了，但非玩家实体仍是内部 id（gomc 不建模 UUID，
   见第 12 节）。
-- **物品实体的显示名**：真服上 `summon item {Item:{id:"stone",Count:1b}}`
-  建出来的实体叫 `item.tile.stone.stone`（1.12.2 的语言键，方块走
-  `item.tile.<名字>.<变种>`、普通物品走 `item.item.<旧名>`）。gomc 只有
-  实体类型级的显示名（`Item`），要还原得有一整张 1.12.2 物品名表。
 
 ### 3.13 已经对齐的几条细节 [验]
 
@@ -432,8 +425,22 @@ say @e[type=armor_stand,c=1]    → A
   决定成败的是 **Count**：1.12.2 用 `getByte("Count")` 读它，**任何数字类型都
   会被截断成一个有符号字节**——所以 `Count:1`（Int）算数，`Count:256` 截断成 0
   不算，`Count:-1` 是负数也不算；缺省的 Count 就是 0。`Slot` 缺不缺无所谓
-  （默认 0）。另外物品名必须是已注册的物品——`{Item:{id:"notanitem",Count:1b}}`
-  真服也会失败，gomc 查不了（见 3.12）。
+  （默认 0）。物品名也必须是**已注册的物品**——`{Item:{id:"notanitem",Count:1b}}`
+  真服也会失败（那个堆是空的）。
+- **物品实体的显示名**。真服上物品实体是**按它带的那件物品命名**的，而服务端
+  的语言文件里没有那个键，所以真服直接把键打出来：
+
+  ```
+  summon item {Item:{id:"diamond_sword",Count:1b}}  → item.item.swordDiamond
+  summon item {Item:{id:"stone",Count:1b}}           → item.tile.stone.stone
+  summon item {Item:{id:"anvil",Count:1b}}           → item.tile.anvil.intact
+  summon item {Item:{id:"acacia_boat",Count:1b}}    → item.item.boat.acacia
+  ```
+
+  普通物品是 `item.item.<旧名>`（`swordDiamond` 是 1.12.2 的**旧**名字，注册名
+  是 `diamond_sword`），方块物品是 `item.tile.<方块旧名>[.<变种>]`。
+  gomc 现在按同一张表还原（那张表是从服务端 jar 的字节码里挖出来的 409 个
+  物品名，见 `internal/world/itemnames.go`）。
 
 ---
 
