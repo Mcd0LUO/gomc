@@ -18,6 +18,9 @@ docs/                      本目录
 testdata/
   demo-world/              演示用的 1.12.2 存档
   cases/                   对拍用例 + golden
+tools/
+  probe/                   对真实 1.12.2 服务端做差分测试（PowerShell + Python）
+  blockstates/             从服务端 jar 抽方块状态表（Java + Go 生成器）
 .ref/                      反编译产物与参考资料（不进版本库）
 ```
 
