@@ -154,6 +154,10 @@ function Normalize-Uuid([string[]]$lines) {
 		$x = $x -replace 'logged in with entity id \d+ at \([^)]*\)', 'logged in with entity id <id> at (<pos>)'
 		# 实体活了多少刻取决于服务端起了多久，每次都不一样。
 		$x = $x -replace 'Spigot\.ticksLived:\d+', 'Spigot.ticksLived:<n>'
+		# 运动和朝向是每个刻都在变的，读到的是第几个刻取决于命令的快慢。
+		$x = $x -replace 'Motion:\[[^\]]*\]', 'Motion:[<motion>]'
+		$x = $x -replace 'Rotation:\[[^\]]*\]', 'Rotation:[<rot>]'
+		$x = $x -replace 'FallDistance:[-0-9.eEdD]+', 'FallDistance:<fall>'
 		# 最后一行必须是**表达式**：PowerShell 里赋值语句不写进管道，
 		# 写成赋值的话这个函数会返回 null。
 		$x

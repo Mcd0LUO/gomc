@@ -1,5 +1,3 @@
-UUID of player Steve is 5627dd98-e6be-3c21-b8a8-e92344183641
-Steve[/127.0.0.1:26655] logged in with entity id 1 at ([probe]-6.5, 4.0, -8.5)
 [Server] N01
 4 blocks filled
 [Server] N02
@@ -20,5 +18,3 @@ Successfully found the block at 8, 4, 8
 'variant=granite=1' is not a state for block minecraft:stone
 [Server] N10
 [Server] N11
-Steve lost connection: Server closed
-Steve left the game

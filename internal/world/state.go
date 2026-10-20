@@ -107,7 +107,9 @@ func (g *GameRules) Set(name, value string) error {
 			return fmt.Errorf("game rule %q expects a number, got %q", name, value)
 		}
 		r.Int = n
-	case RuleString, RuleFunction:
+	case RuleString, RuleFunction, RuleAny:
+		// A rule that was created on the fly (1.12.2's `ANY_VALUE`) keeps
+		// its value as a string, and setting it again replaces the value.
 		r.String = value
 	}
 	return nil

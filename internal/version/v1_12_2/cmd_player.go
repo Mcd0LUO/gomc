@@ -115,6 +115,16 @@ func (c *giveCmd) Name() string { return "give" }
 // Usage implements exec.Handler.
 func (c *giveCmd) Usage() string { return "/give <target> <item> [<count>] [<data>] [<nbt>]" }
 
+// giveMaxStackSize is the size of a stack of items.
+//
+// 1.12.2 reads the count of `/give` with
+// `CommandAbstract.a(text, 1, item.getMaxStackSize())`, and the size of a
+// stack is 64 for the items that are not special.
+//
+// (Measured on a real 1.12.2 server: `give Steve stone 65` answers "The
+// number you have entered (65) is too big, it must be at most 64".)
+const giveMaxStackSize = 64
+
 // Parse implements exec.Handler.
 func (c *giveCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	target, err := parseEntityTarget(p)
@@ -125,18 +135,34 @@ func (c *giveCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	if err != nil {
 		return nil, err
 	}
-	ref := &ast.ItemArg{Name: item, Count: -1, Data: -1}
+	ref := &ast.ItemArg{Name: item, Count: -1, Data: 0}
 	if p.More() {
 		if t, ok := p.Peek(); ok && isDataValue(t.Text) {
 			p.Next()
-			n, _ := parseIntSafe(t.Text)
+			// 1.12.2 reads the count with `CommandAbstract.a(text, 1,
+			// maxStackSize)`: the number has to be between 1 and the
+			// size of a stack, and the message is the one of
+			// `commands.generic.num.tooSmall` / `tooBig`.
+			n, err := parseIntSafe(t.Text)
+			if err != nil {
+				return nil, p.Errorf("'%s' is not a valid number", t.Text)
+			}
+			if n < 1 {
+				return nil, p.Errorf("The number you have entered (%d) is too small, it must be at least 1", n)
+			}
+			if n > giveMaxStackSize {
+				return nil, p.Errorf("The number you have entered (%d) is too big, it must be at most %d", n, giveMaxStackSize)
+			}
 			ref.Count = n
 		}
 	}
 	if p.More() {
 		if t, ok := p.Peek(); ok && isDataValue(t.Text) {
 			p.Next()
-			n, _ := parseIntSafe(t.Text)
+			n, err := parseIntSafe(t.Text)
+			if err != nil {
+				return nil, p.Errorf("'%s' is not a valid number", t.Text)
+			}
 			ref.Data = n
 		}
 	}
@@ -167,7 +193,10 @@ func (c *giveCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		stack := nbt.NewCompound()
 		stack.Set("id", nbt.String(item.Name))
 		stack.Set("Count", nbt.Int(int32(count)))
-		if item.Data >= 0 {
+		// 1.12.2 writes the damage of the stack only when it is not
+		// zero, and the damage of a stack that was not asked for is
+		// zero.
+		if item.Data != 0 {
 			stack.Set("Damage", nbt.Short(int16(item.Data)))
 		}
 		if item.NBT != nil {

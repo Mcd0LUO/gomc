@@ -92,12 +92,16 @@ const (
 // The runtime has no chunks, so this is a model of what the server has
 // loaded: the area around the world spawn and the areas around the
 // players.
+//
+// The players are few and the entities are many, so the players are
+// looked up in the entity slice instead of in the whole table: this is
+// called once per command.
 func (w *World) IsLoaded(pos Pos) bool {
 	cx, cz := pos.X>>4, pos.Z>>4
 	if chunkAreaHas(cx, cz, w.Spawn.X>>4, w.Spawn.Z>>4, spawnChunkRadius) {
 		return true
 	}
-	for _, e := range w.Entities {
+	for _, e := range w.EntitySlice() {
 		// Only the players keep chunks loaded; the mobs do not.
 		if e.Type != "player" {
 			continue

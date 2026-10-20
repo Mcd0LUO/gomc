@@ -126,6 +126,40 @@ func TestRunIsDeterministic(t *testing.T) {
 	}
 }
 
+// TestRunIsDeterministicWithRandom guards the same property for the parts
+// that are randomised.
+//
+// The `@r` selector and the default duration of `/weather` take from the
+// random source of the world, so they depend on the order of the commands.
+// What must not depend on it is the run before: a case that runs after
+// another case has to see the same random source.
+//
+// (The random source is reset by `exec.NewEngine`, so every case starts
+// over.)
+func TestRunIsDeterministicWithRandom(t *testing.T) {
+	root := newCaseWorld(t)
+	caseText := "name: random\nsetup:\n  summon zombie 0 4 0 {CustomName:\"A\"}\n  summon zombie 1 4 0 {CustomName:\"B\"}\n  summon zombie 2 4 0 {CustomName:\"C\"}\nrun:\n  execute @r[type=zombie] ~ ~ ~ say picked\n"
+	c, err := ParseCase(caseText)
+	if err != nil {
+		t.Fatalf("ParseCase: %v", err)
+	}
+	first, err := Run(root, c)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	// A run in between takes from the same random source.
+	if _, err := Run(root, c); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	second, err := Run(root, c)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if first.Render(ScopeServer) != second.Render(ScopeServer) {
+		t.Errorf("the two runs differ:\n%s\n%s", first.Render(ScopeServer), second.Render(ScopeServer))
+	}
+}
+
 func TestRenderIsStable(t *testing.T) {
 	root := newCaseWorld(t)
 	c, err := ParseCase("name: render\nrun:\n  say hello\n")

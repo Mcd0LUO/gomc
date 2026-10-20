@@ -1,0 +1,25 @@
+# /give 的数量与数据值。
+#
+# 1.12.2 读数量用 `CommandAbstract.a(text, 1, item.getMaxStackSize())`：
+# 数量要在 1..64 之间，越界的措辞是 commands.generic.num.tooSmall/tooBig
+# （数字和上限都按整数印）。
+#
+# 数据值用 `CommandAbstract.a(text)`：没有上下界，只要能读成整数。
+
+--- console ---
+say G01
+give Steve stone 0
+say G02
+give Steve stone 65
+say G03
+give Steve stone 64
+say G04
+give Steve stone 1000
+say G05
+give Steve stone abc
+say G06
+give Steve stone 1 30000
+say G07
+give Steve stone 1 -1
+say G08
+say G09

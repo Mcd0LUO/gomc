@@ -330,9 +330,13 @@ var (
 	// BlockPosCentered is the spec of a block position that is read in
 	// the "centre" mode, like `/spawnpoint` reads it: a whole number
 	// names the middle of a block.
+	//
+	// Only the X and Z are centred: 1.12.2 reads the Y of a block
+	// position with `b(base.getY(), text, 0, 256, false)`, and the
+	// `false` is the "centre" flag.
 	BlockPosCentered = CoordSpec{
 		X: CoordAxis{Min: coordMinXZ, Max: coordMaxXZ, Center: true},
-		Y: CoordAxis{Min: coordMinY, Max: coordMaxY, Center: true},
+		Y: CoordAxis{Min: coordMinY, Max: coordMaxY},
 		Z: CoordAxis{Min: coordMinXZ, Max: coordMaxXZ, Center: true},
 	}
 	// Loose is the spec of a plain number: all three axes are limited

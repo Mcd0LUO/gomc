@@ -87,21 +87,39 @@ func sayLines(n int) []string {
 }
 
 // setBlockLines builds the `setblock` command lines, one block per line.
+//
+// The blocks stay inside the area the server has loaded: 1.12.2 refuses a
+// position whose chunk is not loaded ("Cannot place block outside of the
+// world"), and gomc models the same area, so a benchmark that placed the
+// blocks far away would measure the error path instead of the placement.
 func setBlockLines(n int) []string {
 	out := make([]string, n)
 	for i := range out {
-		out[i] = fmt.Sprintf("setblock %d 64 %d stone", i, i)
+		x, z := benchPos(i)
+		out[i] = fmt.Sprintf("setblock %d 64 %d stone", x, z)
 	}
 	return out
 }
 
 // summonLines builds the `summon` command lines, one entity per line.
+//
+// The entities stay inside the loaded area, see setBlockLines.
 func summonLines(n int) []string {
 	out := make([]string, n)
 	for i := range out {
-		out[i] = fmt.Sprintf("summon armor_stand %d 64 %d", i, i)
+		x, z := benchPos(i)
+		out[i] = fmt.Sprintf("summon armor_stand %d 64 %d", x, z)
 	}
 	return out
+}
+
+// benchPos returns a position inside the area the server has loaded.
+//
+// The area is the 17x17 chunks around the spawn's chunk, so the blocks run
+// from -128 to 143 on both axes.
+func benchPos(i int) (int, int) {
+	const side = 128
+	return i % side, (i / side) % side
 }
 
 // scoreSetLines builds the `scoreboard players set` command lines, one

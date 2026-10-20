@@ -440,6 +440,15 @@ func TestGameruleSetRejectsBadValues(t *testing.T) {
 	if got := r.String("nosuchrule"); got != "1" {
 		t.Errorf("nosuchrule = %q, want %q", got, "1")
 	}
+	// Setting an unknown rule again replaces its value: 1.12.2 keeps
+	// the rule as an ANY_VALUE rule, whose value is the string that was
+	// set.
+	if err := r.Set("nosuchrule", "2"); err != nil {
+		t.Errorf("setting an unknown rule again: %v", err)
+	}
+	if got := r.String("nosuchrule"); got != "2" {
+		t.Errorf("nosuchrule = %q, want %q", got, "2")
+	}
 	if err := r.Set("maxCommandChainLength", "10"); err != nil {
 		t.Fatalf("Set: %v", err)
 	}

@@ -25,6 +25,10 @@
   拆成**最多两段**（所以 `variant=granite=1` 的值是 `granite=1`）、名字和
   取值都**大小写敏感**、`default` 只能整个参数就是它、没写到的属性保持
   默认状态里的值、同一个属性写多次**后面的赢**。
+- **`/locate`**：1.12.2 的结构注册表和生物群系注册表都实现了，`/locate` 认
+  `biome` 和 `structure` 两类，规格记在
+  [`docs/SPEC-1.12.2.md`](docs/SPEC-1.12.2.md) 第 17 节。找不到时真服说
+  `Unable to locate any <x> feature`。
 - **`/gomcplayer`——把玩家带进世界的 gomc 扩展命令**（1.12.2 没有这条命令）：
   ```
   /gomcplayer <名字> [x] [y] [z]
@@ -106,6 +110,29 @@
 
 一批按 1.12.2 真实行为对齐的修正（都来自反编译源码 + 真服实测）：
 
+- **随机源每个引擎重置一次**。`@r` 选择器和 `/weather` 的默认时长共用世界那条
+  随机流（真服也是这样 ✓），但**引擎从不重置**它，于是同一个用例在不同的测试
+  顺序下会选中不同的实体，golden 变成顺序相关的 flaky 测试。现在每个引擎从
+  固定种子重新开始，并补了一条走随机路径的确定性测试。
+- **`/give` 的数量有上下界**。真服用
+  `CommandAbstract.a(text, 1, item.getMaxStackSize())` 读数量，所以 0 和 65 都被
+  拒绝：`The number you have entered (65) is too big, it must be at most 64`。
+  gomc 之前把解析错误**丢掉**（`n, _ := parseIntSafe(...)`），于是
+  `give Steve stone 99999999999999` 会给出 "Given [Stone] * 0"。
+- **`gamerule` 对未知规则再设一次值，现在真的会改**。1.12.2 把未知规则存成
+  ANY_VALUE 规则、值是字符串，gomc 的 `GameRules.Set` 漏了 `RuleAny` 那个分支，
+  于是第二次设置被静默丢掉，而回显还说"已更新"。
+- **`/spawnpoint` 的 Y 不加 0.5**。中心模式只作用于 X/Z，1.12.2 读方块位置的
+  Y 时传的是 `false`（`b(base.getY(), text, 0, 256, false)`），所以
+  `setworldspawn 0 256 0` 是合法的（真服：Set the world spawn point to
+  (0, 256, 0)）。
+- **`/give` 的数据值是 0 而不是「没给」**。真服没写数据值时用 0，物品堆的
+  `Damage` 只在不为 0 时才写进 NBT。
+- **探针的比较多归一化了几处每次都变的内容**：实体 NBT 里的 `Motion`、
+  `Rotation`、`FallDistance`（每个刻都在变，读到的是第几个刻取决于命令的快慢）。
+  另外 `run-all.ps1` 不再把**没有基线**的用例记成失败。
+- **自带的两个基准又能跑了**：它们把方块放在 0..9999，而那落在"世界之外"
+  （新加的判定）里，基准于是直接失败。坐标改到加载区之内。
 - **命令里的数据值和存下来的数据值不是一回事**。1.12.2 存的是方块的**完整
   状态**，命令里写的却是老的数据值：数字要交给 `fromLegacyData`，放下去的
   那个状态的**数据值**是 `toLegacyData(fromLegacyData(n))`。对多数方块两者
@@ -340,14 +367,15 @@
 
 ### 计划中
 
-- **数据包的进度与配方**：1.12.2 的自定义进度在 `<世界>/advancements/<命名空间>/<路径>.json`，
-  自定义配方在 `<世界>/recipes/`。gomc 没有 JSON 解析器，所以只认服务端 jar 里自带的那一套。
-- **`/locate`**：需要结构注册表。
-- **条件的触发机制**：`/advancement` 只能通过命令设置条件，没有触发器（`minecraft:recipe_unlocked`
-  之类）。这也是 `grant everything` 的数字和真服差 7 个的原因。
-- **词法器不配平 NBT 的花括号**：真服先切参数再解析 NBT，报
-  `Could not parse dataTag, reason: …`；gomc 的词法器读命令时配平花括号，不配平就整行报错。
-  改它对 `testfor`/`summon`/`entitydata` 一并有益。
+- **版本抽象**：`internal/world` 里那 1500 行 1.12.2 专属数据（方块名、物品名、
+  实体类型、gamerule 默认值）挡在"加第二个版本"的路上，得挪进
+  `internal/version/v1_12_2`。
+- **`ast.Kind` 这套接口是死的**：22 处实现、0 处消费，真正分派靠类型断言；留着
+  只会让人以为可以按 kind 写分派。
+- **19 条命令的用法行**是 gomc 自己写的，和语言文件里的原文不一致（`/fill`、
+  `/clone` 等已经照抄了）。
+- **`/spawnpoint` 的参数布局**和真服不同：真服 2~3 个参数是用法错误，1 个参数时
+  用玩家的当前位置。
 
 ## [0.1.0] - 2026-10-20
 

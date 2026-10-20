@@ -88,6 +88,11 @@ foreach ($c in $cases) {
 	$hasBaseline = Test-Path $expectedPath
 	if (-not $Record -and -not $hasBaseline) {
 		$skipped += $c.Name
+		# 没有基线就没有可比的东西，所以不比对——探针的 -Compare 会
+		# 因为找不到期望文件而退出 1，那样会被记成失败。
+		& pwsh -NoProfile -ExecutionPolicy Bypass -File $probe -Case $c.FullName -Work $Work -Template $Template @botArg
+		if ($LASTEXITCODE -ne 0) { $failed += $c.Name }
+		continue
 	}
 
 	& pwsh -NoProfile -ExecutionPolicy Bypass -File $probe -Case $c.FullName -Work $Work -Template $Template @recordArg @compareArg @botArg

@@ -3,13 +3,16 @@
 // The block states of 1.12.2: the properties every block has, the values
 // those properties take and the data value of every combination of them.
 //
+// The table holds every block of the registry, also the ones without
+// properties: their default state is the data value 0.
+//
 // The table is dug out of the real 1.12.2 server jar, see tools/blockstates.
 package v1_12_2
 
-// blockStateTables holds the state table of every block that has properties.
+// blockStateTables holds the state table of every block.
 //
-// The blocks that have none are not in here: 1.12.2 only knows the word
-// "default" for them.
+// The blocks that have no properties are in here too: the "legacy" array
+// of theirs says that every data value but the first is out of range.
 var blockStateTables = map[string]*blockStateTable{
 	"minecraft:acacia_door": {
 		props: []blockStateProp{

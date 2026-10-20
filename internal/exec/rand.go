@@ -10,6 +10,14 @@ import (
 // Determinism matters for a test harness: the same script must produce the
 // same result on every run. The source is seeded explicitly and can be
 // locked to a fixed seed for reproducible tests.
+//
+// The source is shared by everything that is randomised — the `@r`
+// selector and the default duration of `/weather` — which is what 1.12.2
+// does as well: both take from the random source of the world. The order
+// of the commands therefore matters, exactly as it does on a server.
+//
+// A new engine starts the source over, so that a run does not depend on
+// how many random numbers the runs before it took.
 var (
 	randMu   sync.Mutex
 	randSrc  = rand.New(rand.NewSource(1))

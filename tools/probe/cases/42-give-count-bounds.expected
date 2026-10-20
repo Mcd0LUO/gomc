@@ -1,0 +1,20 @@
+UUID of player Steve is 5627dd98-e6be-3c21-b8a8-e92344183641
+Steve[/127.0.0.1:30822] logged in with entity id 1 at ([probe]-1.5, 4.0, 5.5)
+[Server] G01
+The number you have entered (0) is too small, it must be at least 1
+[Server] G02
+The number you have entered (65) is too big, it must be at most 64
+[Server] G03
+Given [Stone] * 64 to Steve
+[Server] G04
+The number you have entered (1000) is too big, it must be at most 64
+[Server] G05
+'abc' is not a valid number
+[Server] G06
+Given [Stone] * 1 to Steve
+[Server] G07
+Given [Stone] * 1 to Steve
+[Server] G08
+[Server] G09
+Steve lost connection: Server closed
+Steve left the game

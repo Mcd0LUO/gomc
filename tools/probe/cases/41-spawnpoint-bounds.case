@@ -1,0 +1,28 @@
+# /spawnpoint 和 /setworldspawn 的坐标。
+#
+# 1.12.2 读方块位置用
+# `CommandAbstract.a(listener, args, start, centerCorrect)`：X/Z 按
+# centerCorrect 决定要不要加 0.5，**Y 永远是 `false`**——所以 Y 不加 0.5，
+# 256 也合法（放不放得下是另一回事）。
+#
+# 覆盖：Y 的上下界、X/Z 的上下界、中心模式。
+
+--- console ---
+say P01
+spawnpoint 0 256 0
+say P02
+spawnpoint 0 257 0
+say P03
+spawnpoint 0 -1 0
+say P04
+spawnpoint 30000001 4 0
+say P05
+spawnpoint 0 4 30000001
+say P06
+setworldspawn 0 256 0
+say P07
+setworldspawn 0 257 0
+say P08
+setworldspawn 0 -1 0
+say P09
+say P10

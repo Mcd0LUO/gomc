@@ -202,14 +202,17 @@ cd tools\probe
 
 ## 错误模型
 
-所有解析/执行错误统一为 `*parser.Error`，携带：
+错误分两种类型：
 
-- `Line` / `Col`：1-based，指向 mcfunction 文件内位置
-- `Msg`：**1.12.2 会怎么说**（原文照抄，不改一个字）
-- `Kind`：`Syntax` | `Unknown` | `Runtime`
-- `Path` / `Source`：文件路径与出错的那一行
-- `Usage`：该命令的用法行（来自语言文件）
-- `Hint`：额外建议，比如 `did you mean 'setblock'?`
+- **解析期**（`internal/parser`）用 `*parser.Error`，携带：
+  - `Line` / `Col`：1-based，指向 mcfunction 文件内位置
+  - `Msg`：**1.12.2 会怎么说**（原文照抄，不改一个字）
+  - `Kind`：`Syntax` | `Unknown` | `Runtime`
+  - `Path` / `Source`：文件路径与出错的那一行
+  - `Usage`：该命令的用法行（来自语言文件）
+  - `Hint`：额外建议，比如 `did you mean 'setblock'?`
+- **执行期**（`internal/exec`）用 `*exec.Error`，只带 `Msg`（和 `Usage`）：
+  命令已经解析过了，失败发生在跑的时候，位置没有意义。
 
 **消息本身永远是 1.12.2 的原文**，增强的部分都是附加的：位置、用法、建议。
 这样既保持了"对着真服复现"，又能多指出真服不会指出的东西。
@@ -244,7 +247,8 @@ error[Syntax]: data/functions/ns/f.mcfunction:12:5
 ## 扩展指引
 
 - **加一条命令**：在 `version/v1_12_2` 下按域新建文件（如 `cmd_scoreboard.go`），
-  实现 `Command` 接口，在该版本的注册表里登记。不要新建独立顶层包。
+  实现 `exec.Handler` 接口（`Name` / `Usage` / `Parse` / `Run`），在该版本的注册表里登记。
+不要新建独立顶层包。
 - **加一个版本**：新建 `version/v1_13` 等，实现同样的注册入口；
   `exec` 层只暴露版本无关的原语。
 - **加一类 selector 过滤**：在 `exec/selector.go` 增加 filter 构造，

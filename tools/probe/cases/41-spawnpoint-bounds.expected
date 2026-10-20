@@ -1,0 +1,18 @@
+[Server] P01
+Usage: /spawnpoint [player] [<x> <y> <z>]
+[Server] P02
+Usage: /spawnpoint [player] [<x> <y> <z>]
+[Server] P03
+Usage: /spawnpoint [player] [<x> <y> <z>]
+[Server] P04
+Usage: /spawnpoint [player] [<x> <y> <z>]
+[Server] P05
+Usage: /spawnpoint [player] [<x> <y> <z>]
+[Server] P06
+Set the world spawn point to (0, 256, 0)
+[Server] P07
+The number you have entered (257.00) is too big, it must be at most 256
+[Server] P08
+The number you have entered (-1.00) is too small, it must be at least 0
+[Server] P09
+[Server] P10

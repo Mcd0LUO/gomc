@@ -194,6 +194,15 @@ type Engine struct {
 
 // NewEngine creates an engine.
 func NewEngine(reg *Registry, w *world.World) *Engine {
+	// The random source starts from the seed the runtime was given, so
+	// that a run does not depend on how many random numbers the runs
+	// before it took.
+	//
+	// The source is shared by everything that is randomised — the `@r`
+	// selector and the default duration of `/weather` — which is what
+	// 1.12.2 does as well: both take from the random source of the
+	// world.
+	SetSeed(Seed())
 	return &Engine{
 		Registry:  reg,
 		World:     w,
