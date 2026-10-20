@@ -97,9 +97,81 @@ func TestTokenizeUnterminatedQuote(t *testing.T) {
 	}
 }
 
+// TestTokenizeUnbalancedGroup covers the brackets that are not NBT.
+//
+// A brace group that never closes is not an error, see
+// TestTokenizeUnbalancedBraceGroup. The brackets of a target selector and
+// the parentheses of a coordinate are a different matter and keep failing
+// here.
 func TestTokenizeUnbalancedGroup(t *testing.T) {
-	if _, err := Tokenize("summon zombie {a:1"); err == nil {
-		t.Fatal("expected an error for an unbalanced group")
+	for _, in := range []string{
+		"scoreboard players set @e[type=armor_stand t 1",
+		"summon zombie (0 4 0",
+	} {
+		if _, err := Tokenize(in); err == nil {
+			t.Errorf("input %q: expected an error for an unbalanced group", in)
+		}
+	}
+}
+
+// TestTokenizeUnbalancedBraceGroup guards the behaviour that lets a broken
+// NBT reach the NBT parser.
+//
+// 1.12.2 has no brace group: it splits the command on spaces and hands
+// every remaining argument to its NBT parser, which reports the broken
+// compound itself. A brace group that never closes therefore has to be
+// handed over as it is, instead of failing the whole command.
+//
+// (Measured on a real 1.12.2 server: `scoreboard players set @e[type=armor_stand] t 1 {Tags`
+// answers "Could not parse dataTag, reason: Expected ':' but got '<EOF>' at: {Tags<--[HERE]".)
+func TestTokenizeUnbalancedBraceGroup(t *testing.T) {
+	tests := []struct {
+		in   string
+		want []string
+	}{
+		{"summon zombie {a:1", []string{"summon", "zombie", "{a:1"}},
+		{"summon zombie {Tags", []string{"summon", "zombie", "{Tags"}},
+		{"summon zombie {", []string{"summon", "zombie", "{"}},
+		{"summon zombie {Tags:1,", []string{"summon", "zombie", "{Tags:1,"}},
+		// A quote that is never closed belongs to the NBT, so it does not
+		// fail the command either.
+		{"summon zombie {Tags:\"abc", []string{"summon", "zombie", "{Tags:\"abc"}},
+		// The group runs to the end of the line, because that is where
+		// 1.12.2's NBT text ends as well.
+		{"summon zombie {a:1 b:2", []string{"summon", "zombie", "{a:1 b:2"}},
+		{"summon zombie {a:{b:1}", []string{"summon", "zombie", "{a:{b:1}"}},
+	}
+	for _, tc := range tests {
+		toks, err := Tokenize(tc.in)
+		if err != nil {
+			t.Errorf("input %q: unexpected error: %v", tc.in, err)
+			continue
+		}
+		if got := tokenTexts(toks); !equal(got, tc.want) {
+			t.Errorf("input %q: tokens = %v, want %v", tc.in, got, tc.want)
+		}
+	}
+}
+
+// TestTokenizeBraceGroupIsOneToken checks that a brace group keeps the
+// spaces inside it, so that the NBT parser sees the text 1.12.2 would
+// have seen.
+//
+// 1.12.2 splits the command on spaces and joins the arguments of a dataTag
+// with a single space, which leaves the text of the dataTag unchanged.
+func TestTokenizeBraceGroupIsOneToken(t *testing.T) {
+	toks, err := Tokenize("entitydata @e[type=armor_stand] {Tags:1, b:2")
+	if err != nil {
+		t.Fatalf("Tokenize: %v", err)
+	}
+	if len(toks) != 3 {
+		t.Fatalf("got %d tokens (%v), want 3", len(toks), tokenTexts(toks))
+	}
+	if got := toks[2].Text; got != "{Tags:1, b:2" {
+		t.Errorf("token = %q, want %q", got, "{Tags:1, b:2")
+	}
+	if toks[2].Kind != KindBrace {
+		t.Errorf("kind = %v, want KindBrace", toks[2].Kind)
 	}
 }
 
@@ -155,6 +227,9 @@ func TestTokenizeTerminates(t *testing.T) {
 	inputs := []string{
 		"", "say hello", `say "unterminated`, "{unbalanced", "}}}}", "@e[",
 		`"`, "{", "((((((", "@e[type=]", "a b c d e f g",
+		// The paths that hand an unbalanced brace group over to the NBT
+		// parser must not loop either.
+		"{unbalanced", `{Tags:"abc`, "{a:1 b:2", "{a:{b:1}", `{a:"b}`,
 	}
 	for _, in := range inputs {
 		in := in

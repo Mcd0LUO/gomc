@@ -1,0 +1,42 @@
+# 玩家专属命令的目标：只接受玩家。
+#
+# 1.12.2 里 give / gamemode / title / spawnpoint / tellraw / playsound /
+# trigger / xp / clear / enchant / effect 的目标是用 CommandAbstract.b
+# 解析的，那个变体**只找玩家**。gomc 用的是通用解析，任何实体都收。
+#
+# 这一轮问的是：目标解析不出玩家时，真服说什么。
+# 纯控制台就能测（不需要在线玩家），因为"没有玩家"就是解析失败。
+#
+# 2026-10-21 待测（测完回填）：
+#   - ?
+
+--- console ---
+say T01
+give @e[type=zombie] stone
+say T02
+give Steve stone
+say T03
+gamemode creative @e[type=zombie]
+say T04
+title @e[type=zombie] title hi
+say T05
+tellraw @e[type=zombie] {"text":"hi"}
+say T06
+playsound block.stone.break @e[type=zombie] 1 1
+say T07
+trigger @e[type=zombie] obj set 1
+say T08
+xp 1 @e[type=zombie]
+say T09
+clear @e[type=zombie]
+say T10
+enchant @e[type=zombie] sharpness 1
+say T11
+effect @e[type=zombie] minecraft:speed 30 1
+say T12
+spawnpoint @e[type=zombie]
+say T13
+kill @e[type=zombie]
+say T14
+testfor @e[type=zombie]
+say T15

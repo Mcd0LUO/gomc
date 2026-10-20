@@ -1,0 +1,46 @@
+# 验证：grant everything 之后，到底有几个进度是"完成"的。
+#
+# 机制：进度完成时会解锁它奖励里的配方；解锁配方触发
+# minecraft:recipe_unlocked，于是拥有那个配方的进度的 has_the_recipe
+# 自动完成 —— 如果命令还没走到它，它就被跳过、不计数。
+#
+# 关键数字：
+#   - 第一次 grant everything 的计数
+#   - 第二次 grant everything 的计数（= 488 - 完成后进度的个数）
+#   - 第二次 grant 里，has_the_recipe 完成但另一个条件没完成的进度，
+#     到底算不算"完成"
+#
+# 期望：第一次 481；第二次 = 488 - 完成的个数
+
+--- console ---
+say M01
+advancement grant Steve everything
+say M02
+advancement grant Steve everything
+say M03
+advancement grant Steve everything
+say M04
+advancement test Steve minecraft:recipes/misc/coal
+say M05
+advancement test Steve minecraft:recipes/misc/diamond
+say M06
+advancement test Steve minecraft:recipes/misc/emerald
+say M07
+advancement test Steve minecraft:recipes/misc/gold_ingot_from_block
+say M08
+advancement test Steve minecraft:recipes/misc/iron_ingot_from_block
+say M09
+advancement test Steve minecraft:recipes/misc/lapis_lazuli
+say M10
+advancement test Steve minecraft:recipes/misc/slime_ball
+say M11
+advancement test Steve minecraft:recipes/redstone/redstone
+say M12
+advancement test Steve minecraft:recipes/misc/bone_meal_from_block
+say M13
+advancement test Steve minecraft:recipes/misc/wheat
+say M14
+advancement test Steve minecraft:recipes/misc/gold_nugget
+say M15
+advancement test Steve minecraft:recipes/misc/iron_nugget
+say M16

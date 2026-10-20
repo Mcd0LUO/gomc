@@ -1,0 +1,35 @@
+# 不配平的 NBT（花括号）在 scoreboard 两条命令上真服怎么报。
+#
+# 2026-10-21 实测准备：
+#   - scoreboard players set 需要一个已存在的 objective
+#   - 持有者用 @e[type=armor_stand]，所以先召唤一个盔甲架
+#   - 每一对命令之间夹一条 say M<n> 标记，因为探针是按行收集输出的
+--- console ---
+say M00
+scoreboard objectives add t dummy
+summon armor_stand 2 4 0 {CustomName:"NBT_AS"}
+say M01
+scoreboard players set @e[type=armor_stand] t 1 {Tags
+say M02
+scoreboard players set @e[type=armor_stand] t 1 {Tags:1
+say M03
+scoreboard players set @e[type=armor_stand] t 1 {
+say M04
+scoreboard players set @e[type=armor_stand] t 1 {Tags:1,
+say M05
+scoreboard players set @e[type=armor_stand] t 1 {Tags:"abc
+say M06
+scoreboard players set @e[type=armor_stand] t 1 {}
+say M07
+scoreboard players tag @e[type=armor_stand] add marked {Tags
+say M08
+scoreboard players tag @e[type=armor_stand] add marked {Tags:1
+say M09
+scoreboard players tag @e[type=armor_stand] add marked {
+say M10
+scoreboard players tag @e[type=armor_stand] add marked {Tags:1,
+say M11
+scoreboard players tag @e[type=armor_stand] add marked {Tags:"abc
+say M12
+scoreboard players tag @e[type=armor_stand] add marked {}
+say M13

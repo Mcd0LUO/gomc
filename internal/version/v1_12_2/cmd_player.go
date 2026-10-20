@@ -51,7 +51,10 @@ func (c *gamemodeCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		}
 		targets = []*world.Entity{ctx.Source.Entity}
 	} else {
-		entities, err := resolveEntityTargets(ctx, args[1])
+		// 1.12.2 changes the game mode of a *player*: the target is
+		// resolved with `CommandAbstract.b`, which keeps only the players
+		// it finds.
+		entities, err := resolvePlayerTargets(ctx, args[1])
 		if err != nil {
 			return 0, err
 		}
@@ -149,7 +152,9 @@ func (c *giveCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 
 // Run implements exec.Handler.
 func (c *giveCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
-	entities, err := resolveEntityTargets(ctx, args[0])
+	// 1.12.2 gives items to a *player*: the target is resolved with
+	// `CommandAbstract.b`, which keeps only the players it finds.
+	entities, err := resolvePlayerTargets(ctx, args[0])
 	if err != nil {
 		return 0, err
 	}

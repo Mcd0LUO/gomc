@@ -90,7 +90,9 @@ func (c *clearCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 
 // Run implements exec.Handler.
 func (c *clearCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
-	holders, err := resolveEntityTargets(ctx, args[0])
+	// 1.12.2 clears the inventory of a *player*: the target is resolved
+	// with `CommandAbstract.b`, which keeps only the players it finds.
+	holders, err := resolvePlayerTargets(ctx, args[0])
 	if err != nil {
 		return 0, err
 	}
@@ -484,7 +486,7 @@ func (c *xpCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	if err != nil {
 		return 0, exec.Errorf("expected a number, got %q", raw)
 	}
-	holders, err := resolveEntityTargets(ctx, args[1])
+	holders, err := resolvePlayerTargets(ctx, args[1])
 	if err != nil {
 		return 0, err
 	}

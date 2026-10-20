@@ -154,11 +154,13 @@ func TestPlaySoundArgumentOrder(t *testing.T) {
 	p, _ := e.World.EntityTypes.NewEntity("player", "p1")
 	p.PlayerName = "Steve"
 	e.World.AddEntity(p)
-	// 1.12.2 puts the target after the sound source.
-	if err := runLine(e, "playsound entity.horse.saddle master p1"); err != nil {
+	// 1.12.2 puts the target after the sound source, and the target of
+	// the command is a *player*: it is looked up by its name, not by the
+	// internal id the runtime gives it.
+	if err := runLine(e, "playsound entity.horse.saddle master Steve"); err != nil {
 		t.Fatalf("playsound: %v", err)
 	}
-	if err := runLine(e, "playsound entity.horse.saddle nosuchsource p1"); err == nil {
+	if err := runLine(e, "playsound entity.horse.saddle nosuchsource Steve"); err == nil {
 		t.Error("expected an error for an unknown sound source")
 	}
 }
@@ -168,8 +170,10 @@ func TestStopSoundArgumentOrder(t *testing.T) {
 	p, _ := e.World.EntityTypes.NewEntity("player", "p1")
 	p.PlayerName = "Steve"
 	e.World.AddEntity(p)
-	// 1.12.2 puts the target first.
-	if err := runLine(e, "stopsound p1 master entity.horse.saddle"); err != nil {
+	// 1.12.2 puts the target first, and the target of the command is a
+	// *player*: it is looked up by its name, not by the internal id the
+	// runtime gives it.
+	if err := runLine(e, "stopsound Steve master entity.horse.saddle"); err != nil {
 		t.Fatalf("stopsound: %v", err)
 	}
 }
@@ -179,7 +183,9 @@ func TestTitleCommand(t *testing.T) {
 	p, _ := e.World.EntityTypes.NewEntity("player", "p1")
 	p.PlayerName = "Steve"
 	e.World.AddEntity(p)
-	if err := runLine(e, `title p1 title {"text":"hello"}`); err != nil {
+	// The target of the command is a *player*: it is looked up by its
+	// name, not by the internal id the runtime gives it.
+	if err := runLine(e, `title Steve title {"text":"hello"}`); err != nil {
 		t.Fatalf("title: %v", err)
 	}
 	state, ok := p.NBT.Get("Title").(*nbt.Compound)
@@ -189,7 +195,7 @@ func TestTitleCommand(t *testing.T) {
 	if msg, _ := state.Get("title").(nbt.String); msg != `{"text":"hello"}` {
 		t.Errorf("the title is %q, want the JSON message", msg)
 	}
-	if err := runLine(e, "title p1 clear"); err != nil {
+	if err := runLine(e, "title Steve clear"); err != nil {
 		t.Fatalf("title clear: %v", err)
 	}
 }

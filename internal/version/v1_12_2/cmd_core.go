@@ -111,7 +111,9 @@ func (c *tellRawCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 
 // Run implements exec.Handler.
 func (c *tellRawCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
-	entities, err := resolveEntityTargets(ctx, args[0])
+	// 1.12.2 sends the message to a *player*: the target is resolved with
+	// `CommandAbstract.b`, which keeps only the players it finds.
+	entities, err := resolvePlayerTargets(ctx, args[0])
 	if err != nil {
 		return 0, err
 	}

@@ -445,22 +445,18 @@ func TestScoreboardPlayersDataTagWording(t *testing.T) {
 //
 // 1.12.2 splits the command into arguments first and parses the dataTag
 // afterwards, so it reports "Could not parse dataTag, reason: ..." for
-// such a dataTag. The runtime's lexer balances the braces while it reads
-// the line and refuses the whole line when they do not match, so the
-// command never runs.
-//
-// The wording of the failure is therefore the one of the lexer. It is
-// pinned down here so that the difference is visible and not a surprise.
-func TestScoreboardPlayersDataTagThatTheLexerRejects(t *testing.T) {
+// such a dataTag. The runtime's lexer hands an unbalanced group to the NBT
+// parser as well, so the reason is the one of the NBT parser.
+func TestScoreboardPlayersDataTagThatDoesNotParse(t *testing.T) {
 	for _, tc := range []struct {
 		dataTag string
 		want    string
 	}{
-		{"{Tags", "Syntax:1:1: unbalanced {"},
-		{"{Tags:1", "Syntax:1:1: unbalanced {"},
-		{"{", "Syntax:1:1: unbalanced {"},
-		{"{Tags:1,", "Syntax:1:1: unbalanced {"},
-		{`{Tags:"abc`, "Syntax:1:1: unterminated quoted string"},
+		{"{Tags", "Could not parse dataTag, reason: Expected ':' but got '<EOF>' at: {Tags<--[HERE]"},
+		{"{Tags:1", "Could not parse dataTag, reason: Expected '}' but got '<EOF>' at: {Tags:1<--[HERE]"},
+		{"{", "Could not parse dataTag, reason: Expected '}' but got '<EOF>' at: {<--[HERE]"},
+		{"{Tags:1,", "Could not parse dataTag, reason: Expected key at: {Tags:1,<--[HERE]"},
+		{`{Tags:"abc`, `Could not parse dataTag, reason: Missing termination quote at: {Tags:"abc<--[HERE]`},
 	} {
 		e := newTestEngine(t)
 		addArmourStand(t, e, "a1", "mytag")

@@ -1,0 +1,85 @@
+# 不配平的 NBT（花括号）在其余吃 NBT 的命令上真服怎么报。
+#
+# 2026-10-21 实测准备：
+#   - 实体用 @e[type=armor_stand]（先召唤一个，summon 那条用羊，避免多一个盔甲架）
+#   - blockdata / fill / testforblock 需要带方块实体的方块，所以先放一个箱子
+#   - fill 的 NBT 在第 10 个参数，所以要先给 dataValue 和 oldBlockHandling
+#   - testforblock 的 NBT 在第 6 个参数
+--- console ---
+say M00
+scoreboard objectives add t dummy
+summon armor_stand 2 4 0 {CustomName:"NBT_AS"}
+setblock 0 4 0 chest
+say M01
+testfor @e[type=armor_stand] {Tags
+say M02
+testfor @e[type=armor_stand] {Tags:1
+say M03
+testfor @e[type=armor_stand] {
+say M04
+testfor @e[type=armor_stand] {Tags:1,
+say M05
+testfor @e[type=armor_stand] {Tags:"abc
+say M06
+testfor @e[type=armor_stand] {}
+say M07
+entitydata @e[type=armor_stand] {Tags
+say M08
+entitydata @e[type=armor_stand] {Tags:1
+say M09
+entitydata @e[type=armor_stand] {
+say M10
+entitydata @e[type=armor_stand] {Tags:1,
+say M11
+entitydata @e[type=armor_stand] {Tags:"abc
+say M12
+entitydata @e[type=armor_stand] {}
+say M13
+blockdata 0 4 0 {Tags
+say M14
+blockdata 0 4 0 {Tags:1
+say M15
+blockdata 0 4 0 {
+say M16
+blockdata 0 4 0 {Tags:1,
+say M17
+blockdata 0 4 0 {Tags:"abc
+say M18
+blockdata 0 4 0 {}
+say M19
+fill 1 4 1 1 4 1 chest 0 replace {Tags
+say M20
+fill 1 4 1 1 4 1 chest 0 replace {Tags:1
+say M21
+fill 1 4 1 1 4 1 chest 0 replace {
+say M22
+fill 1 4 1 1 4 1 chest 0 replace {Tags:1,
+say M23
+fill 1 4 1 1 4 1 chest 0 replace {Tags:"abc
+say M24
+fill 1 4 1 1 4 1 chest 0 replace {}
+say M25
+testforblock 0 4 0 chest 0 {Tags
+say M26
+testforblock 0 4 0 chest 0 {Tags:1
+say M27
+testforblock 0 4 0 chest 0 {
+say M28
+testforblock 0 4 0 chest 0 {Tags:1,
+say M29
+testforblock 0 4 0 chest 0 {Tags:"abc
+say M30
+testforblock 0 4 0 chest 0 {}
+say M31
+summon sheep 4 4 0 {Tags
+say M32
+summon sheep 4 4 0 {Tags:1
+say M33
+summon sheep 4 4 0 {
+say M34
+summon sheep 4 4 0 {Tags:1,
+say M35
+summon sheep 4 4 0 {Tags:"abc
+say M36
+summon sheep 4 4 0 {}
+say M37

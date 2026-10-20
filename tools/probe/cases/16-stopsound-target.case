@@ -1,0 +1,28 @@
+# /stopsound 的目标，和另外几条"只对玩家"的命令。
+#
+# 15 号用例把 title / playsound 这类改成了玩家变体，stopsound 还没测过。
+# 顺便看看 replaceitem entity 和 particle 的观察者是不是也该是玩家变体
+# （1.12.2 的 replaceitem entity 是实体变体，particle 的观察者也是）。
+#
+# 2026-10-21 待测（测完回填）：
+#   - ?
+
+--- console ---
+say V01
+summon armor_stand 0 4 0 {CustomName:"SND_AS"}
+say V02
+stopsound @e[type=armor_stand] master entity.horse.saddle
+say V03
+stopsound @e[type=zombie] master entity.horse.saddle
+say V04
+stopsound NoSuchPlayer master entity.horse.saddle
+say V05
+replaceitem entity @e[type=armor_stand] slot.hotbar.0 stone
+say V06
+replaceitem entity @e[type=zombie] slot.hotbar.0 stone
+say V07
+particle flame 0 4 0 0 0 0 0 1 @e[type=armor_stand]
+say V08
+particle flame 0 4 0 0 0 0 0 1 @e[type=zombie]
+say V09
+say V10

@@ -1,0 +1,9 @@
+# 验证：/advancement 的注册表是不是服务端 jar 里那 488 条。
+#
+# 真实服务端在启动时会把加载不了的进度写进日志（"Couldn't load advancement ..."），
+# 这一轮只看启动日志里有没有这种错误。
+#
+# 期望：无 ERROR 行。
+
+--- console ---
+say M01

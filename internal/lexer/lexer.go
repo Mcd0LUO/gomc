@@ -12,6 +12,11 @@
 //     bare one.
 //   - Braces, brackets and parentheses group, so `{a:1, b:2}` stays one
 //     token even when it contains spaces.
+//   - A brace group that never closes is not a lexical error. 1.12.2 has no
+//     brace group at all: it splits the command on spaces and hands every
+//     remaining argument to its NBT parser, which reports a broken compound
+//     in the wording of the server. Such a group therefore runs to the end
+//     of the line and is passed on as it is.
 //   - The raw source of every token is recorded with its byte offset so the
 //     parser can report precise file:line:column positions.
 package lexer
@@ -86,8 +91,10 @@ func (t Token) Unquote() string {
 
 // Tokenize splits src into tokens.
 //
-// It returns an error only for unterminated quotes or unbalanced groups,
-// which are genuine authoring mistakes worth reporting.
+// It returns an error only for an unterminated quoted string and for an
+// unbalanced group that does not belong to NBT, which are genuine authoring
+// mistakes worth reporting. A brace group that never closes is not one of
+// them: see scanGroup.
 func Tokenize(src string) ([]Token, error) {
 	var toks []Token
 	i := 0
@@ -162,6 +169,26 @@ func Tokenize(src string) ([]Token, error) {
 }
 
 // scanGroup returns the offset just past the group that starts at start.
+//
+// A brace group that never closes is not an error. 1.12.2 does not group
+// braces at all: it splits the command on spaces and hands every remaining
+// argument to its NBT parser, which reports a broken compound in the
+// wording of the server. The group therefore runs to the end of the line
+// and is handed over as it is, and the NBT parser is the one that
+// complains.
+//
+// (Measured on a real 1.12.2 server: `scoreboard players set @e[type=armor_stand] t 1 {Tags`
+// answers "Could not parse dataTag, reason: Expected ':' but got '<EOF>' at: {Tags<--[HERE]",
+// and the same command with `{Tags:"abc` answers
+// "Could not parse dataTag, reason: Missing termination quote at: {Tags:\"abc<--[HERE]".)
+//
+// A quote inside such a group belongs to the NBT, so a quote that is never
+// closed is reported by the NBT parser as well and does not fail here.
+//
+// The brackets of a target selector and the parentheses of a coordinate are
+// a different matter: 1.12.2 does not group those either, but a broken
+// selector or a broken number is reported by the argument that reads it,
+// and this package cannot word that. They keep failing here.
 func scanGroup(src string, start int) (int, error) {
 	open := src[start]
 	var close byte
@@ -175,6 +202,9 @@ func scanGroup(src string, start int) (int, error) {
 	default:
 		return start, nil
 	}
+	// A brace group belongs to the NBT, so it may run to the end of the
+	// line instead of failing.
+	nbtContext := open == '{'
 	depth := 0
 	i := start
 	for i < len(src) {
@@ -193,6 +223,12 @@ func scanGroup(src string, start int) (int, error) {
 				i++
 			}
 			if i >= len(src) {
+				// The quote is never closed. Inside a brace group the NBT
+				// parser reports it, everywhere else it is a mistake of
+				// the author.
+				if nbtContext {
+					return len(src), nil
+				}
 				return 0, &Error{Offset: start, Msg: "unterminated quoted string"}
 			}
 		case open:
@@ -204,6 +240,11 @@ func scanGroup(src string, start int) (int, error) {
 			}
 		}
 		i++
+	}
+	if nbtContext {
+		// The brace is never closed. 1.12.2 hands the rest of the command
+		// to its NBT parser, so the group ends with the line.
+		return len(src), nil
 	}
 	return 0, &Error{Offset: start, Msg: "unbalanced " + string(open)}
 }

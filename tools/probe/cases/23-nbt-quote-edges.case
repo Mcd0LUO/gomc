@@ -1,0 +1,22 @@
+# 词法器改动的边界：顶层的不配对引号，以及 NBT 里带引号的坏值。
+#
+# 2026-10-21 实测准备：
+#   - 第一组：引号不在 {} 里，词法器仍然会拒（真服把它当普通文本）
+#   - 第二组：引号在 {} 里，词法器放行，交给 NBT 解析器
+--- console ---
+say M00
+scoreboard objectives add t dummy
+summon armor_stand 2 4 0 {CustomName:"NBT_AS"}
+say M01
+scoreboard players set @e[type=armor_stand] t 1 "abc
+say M02
+scoreboard players set @e[type=armor_stand] t 1 {a:1 "b
+say M03
+entitydata @e[type=armor_stand] {a:1 "b
+say M04
+entitydata @e[type=armor_stand] {a:"b" c:1
+say M05
+entitydata @e[type=armor_stand] {a:1 b
+say M06
+entitydata @e[type=armor_stand] {a:1 b:
+say M07

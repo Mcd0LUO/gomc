@@ -61,6 +61,61 @@ func resolveEntityTargetsEntity(ctx *exec.Context, arg ast.Arg) ([]*world.Entity
 	return resolveTarget(ctx, arg, true)
 }
 
+// resolvePlayerTargets resolves a target the way the commands that only work
+// on a player do.
+//
+// 1.12.2 asks the selector for a *player* and keeps only the players it
+// finds, so a target that matches entities but no player is not a player
+// and the command refuses it. The refusal names the entity that was found
+// by its UUID.
+//
+// A target that matches nothing at all is not an error: the command runs
+// zero times and the server says nothing.
+//
+// (Measured on a real 1.12.2 server: `give @e[type=armor_stand] stone` on
+// a server with an armour stand answers "Player '<the uuid of the armour
+// stand>' cannot be found", while `give @e[type=zombie] stone` on a server
+// without zombies prints nothing at all.)
+func resolvePlayerTargets(ctx *exec.Context, arg ast.Arg) ([]*world.Entity, error) {
+	switch t := arg.(type) {
+	case *ast.Selector:
+		resolver := &exec.SelectorResolver{World: ctx.World}
+		entities, err := resolver.Resolve(ctx.Source, t)
+		selectorWarnings(ctx, resolver)
+		if err != nil {
+			return nil, exec.Errorf("%v", err)
+		}
+		players := make([]*world.Entity, 0, len(entities))
+		for _, e := range entities {
+			if e.IsPlayer {
+				players = append(players, e)
+			}
+		}
+		if len(players) == 0 {
+			if len(entities) > 0 {
+				// The target matched entities, but none of them is a
+				// player. 1.12.2 names the first of them by its UUID.
+				return nil, exec.Errorf("Player '%s' cannot be found", entities[0].EnsureUUID())
+			}
+			if !selectorIsList(t) {
+				// A target that is limited to a single entity and finds
+				// nothing is reported by the command itself.
+				return nil, exec.Errorf("Player '%s' cannot be found", selectorText(t))
+			}
+			// A target list that matches nothing makes the command run
+			// zero times, and the server says nothing at all.
+			return nil, nil
+		}
+		return players, nil
+	case *ast.StringArg:
+		if p := ctx.World.FindPlayer(t.Value); p != nil {
+			return []*world.Entity{p}, nil
+		}
+		return nil, exec.Errorf("Player '%s' cannot be found", t.Value)
+	}
+	return nil, exec.Errorf("invalid target")
+}
+
 // entityTargetCommands are the commands whose target 1.12.2 resolves as
 // an entity.
 //

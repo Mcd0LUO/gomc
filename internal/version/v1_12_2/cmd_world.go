@@ -57,20 +57,21 @@ func (c *setBlockCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	default:
 		return nil, p.Errorf("expected replace, destroy or keep, got %q", mode)
 	}
-	var data *nbt.Compound
+	text := ""
 	if p.More() {
-		arg, err := p.NBT()
+		// The dataTag is parsed when the command runs: 1.12.2 places the
+		// block first and only then looks at the dataTag.
+		text, err = dataTagText(p)
 		if err != nil {
 			return nil, err
 		}
-		data = arg.Value
 	}
 	return []ast.Arg{
 		&ast.Coord{X: pos.X, Y: pos.Y, Z: pos.Z,
 			RelativeX: pos.RelativeX, RelativeY: pos.RelativeY, RelativeZ: pos.RelativeZ},
 		ref,
 		&ast.StringArg{Value: mode},
-		&ast.NBTArg{Value: data},
+		&ast.StringArg{Value: text},
 	}, nil
 }
 
@@ -93,7 +94,14 @@ func (c *setBlockCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	pos := resolveRelative(*posArg, ctx.Source.Pos).BlockPos()
 	ref := args[1].(*ast.BlockRef)
 	mode := args[2].(*ast.StringArg).Value
-	data := exec.NBTOf(args, 3)
+	var data *nbt.Compound
+	if text := args[3].(*ast.StringArg).Value; text != "" {
+		parsed, err := parseDataTagArg(text)
+		if err != nil {
+			return 0, err
+		}
+		data = parsed
+	}
 
 	switch mode {
 	case "destroy":
@@ -188,14 +196,15 @@ func (c *fillCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	// entity, so the shape of the argument decides.
 	replaceBlock := ""
 	replaceData := ""
-	var data *nbt.Compound
+	text := ""
 	if p.More() {
 		if t, ok := p.Peek(); ok && strings.HasPrefix(t.Text, "{") {
-			arg, err := p.NBT()
+			// The dataTag is parsed when the command runs: 1.12.2 fills
+			// the region first and only then looks at the dataTag.
+			text, err = dataTagText(p)
 			if err != nil {
-				return nil, p.Errorf("Data tag parsing failed: %s", nbtErrorMessage(err))
+				return nil, err
 			}
-			data = arg.Value
 		} else {
 			replaceBlock, err = p.String()
 			if err != nil {
@@ -221,7 +230,7 @@ func (c *fillCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 		&ast.StringArg{Value: mode},
 		&ast.StringArg{Value: replaceBlock},
 		&ast.StringArg{Value: replaceData},
-		&ast.NBTArg{Value: data},
+		&ast.StringArg{Value: text},
 	}, nil
 }
 
@@ -266,7 +275,14 @@ func (c *fillCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	mode := args[3].(*ast.StringArg).Value
 	replaceBlock := args[4].(*ast.StringArg).Value
 	replaceData := args[5].(*ast.StringArg).Value
-	data := exec.NBTOf(args, 6)
+	var data *nbt.Compound
+	if text := args[6].(*ast.StringArg).Value; text != "" {
+		parsed, err := parseDataTagArg(text)
+		if err != nil {
+			return 0, err
+		}
+		data = parsed
+	}
 
 	// 1.12.2 does not check the mode: every word it does not know
 	// behaves like "replace".
@@ -404,25 +420,31 @@ func (c *blockDataCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	if err != nil {
 		return nil, err
 	}
-	data, err := p.NBT()
+	// The dataTag is parsed when the command runs: 1.12.2 looks at the
+	// block first and only then at the dataTag.
+	text, err := dataTagText(p)
 	if err != nil {
 		return nil, err
 	}
 	return []ast.Arg{
 		&ast.Coord{X: pos.X, Y: pos.Y, Z: pos.Z,
 			RelativeX: pos.RelativeX, RelativeY: pos.RelativeY, RelativeZ: pos.RelativeZ},
-		data,
+		&ast.StringArg{Value: text},
 	}, nil
 }
 
 // Run implements exec.Handler.
 func (c *blockDataCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	pos := resolveRelative(*args[0].(*ast.Coord), ctx.Source.Pos).BlockPos()
+	data, err := parseDataTagArg(args[1].(*ast.StringArg).Value)
+	if err != nil {
+		return 0, err
+	}
 	existing := ctx.World.Blocks.TileEntity(pos)
 	if existing == nil {
 		existing = nbt.NewCompound()
 	}
-	mergeNBT(existing, exec.NBTOf(args, 1))
+	mergeNBT(existing, data)
 	ctx.World.Blocks.SetTileEntity(pos, existing)
 	return 1, nil
 }

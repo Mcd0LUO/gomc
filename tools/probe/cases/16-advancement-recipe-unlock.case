@@ -1,0 +1,71 @@
+# 验证：`grant everything` 少掉的 7 个进度到底是怎么来的。
+#
+# 假设：进度 X 完成时会给玩家解锁它奖励里的配方；解锁配方会触发
+# minecraft:recipe_unlocked，于是拥有那个配方的进度 Y 的 has_the_recipe
+# 条件自动完成 —— 如果这时命令还没走到 Y，Y 就被跳过、不计数。
+#
+# 这一轮先看登录时玩家到底知不知道配方，再看 grant everything 之后
+# 那 12 个"奖励指向别的进度"的进度各自处于什么状态。
+#
+# 期望：
+#   - 登录时玩家没有配方（recipe give 说 Successfully given）
+#   - 登录时那些进度都没完成
+#   - grant everything 报 481
+#   - 7 个进度只有 has_the_recipe 完成，5 个进度两个条件都完成
+
+--- console ---
+say M01
+recipe give Steve minecraft:bone_meal_from_block
+say M02
+advancement test Steve minecraft:recipes/misc/bone_meal_from_block
+say M03
+advancement grant Steve everything
+say M04
+advancement test Steve minecraft:recipes/misc/bone_meal_from_block has_the_recipe
+say M05
+advancement test Steve minecraft:recipes/misc/bone_meal_from_block has_bone_block
+say M06
+advancement test Steve minecraft:recipes/misc/coal has_the_recipe
+say M07
+advancement test Steve minecraft:recipes/misc/coal has_coal_block
+say M08
+advancement test Steve minecraft:recipes/misc/diamond has_the_recipe
+say M09
+advancement test Steve minecraft:recipes/misc/diamond has_diamond_block
+say M10
+advancement test Steve minecraft:recipes/misc/emerald has_the_recipe
+say M11
+advancement test Steve minecraft:recipes/misc/emerald has_emerald_block
+say M12
+advancement test Steve minecraft:recipes/misc/gold_ingot_from_block has_the_recipe
+say M13
+advancement test Steve minecraft:recipes/misc/gold_ingot_from_block has_gold_block
+say M14
+advancement test Steve minecraft:recipes/misc/wheat has_the_recipe
+say M15
+advancement test Steve minecraft:recipes/misc/wheat has_hay_block
+say M16
+advancement test Steve minecraft:recipes/misc/iron_ingot_from_block has_the_recipe
+say M17
+advancement test Steve minecraft:recipes/misc/iron_ingot_from_block has_iron_block
+say M18
+advancement test Steve minecraft:recipes/misc/lapis_lazuli has_the_recipe
+say M19
+advancement test Steve minecraft:recipes/misc/lapis_lazuli has_lapis_block
+say M20
+advancement test Steve minecraft:recipes/misc/slime_ball has_the_recipe
+say M21
+advancement test Steve minecraft:recipes/misc/slime_ball has_slime
+say M22
+advancement test Steve minecraft:recipes/misc/gold_nugget has_the_recipe
+say M23
+advancement test Steve minecraft:recipes/misc/gold_nugget has_gold_ingot
+say M24
+advancement test Steve minecraft:recipes/misc/iron_nugget has_the_recipe
+say M25
+advancement test Steve minecraft:recipes/misc/iron_nugget has_iron_ingot
+say M26
+advancement test Steve minecraft:recipes/redstone/redstone has_the_recipe
+say M27
+advancement test Steve minecraft:recipes/redstone/redstone has_redstone_block
+say M28

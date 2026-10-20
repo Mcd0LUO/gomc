@@ -1,0 +1,32 @@
+# /locate 在一个**有结构**的超平坦世界里的行为
+#
+# 平坦世界的 generator-settings 第 4 段是结构表（village / mineshaft /
+# stronghold / oceanmonument / biome_1），第 3 段是生物群系 id。
+--- console ---
+say N01
+locate Stronghold
+say N02
+locate stronghold
+say N03
+locate Village
+say N04
+locate village
+say N05
+locate VILLAGE
+say N06
+locate Mineshaft
+say N07
+locate Temple
+say N08
+locate Monument
+say N09
+locate Mansion
+say N10
+locate EndCity
+say N11
+locate Fortress
+say N12
+locate biome plains
+say N13
+locate Stronghold
+say N14

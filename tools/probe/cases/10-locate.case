@@ -1,0 +1,37 @@
+# /locate 的行为：参数个数、名字大小写、能不能找到、找不到怎么说
+--- console ---
+say M01
+locate
+say M02
+locate biome plains
+say M03
+locate structure village
+say M04
+locate plains
+say M05
+locate plains plains
+say M06
+locate stronghold
+say M07
+locate Stronghold
+say M08
+locate village
+say M09
+locate Village
+say M10
+locate mineshaft
+say M11
+locate monument
+say M12
+locate mansion
+say M13
+locate endcity
+say M14
+locate fortress
+say M15
+locate temple
+say M16
+locate bogus
+say M17
+locate village extra
+say M18

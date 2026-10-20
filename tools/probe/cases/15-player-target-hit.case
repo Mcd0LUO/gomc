@@ -1,0 +1,42 @@
+# 玩家专属命令的目标：匹配到**非玩家实体**时怎么办。
+#
+# 上一轮测的是"选择器匹配 0 个"，真服是静默的（gomc 也一样）。
+# 这一轮测的是关键场景：世界里**有**一个盔甲架，选择器匹配到了它，
+# 但它不是玩家。
+#
+# 1.12.2 里这些命令的目标用 CommandAbstract.b / getPlayers 解析，
+# 那个变体只找玩家。所以匹配到非玩家时应该报
+# "Player '<原文>' cannot be found"。
+#
+# 2026-10-21 待测（测完回填）：
+#   - ?
+
+--- console ---
+say U01
+summon armor_stand 0 4 0 {CustomName:"TGT_AS"}
+say U02
+give @e[type=armor_stand] stone
+say U03
+gamemode creative @e[type=armor_stand]
+say U04
+title @e[type=armor_stand] title hi
+say U05
+tellraw @e[type=armor_stand] {"text":"hi"}
+say U06
+xp 1 @e[type=armor_stand]
+say U07
+clear @e[type=armor_stand]
+say U08
+enchant @e[type=armor_stand] sharpness 1
+say U09
+effect @e[type=armor_stand] minecraft:speed 30 1
+say U10
+spawnpoint @e[type=armor_stand]
+say U11
+playsound block.stone.break player @e[type=armor_stand] 1 1
+say U12
+kill @e[type=armor_stand]
+say U13
+testfor @e[type=armor_stand]
+say U14
+say U15

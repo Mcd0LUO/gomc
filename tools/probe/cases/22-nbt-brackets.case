@@ -1,0 +1,34 @@
+# 括号行为的边界：选择器的方括号、圆括号，以及 NBT 文本是怎么被重建的。
+#
+# 2026-10-21 实测准备：
+#   - 探针按行收集输出，所以每条命令之间夹一条 say M<n> 标记
+#   - 最后一组测的是 MojangsonParseException 的 35 字截断
+--- console ---
+say M00
+scoreboard objectives add t dummy
+summon armor_stand 2 4 0 {CustomName:"NBT_AS"}
+say M01
+say @e[type=armor_stand
+say M02
+scoreboard players set @e[type=armor_stand t 1
+say M03
+testfor @e[type=armor_stand {Tags:
+say M04
+summon armor_stand (0 4 0
+say M05
+say (hello
+say M06
+say hello)
+say M07
+say [hello
+say M08
+say @e[nbt={Tags:]
+say M09
+entitydata @e[type=armor_stand] {Tags: extra
+say M10
+entitydata @e[type=armor_stand] {Tags:1, b:2
+say M11
+entitydata @e[type=armor_stand] {Key1:1,Key2:2,Key3:3,Key4:4,Key5:5,Key6
+say M12
+entitydata @e[type=armor_stand] {Key1:1,Key2:2,Key3:3,Key4:4,Key5:5,Key6:7,Key7
+say M13

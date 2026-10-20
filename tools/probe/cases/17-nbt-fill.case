@@ -1,0 +1,28 @@
+# 两件还没定的事：
+#
+# 1. 冒号后面没有值的 dataTag（"{Tags:"）——真服怎么说。
+#    代理 D 测的是 "{Tags"（没有冒号），那个已经一致了。
+# 2. /fill 的 dataTag 在第几位。真服的语法是
+#    `/fill <x1 y1 z1 x2 y2 z2> <方块> [<数据值>] [<模式> [<dataTag>]]`，
+#    而 gomc 现在把 dataTag 放在 <模式> 之后、<替换方块> 之前。
+#
+# 2026-10-21 待测（测完回填）：
+#   - ?
+
+--- console ---
+say W01
+summon armor_stand 0 4 0 {CustomName:"TGT_AS"}
+say W02
+testfor @e[type=armor_stand] {Tags:
+say W03
+testfor @e[type=armor_stand] {Tags
+say W04
+fill 2 4 2 3 4 3 stone {Tags:
+say W05
+fill 4 4 4 5 4 5 stone 0 replace {Tags:
+say W06
+fill 6 4 6 7 4 7 stone replace {Tags:
+say W07
+fill 8 4 8 9 4 9 stone {Tags:
+say W08
+say W09

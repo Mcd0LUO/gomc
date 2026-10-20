@@ -74,17 +74,15 @@ func (c *titleCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 
 // Run implements exec.Handler.
 func (c *titleCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
-	holders, err := resolveHolders(ctx, args[0])
+	// 1.12.2 shows the title to a *player*: the target is resolved with
+	// `CommandAbstract.b`, which keeps only the players it finds.
+	players, err := resolvePlayerTargets(ctx, args[0])
 	if err != nil {
 		return 0, err
 	}
 	action := args[1].(*ast.StringArg).Value
 
-	for _, h := range holders {
-		e := ctx.World.FindEntity(h)
-		if e == nil {
-			continue
-		}
+	for _, e := range players {
 		title := e.NBTValue("Title")
 		state, _ := title.(*nbt.Compound)
 		if state == nil {
@@ -114,7 +112,7 @@ func (c *titleCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	}
 	ctx.Engine.Feedback = append(ctx.Engine.Feedback,
 		fmt.Sprintf("Title command successfully executed"))
-	return len(holders), nil
+	return len(players), nil
 }
 
 // playSoundCmd implements `/playsound`.
@@ -197,15 +195,17 @@ func (c *playSoundCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	if !validSoundCategory(source) {
 		return 0, exec.Errorf("Source %s is unknown", source)
 	}
-	holders, err := resolveHolders(ctx, args[2])
+	// 1.12.2 plays the sound for a *player*: the target is resolved with
+	// `CommandAbstract.b`, which keeps only the players it finds.
+	players, err := resolvePlayerTargets(ctx, args[2])
 	if err != nil {
 		return 0, err
 	}
-	for _, h := range holders {
+	for _, p := range players {
 		ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-			fmt.Sprintf("Played sound '%s' to %s", sound, h))
+			fmt.Sprintf("Played sound '%s' to %s", sound, p.PlayerName))
 	}
-	return len(holders), nil
+	return len(players), nil
 }
 
 // stopSoundCmd implements `/stopsound`.
@@ -249,7 +249,9 @@ func (c *stopSoundCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 
 // Run implements exec.Handler.
 func (c *stopSoundCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
-	holders, err := resolveHolders(ctx, args[0])
+	// 1.12.2 stops the sound for a *player*: the target is resolved with
+	// `CommandAbstract.b`, which keeps only the players it finds.
+	players, err := resolvePlayerTargets(ctx, args[0])
 	if err != nil {
 		return 0, err
 	}
@@ -258,11 +260,11 @@ func (c *stopSoundCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		return 0, exec.Errorf("unknown sound source %q", source)
 	}
 	sound := args[2].(*ast.StringArg).Value
-	for _, h := range holders {
+	for _, p := range players {
 		ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-			fmt.Sprintf("Stopped sound '%s' with source '%s' for %s", sound, source, h))
+			fmt.Sprintf("Stopped sound '%s' with source '%s' for %s", sound, source, p.PlayerName))
 	}
-	return len(holders), nil
+	return len(players), nil
 }
 
 // validSoundCategory reports whether a name is a 1.12.2 sound category.

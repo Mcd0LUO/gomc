@@ -1,0 +1,19 @@
+# 验证：`/advancement grant <player> everything` 在真服上到底报几个。
+#
+# 玩家由一个 1.12.2 协议机器人登录（online-mode=false，不需要加密）。
+# 探针的输出是按行收集的，所以每条命令前后夹一条 say 标记。
+#
+# 期望：`Granted every advancement (N total granted) to Steve`
+
+--- console ---
+say M01
+say M02
+say M03
+say M04
+say M05
+advancement grant Steve everything
+say M06
+advancement revoke Steve everything
+say M07
+advancement grant Steve everything
+say M08

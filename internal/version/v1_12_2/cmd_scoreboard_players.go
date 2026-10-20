@@ -339,7 +339,22 @@ func mojangsonReason(text string, err error) string {
 	if pos < 0 {
 		pos = 0
 	}
-	return reason + " at: " + text[:pos] + "<--[HERE]"
+	return reason + " at: " + mojangsonText(text, pos) + "<--[HERE]"
+}
+
+// mojangsonText renders the text up to the place the parser stopped at.
+//
+// `MojangsonParseException` shows at most the last 35 characters of it, and
+// a leading "..." when there are more.
+//
+// (Measured on a real 1.12.2 server: a dataTag of more than 35 characters
+// is shown as "...:1,Key2:2,Key3:3,Key4:4,Key5:5,Key6<--[HERE]".)
+func mojangsonText(text string, pos int) string {
+	const maxChars = 35
+	if pos <= maxChars {
+		return text[:pos]
+	}
+	return "..." + text[pos-maxChars:pos]
 }
 
 // mojangsonReasonAt translates the failure of the runtime's NBT parser

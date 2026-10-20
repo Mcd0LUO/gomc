@@ -34,19 +34,20 @@ func (c *summonCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 		}
 		pos = *parsed
 	}
-	var data *nbt.Compound
+	text := ""
 	if p.More() {
-		arg, err := p.NBT()
+		// The dataTag is parsed when the command runs: 1.12.2 builds the
+		// entity first and only then looks at the dataTag.
+		text, err = dataTagText(p)
 		if err != nil {
 			return nil, err
 		}
-		data = arg.Value
 	}
 	return []ast.Arg{
 		&ast.EntityTypeArg{Name: entityType},
 		&ast.Coord{X: pos.X, Y: pos.Y, Z: pos.Z,
 			RelativeX: pos.RelativeX, RelativeY: pos.RelativeY, RelativeZ: pos.RelativeZ},
-		&ast.NBTArg{Value: data},
+		&ast.StringArg{Value: text},
 	}, nil
 }
 
@@ -82,7 +83,11 @@ func (c *summonCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		return 0, exec.Errorf("Unable to summon object")
 	}
 	e.Pos = pos
-	if data := exec.NBTOf(args, 2); data != nil {
+	if text := args[2].(*ast.StringArg).Value; text != "" {
+		data, err := parseDataTagArg(text)
+		if err != nil {
+			return 0, err
+		}
 		mergeNBT(e.NBT, data)
 	}
 	if def := ctx.World.EntityTypes.Get(canonical); def != nil && def.NeedsItemStack {
@@ -215,11 +220,13 @@ func (c *entityDataCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	if err != nil {
 		return nil, err
 	}
-	data, err := p.NBT()
+	// The dataTag is parsed when the command runs: 1.12.2 resolves the
+	// target first and only then looks at the dataTag.
+	text, err := dataTagText(p)
 	if err != nil {
 		return nil, err
 	}
-	return []ast.Arg{target, data}, nil
+	return []ast.Arg{target, &ast.StringArg{Value: text}}, nil
 }
 
 // Run implements exec.Handler.
@@ -228,7 +235,10 @@ func (c *entityDataCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	data := exec.NBTOf(args, 1)
+	data, err := parseDataTagArg(args[1].(*ast.StringArg).Value)
+	if err != nil {
+		return 0, err
+	}
 	for _, e := range entities {
 		mergeNBT(e.NBT, data)
 		// 1.12.2 echoes the whole entity data back.
@@ -253,15 +263,16 @@ func (c *testForCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	if err != nil {
 		return nil, err
 	}
-	var data *nbt.Compound
+	// The dataTag is parsed when the command runs: 1.12.2 resolves the
+	// target first and only then looks at the dataTag.
+	text := ""
 	if p.More() {
-		arg, err := p.NBT()
+		text, err = dataTagText(p)
 		if err != nil {
 			return nil, err
 		}
-		data = arg.Value
 	}
-	return []ast.Arg{target, &ast.NBTArg{Value: data}}, nil
+	return []ast.Arg{target, &ast.StringArg{Value: text}}, nil
 }
 
 // Run implements exec.Handler.
@@ -270,7 +281,14 @@ func (c *testForCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	data := exec.NBTOf(args, 1)
+	text := args[1].(*ast.StringArg).Value
+	var data *nbt.Compound
+	if text != "" {
+		data, err = parseDataTagArg(text)
+		if err != nil {
+			return 0, err
+		}
+	}
 	if data != nil {
 		for _, e := range entities {
 			if !nbt.Matches(e.NBT, data) {

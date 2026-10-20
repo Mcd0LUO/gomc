@@ -103,25 +103,22 @@ func (c *spawnPointCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		}
 		target = &ast.StringArg{Value: ctx.Source.Entity.PlayerName}
 	}
-	holders, err := resolveHolders(ctx, target)
+	// 1.12.2 sets the spawn point of a *player*: the target is resolved
+	// with `CommandAbstract.b`, which keeps only the players it finds.
+	players, err := resolvePlayerTargets(ctx, target)
 	if err != nil {
 		return 0, err
 	}
 	posArg := args[1].(*ast.Coord)
 	pos := resolveRelative(*posArg, ctx.Source.Pos).BlockPos()
-	for _, h := range holders {
-		// The target of the command is a player, and 1.12.2 refuses a
-		// name that is not online.
-		if ctx.World.FindPlayer(h) == nil && ctx.World.FindEntity(h) == nil {
-			return 0, exec.Errorf("Player '%s' cannot be found", h)
-		}
-		ctx.World.PlayerSpawns[h] = pos
+	for _, p := range players {
+		ctx.World.PlayerSpawns[p.PlayerName] = pos
 		// The message names the player whose spawn point was set, not
 		// the player who ran the command.
 		ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-			fmt.Sprintf("Set %s's spawn point to (%d, %d, %d)", h, pos.X, pos.Y, pos.Z))
+			fmt.Sprintf("Set %s's spawn point to (%d, %d, %d)", p.PlayerName, pos.X, pos.Y, pos.Z))
 	}
-	return len(holders), nil
+	return len(players), nil
 }
 
 // registerSpawn adds the spawn point commands.
