@@ -832,6 +832,11 @@ say @a（无匹配） → Selector '@a' found nothing
 命令的回显文字全部来自语言文件 `en_US.lang`（在服务端 jar 的
 `assets/minecraft/lang/` 下），gomc 逐条对齐：
 
+**整体核对**（2026-10-20）：把 35 条常用命令放在真服和 gomc 上各跑一遍，
+**回显文本逐条一致**。唯一不同的是 `/seed` 的**值**——真服每次随机，gomc
+固定 0（gomc 是确定性解释器，文本本身一致）。这份对照收在
+`tools/probe/cases/07-command-wording.case` 里当回归基线。
+
 | 命令 | 回显 |
 |---|---|
 | `summon` | `Object successfully summoned` |
