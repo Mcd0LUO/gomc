@@ -387,9 +387,8 @@ say @e[type=armor_stand,c=1]    → A
 
 ### 3.12 还没对齐的选择器细节 [验]
 
-- **`scoreboard players tag list` 的标题名**：真服用解析后的用户名 / UUID，
-  gomc 对**玩家**已经改成用户名了，但非玩家实体仍是内部 id（gomc 不建模 UUID，
-  见第 12 节）。
+- （无。原先记在这里的 `scoreboard players tag list` 标题名已经对齐：
+  2026-10-21 起非玩家实体也用 UUID，见第 12 节。）
 
 ### 3.13 已经对齐的几条细节 [验]
 
@@ -558,8 +557,9 @@ Showing 3 tracked objective(s) for Steve:
 | 持有者在该目标下没有分数 | `No <目标> score for <持有者> found` | `commands.scoreboard.players.test.notFound` |
 | 要删的标签不存在 | `Entity didn't have the <标签> tag` | `commands.scoreboard.players.tag.notFound` |
 
-`players tag ... list` 里的实体标识符，真服用的是 UUID；gomc 用内部 id
-（已知简化，见"还没搞清楚的"）。
+`players tag ... list` 里的实体标识符，真服用的是 UUID；gomc 现在也用
+UUID（2026-10-21 起，见第 12 节）。UUID 的**值**和真服不同——真服每次开服
+随机生成，gomc 从实体 id 确定性派生。
 
 ### 4.6.1 只读目标 [验][读]
 
@@ -873,9 +873,9 @@ say @a（无匹配） → Selector '@a' found nothing
 - **实体重力**：真服的实体会落到地面上（见 2.5），所以"实体的位置"通常是落地后的
   位置，而不是 `/summon` 时给的那个。gomc 明确**不模拟**重力（见第 11 节），
   `/summon` 的实体留在给定坐标上——凡是依赖"落地后位置"的相对坐标，两边会差一格。
-- **实体 UUID**：真服用 UUID 指定非玩家实体，计分板持有者也是 UUID
-  （`scoreboard players tag <UUID> ...`）。gomc 用内部 id（`entity-N`）代替，
-  这类写法还不支持（见第 12 节）。
+- **实体 UUID**：2026-10-21 起已经建模了——非玩家实体的计分板持有者是它的
+  UUID，`scoreboard players tag <UUID> ...` 这类写法也认得出。UUID 的**值**和
+  真服不同（真服随机生成，gomc 确定性派生），见第 12 节。
 - **需要玩家在线的命令**（give / effect / title / tp / tell / xp / clear / enchant /
   trigger / gamemode / spawnpoint）：真服在控制台执行时的报错文本与 gomc 不同。
 - **玩家专属命令的目标**：1.12.2 里下面这些命令的目标用
@@ -917,23 +917,221 @@ say @a（无匹配） → Selector '@a' found nothing
 
 | 问题 | 现状 |
 |---|---|
-| 实体 UUID 与计分板持有者的对应 | 玩家用玩家名 ✓；非玩家实体用内部 id（`entity-N`），真服用 UUID |
 | 实体落地后的精确位置 | 真服有重力，gomc 不模拟（见 2.5） |
 | 函数内命令失败何时报错 | 真实服务端有的报有的不报，gomc 统一报 |
 
-### 为什么不建模实体 UUID
+### 实体 UUID 已经建模（2026-10-21 改）
 
 1.12.2 里，计分板持有者的标识是：玩家用**玩家名**，非玩家实体用**实体的 UUID**
-（`Entity.bn()` 返回 `uniqueID.toString()`）。gomc 现在玩家用玩家名 ✓，
-非玩家实体用内部 id（`entity-N`）。
+（`Entity.bn()` 返回 `uniqueID.toString()`）。
 
-所以 `scoreboard players set <uuid> obj 5` 这种**硬编码 UUID** 的写法在 gomc 上
-认不出来。**但实际影响很小**：UUID 不可读，mcfunction 里没人这么写，作者写的是
-选择器（`@e[type=zombie]`），那条路 gomc 是通的。
+gomc 现在也用 UUID：非玩家实体的持有者是它的 UUID，格式和真服一样
+（`xxxxxxxx-xxxx-4xxx-[89ab]xxx-xxxxxxxxxxxx`，第三组首位是 4、第四组首位是
+8/9/a/b 的 v4 形状）。
 
-补齐的代价也不低：1.12.2 的 UUID 是 `UUID.randomUUID()` **随机生成**的，
-照抄会让 difftest 的 golden 每次运行都漂；改成确定性 UUID（从实体 id 派生）
-虽然可复现，但和真服不是一回事——真服的 UUID 本来就不可预测，
-"对齐"出来的只是另一个假 UUID。
+但 UUID 的**值**和真服不可能一样：1.12.2 的 UUID 是 `UUID.randomUUID()`
+**随机生成**的，每次开服都不同。gomc 是确定性的命令解释器，所以 UUID 从实体的
+内部 id **派生**（`md5("gomc:entity:" + id)`，再按 v4 的规则设置版本位和
+variant 位）。同一个实体永远是同一个 UUID，不同实体一定不同。
 
-**决定**：保持现状，记在这里。要用 UUID 指定非玩家实体时用选择器。
+代价是 golden 里计分板持有者的文本变了（`entity-1` → 一个 UUID）。这是
+**可解释的偏差**：格式一致、稳定性一致，只有值不同——真服的值每次开服都不同，
+本来就没法进 golden。
+
+派生放在 `world.Entity.EnsureUUID()`，惰性求值并缓存。
+
+---
+
+## 13. 本轮补上的四条命令（2026-10-21）
+
+这四条命令都需要各自的注册表，所以是分批补上的。下面每一条的结论都来自
+**真实 1.12.2 服务端上的逐条实测**。
+
+### 13.1 `/advancement` [验][读]
+
+语法：
+
+```
+/advancement grant  <player> <only|until|from|through|everything> ...
+/advancement revoke <player> <only|until|from|through|everything> ...
+/advancement test   <player> <advancement> [criterion]
+```
+
+**进度注册表**取自服务端 jar 里的 `assets/minecraft/advancements/**`，一共
+**488 条**（`minecraft:<路径>`）。每个进度记下它的父进度、条件名，以及条件的
+组合方式：
+
+| 形状 | 条数 | 含义 |
+|---|---|---|
+| 一个 `requirements` 组装下全部条件 | 438 | 任一条件完成即可（`requireAny`） |
+| 没有 `requirements` | 50 | 每个条件自成一组，**全部**完成才行（`requireAll`） |
+
+这个区别是要紧的：`adventure/kill_a_mob` 杀一种怪就行，`adventure/kill_all_mobs`
+要杀 22 种。
+
+过滤器语义：
+
+| 过滤器 | 范围 |
+|---|---|
+| `only` | 只有这个进度 |
+| `until` | 这个进度**和它的祖先** |
+| `from` | 这个进度**和它的后代** |
+| `through` | 这个进度**和它的祖先以及后代** |
+| `everything` | 全部 |
+
+用法行的**前缀有两种**，这是 1.12.2 真实的区别：顶层和 `test` 用
+`ExceptionUsage`（带 `Usage: ` 前缀），各个过滤器用普通的 `CommandException`
+（**裸**的行，没有前缀）。
+
+| 命令 | 真服输出 |
+|---|---|
+| `advancement` | `Usage: /advancement <grant\|revoke\|test> <player>` |
+| `advancement bogus` | `Usage: /advancement <grant\|revoke\|test> <player>` |
+| `advancement grant Steve` | `/advancement grant <player> <only\|until\|from\|through\|everything>`（裸行） |
+| `advancement test Steve` | `Usage: /advancement test <player> <advancement> [criterion]` |
+| `advancement grant Steve only minecraft:story/root` | `Granted the entire advancement 'minecraft:story/root' to Steve` |
+| `advancement grant Steve only minecraft:story/root`（再来一次） | `Couldn't grant the advancement 'minecraft:story/root' to Steve because they already have it` |
+| `advancement grant Steve only minecraft:story/root nosuchcriterion` | `The advancement 'minecraft:story/root' does not contain the criterion 'nosuchcriterion'` |
+| `advancement test Steve minecraft:story/root` | `Player Steve has completed advancement 'minecraft:story/root'` |
+| `advancement test Steve minecraft:story/root crafting_table` | `Player Steve has completed criterion 'crafting_table' of advancement 'minecraft:story/root'` |
+| `advancement grant Steve from minecraft:story/root` | `Granted 'minecraft:story/root' and all descendants (14 total granted) to Steve` |
+| `advancement grant Steve until minecraft:story/mine_stone` | `Couldn't grant the advancement 'minecraft:story/mine_stone' or its ancestors to Steve because they already have them all` |
+| `advancement grant Steve through minecraft:adventure/root` | `Granted 'minecraft:adventure/root', all ancestors and all descendants (10 total granted) to Steve` |
+| `advancement revoke Steve everything` | `Revoked every advancement (488 total revoked) from Steve` |
+| `advancement grant NoSuchPlayer everything` | `Player 'NoSuchPlayer' cannot be found` |
+| `advancement test Steve minecraft:nosuchadv` | `No advancement was found by the name 'minecraft:nosuchadv'` |
+
+**已知偏差**：`grant everything` 在真服上是 481，在 gomc 上是 488。原因是真服
+登录时 `minecraft:recipe_unlocked` 那类条件**自动完成**了 7 个进度，所以轮到
+它们时已经完成了。gomc 不建模条件的触发，所以没有进度会自动完成。**文字**
+完全一致，只有**数字**不同——要修就得建模触发机制，而不是把数字改小。
+
+### 13.2 `/recipe` [验][读]
+
+语法：
+
+```
+/recipe <give|take> <player> <name|*>
+```
+
+用法行写的是 `/recipe <give|take> [player] <name|*>`，但**玩家其实不能省**：
+服务端总是把第二个参数当玩家、第三个参数当配方，所以 `/recipe give <player>`
+会读越界，报一句普通的话：
+
+```
+An unknown error occurred while attempting to perform this command
+```
+
+（真服的日志里是 `ArrayIndexOutOfBoundsException: 2 at CommandRecipe.execute`。）
+
+**注册表**有两部分：jar 里 `assets/minecraft/recipes/*.json` 的 **432 个**数据
+驱动配方，加上 `CraftingManager.init()` 里用代码建的 **11 个**（`armordye`、
+`bookcloning`、`mapcloning`、`mapextending`、`fireworks`、`repairitem`、
+`tippedarrow`、`bannerduplicate`、`banneraddpattern`、`shielddecoration`、
+`shulkerboxcoloring`）。那 11 个在服务端看来都是"特殊"的，给不出去。
+
+**回显里用的是配方的**结果物品**的显示名**，不是配方名：`minecraft:stone_slab`
+显示成 "Stone Slab"，`minecraft:gold_block` 显示成 "Block of Gold"。
+
+| 命令 | 真服输出 |
+|---|---|
+| `recipe` | `Usage: /recipe <give\|take> [player] <name\|*>` |
+| `recipe give` | `Usage: /recipe <give\|take> [player] <name\|*>` |
+| `recipe foo Steve stone_slab` | `Usage: /recipe <give\|take> [player] <name\|*>` |
+| `recipe give NoSuchPlayer stone_slab` | `Player 'NoSuchPlayer' cannot be found` |
+| `recipe give @a stone_slab`（没人在线） | `Player '@a' cannot be found` |
+| `recipe give Steve`（玩家在线） | `An unknown error occurred while attempting to perform this command` |
+| `recipe give Steve stone_slab` | `Successfully given Steve the recipe for Stone Slab` |
+| `recipe give Steve stone_slab`（再来一次） | `Player Steve already has a recipe for Stone Slab` |
+| `recipe take Steve stone_slab` | `Successfully removed the recipe for Stone Slab from Steve` |
+| `recipe take Steve stone_slab`（再来一次） | `Player Steve doesn't have the recipe for Stone Slab` |
+| `recipe give Steve *` | `Successfully given all recipes to Steve`（**不带数量**） |
+| `recipe take Steve *` | `Successfully taken all recipes from Steve` |
+| `recipe give Steve armordye` | `armordye is an unsupported recipe` |
+| `recipe give Steve no_such_recipe` | `no_such_recipe is an unknown recipe` |
+| `recipe give Steve MINECRAFT:STONE_SLAB` | `Successfully given Steve the recipe for Stone Slab` |
+
+两条容易忽略的细节：
+
+- **未知/不支持的报错用原文**，但**查找**用的是折过的大小写和命名空间
+  （`MinecraftKey` 的规则：命名空间默认 `minecraft`，两段都转小写）。
+- **给一个配方可能连带解锁别的配方**：解锁一个配方会解锁关于它的进度，那个
+  进度的 `rewards.recipes` 又会解锁更多。这解释了为什么真服在连着给 432 个
+  配方时有 8 个直接回答"已经有了"。
+
+配方的状态存在玩家自己的 NBT 里（`recipeBook` → `recipes`），这是原版自己的
+位置。
+
+### 13.3 `/spreadplayers` [验][读]
+
+语法：
+
+```
+/spreadplayers <x> <z> <spreadDistance> <maxRange> <respectTeams true|false> <player ...>
+```
+
+算法照搬 1.12.2 的**松弛迭代**：算法先把玩家摊开到目标距离，再迭代地把互相
+靠太近的玩家推开，直到收敛或者达到迭代上限。gomc 的随机数用**自实现的
+splitmix64**（不依赖标准库，免得 Go 的版本漂移改结果），所以同一个输入永远
+得到同一个位置。
+
+| 命令 | 真服输出 |
+|---|---|
+| `spreadplayers 0 0 5 10 false Steve Alex` | 三行：`Spreading 2 player(s) 10.0 blocks around 0.5, 0.5 (min 5.0 blocks apart)` / `Successfully spread 2 player(s) around 0.5, 0.5` / `(Average distance between players is ... iterations)` |
+
+**"能站"的规则**是第一个非空气方块，**排除**液体和火。空列地面高度取
+**y = 0**（gomc 的世界里没有地形，原点即地面）。
+
+### 13.4 `/stats` [验][读]
+
+**1.12.2 的 `/stats` 实际上是坏的**，而且坏法很特别：它把**统计项的名字**当成了
+"命令结果类型"（`CommandObjectiveExecutor$EnumCommandResult`）去映射，映射不到
+就抛 `commands.stats.failed`，也就是 `Invalid parameters`。于是这条命令在真服
+上几乎总是失败——只有统计项的名字恰好是那五个命令结果名之一时才过得去：
+
+```
+SuccessCount  AffectedBlocks  AffectedEntities  AffectedItems  QueryResult
+```
+
+除此之外，1.12.2 检查参数的顺序和平时的直觉不同，**entity 形式和 block 形式
+还不一样**：
+
+1. **entity 形式先看目标。** 目标是列表选择器（`@e` / `@a`）却一个都没匹配到时，
+   命令**什么都不说**就结束了——列表展开成零次执行。目标是单个选择器
+   （`@p` / `@s`）或一个玩家名却解析不出来时，报的是 **entity 的用法**，而不是
+   `Entity '@p' cannot be found`。
+2. **block 形式先数参数。** 少于 5 个报 block 的用法；`set` 形式少于 8 个报 set
+   的用法；`clear` 形式少于 6 个报 clear 的用法。
+3. **参数齐了才看统计项。** 统计项映射不到就是 `Invalid parameters`；映射到了
+   才会去看位置对不对、方块能不能统计。
+4. **方块一律存不了统计。** 箱子、漏斗、投掷器、熔炉、酿造台、信标都是同一句
+   `Block at X, Y, Z can not track stats`——方块的统计是 1.13 才有的东西。
+5. **持有者和目标只是回显。** 1.12.2 不去解析它们：把一个不存在的玩家名当持有
+   者，它照样说 `Storing ... on Steve`。
+
+| 命令 | 真服输出 |
+|---|---|
+| `stats` | `Usage: /stats <entity\|block> ...` |
+| `stats entity` | `Usage: /stats entity <selector> <mode> ...` |
+| `stats entity @e[type=zombie]`（列表匹配 0 个） | **无输出** |
+| `stats entity @p` | `Usage: /stats entity <selector> <mode> ...` |
+| `stats entity Steve` | `Usage: /stats entity <selector> <mode> ...` |
+| `stats entity @e[bad]` | `Invalid selector argument: 'bad'` |
+| `stats entity @e[type=armor_stand]` | `Usage: /stats entity <selector> <mode> ...` |
+| `stats entity @e[type=armor_stand] bogus` | `Usage: /stats <entity\|block> ...` |
+| `stats entity @e[..] set` | `Usage: /stats entity <selector> set <stat> <selector> <objective>` |
+| `stats entity @e[..] set stat.jump @e[..] obj` | `Invalid parameters` |
+| `stats entity @e[..] clear` | `Usage: /stats entity <selector> clear <stat>` |
+| `stats entity @e[..] set QueryResult @e[..] obj` | `Storing QueryResult stats in obj on @e[type=armor_stand]` |
+| `stats entity @e[..] clear QueryResult` | `Cleared QueryResult stats` |
+| `stats block` | `Usage: /stats block <x> <y> <z> <mode> ...` |
+| `stats block 0 4 0` | `Usage: /stats block <x> <y> <z> <mode> ...` |
+| `stats block 0 4 0 set stat.jump @e[..] obj` | `Invalid parameters` |
+| `stats block 0 4 0 clear stat.jump` | `Invalid parameters` |
+| `stats block 0 4 0 bogus` | `Usage: /stats <entity\|block> ...` |
+| `stats block 0 4 0 set QueryResult @e[..] obj` | `Block at 0, 4, 0 can not track stats` |
+| `stats block a b c set stat.jump @e[..] obj` | `Invalid parameters`（坐标在统计项**之后**才解析） |
+| `stats block a b c set QueryResult @e[..] obj` | `'a' is not a valid number` |
+
+探针用例：`tools/probe/cases/08-stats-params.case` 到 `12-stats-names.case`，
+每条命令都夹一条 `say` 标记，好把输出对齐到命令。

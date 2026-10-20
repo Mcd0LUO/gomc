@@ -1,0 +1,48 @@
+# /stats 的 entity 形式：什么情况下真的说话。
+#
+# 上一轮实测发现：entity 形式只要参数 >= 2 就**完全静默**——
+# 连 "Invalid parameters" 都不报。这说明 1.12.2 是先解析目标实体，
+# 解析不出就静默返回，根本不看后面的参数。
+#
+# 这一轮要分清"解析不出"的确切定义：
+#   - 列表选择器（@e / @a）匹配 0 个
+#   - 单个选择器（@p / @s）匹配 0 个
+#   - 玩家名（不存在的人）
+#   - 语法就不对的选择器
+#   - 目标真的存在（summon 一个盔甲架）
+#
+# 2026-10-21 实测：
+#   - 列表选择器匹配 0 个 -> 静默（列表展开成零次执行）
+#   - 单个选择器匹配 0 个 -> "Usage: /stats entity <selector> <mode> ..."
+#   - 玩家名不存在 -> "Usage: /stats entity <selector> <mode> ..."
+#   - 语法错的选择器 -> "Invalid selector argument: 'bad'"
+#   - 目标存在（盔甲架）-> 继续按参数个数走，缺 mode 时是 entity 的用法
+
+--- console ---
+say N01
+stats entity @e[type=zombie]
+say N02
+stats entity @p
+say N03
+stats entity @a
+say N04
+stats entity @s
+say N05
+stats entity Steve
+say N06
+stats entity @e[bad]
+say N07
+summon armor_stand 0 4 0 {CustomName:"STATS_AS"}
+say N08
+stats entity @e[type=armor_stand]
+say N09
+stats entity @e[type=armor_stand] set stat.jump @e[type=armor_stand] obj
+say N10
+stats entity @e[type=armor_stand] clear stat.jump
+say N11
+stats block 0 4 0 set stat.jump @p obj
+say N12
+stats block a b c set stat.jump @e[type=zombie] obj
+say N13
+stats block 0 4 0 clear QueryResult
+say N14

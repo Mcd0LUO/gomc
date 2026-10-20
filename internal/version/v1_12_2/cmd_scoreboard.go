@@ -75,6 +75,14 @@ func (c *scoreboardCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 func resolveHolders(ctx *exec.Context, arg ast.Arg) ([]string, error) {
 	switch t := arg.(type) {
 	case *ast.StringArg:
+		// 1.12.2 resolves the holder to the entity it names and keeps
+		// the score under the entity's own UUID, so a UUID written in
+		// another case still ends up under the canonical one. A name
+		// that is no entity at all is kept as it is: 1.12.2 tracks a
+		// score under any name.
+		if e := entityByUUID(ctx, t.Value); e != nil {
+			return []string{exec.ScoreboardHolder(e)}, nil
+		}
 		return []string{t.Value}, nil
 	case *ast.Selector:
 		resolver := &exec.SelectorResolver{World: ctx.World}

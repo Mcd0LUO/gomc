@@ -1,11 +1,14 @@
 package v1_12_2
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/Mcd0LUO/gomc/internal/ast"
 	"github.com/Mcd0LUO/gomc/internal/exec"
+	"github.com/Mcd0LUO/gomc/internal/nbt"
 	"github.com/Mcd0LUO/gomc/internal/parser"
 	"github.com/Mcd0LUO/gomc/internal/world"
 )
@@ -41,12 +44,22 @@ func parsePlayersAction(p *parser.Parser, action string) ([]ast.Arg, error) {
 		if err != nil {
 			return nil, err
 		}
+		// The dataTag is the last argument of the three actions and is
+		// optional. It is kept as text and only parsed when the command
+		// runs, because 1.12.2 parses it *after* it has looked the
+		// objective up: a wrong objective is reported before a wrong
+		// dataTag.
+		dataTag := ""
+		if p.More() {
+			dataTag = p.Rest()
+		}
 		return []ast.Arg{
 			&ast.StringArg{Value: "players"},
 			&ast.StringArg{Value: action},
 			holder,
 			&ast.StringArg{Value: objective},
 			&ast.IntArg{Value: value},
+			&ast.StringArg{Value: dataTag},
 		}, nil
 	case "reset":
 		holder, err := parseScoreHolder(p)
@@ -154,8 +167,8 @@ func parsePlayersAction(p *parser.Parser, action string) ([]ast.Arg, error) {
 			&ast.StringArg{Value: high},
 		}, nil
 	case "tag":
-		// `scoreboard players tag <target> <add|remove|list> [tag]` is
-		// how 1.12.2 manages the tags of an entity.
+		// `scoreboard players tag <target> <add|remove|list> [tag] [dataTag]`
+		// is how 1.12.2 manages the tags of an entity.
 		holder, err := parseScoreHolder(p)
 		if err != nil {
 			return nil, err
@@ -175,12 +188,20 @@ func parsePlayersAction(p *parser.Parser, action string) ([]ast.Arg, error) {
 		default:
 			return nil, usageError(p, "scoreboard players tag", "expected add, remove or list, got %q", sub)
 		}
+		// The dataTag of a tag action is only read for `add` and
+		// `remove`: 1.12.2 hands the `list` branch the tags of the
+		// entity and never looks at the rest of the command.
+		dataTag := ""
+		if sub != "list" && p.More() {
+			dataTag = p.Rest()
+		}
 		return []ast.Arg{
 			&ast.StringArg{Value: "players"},
 			&ast.StringArg{Value: "tag"},
 			holder,
 			&ast.StringArg{Value: sub},
 			&ast.StringArg{Value: tag},
+			&ast.StringArg{Value: dataTag},
 		}, nil
 	}
 	return nil, usageError(p, "scoreboard players", "expected set, add, remove, reset, operation, enable, test, tag or list, got %q", action)
@@ -212,12 +233,200 @@ func parseScoreHolder(p *parser.Parser) (ast.Arg, error) {
 // The holder of a tag action is an entity id when it comes from a
 // selector, and a player name when it was written by hand: 1.12.2
 // resolves the name with `CommandAbstract.c`, which finds the player
-// first and the entity by its id second.
+// first and the entity by its UUID second.
 func tagEntity(ctx *exec.Context, holder string) *world.Entity {
 	if e := ctx.World.FindEntity(holder); e != nil {
 		return e
 	}
-	return ctx.World.FindPlayer(holder)
+	if p := ctx.World.FindPlayer(holder); p != nil {
+		return p
+	}
+	return entityByUUID(ctx, holder)
+}
+
+// scoreHolderEntity returns the entity a score holder names.
+//
+// 1.12.2 resolves the holder of a scoreboard command with
+// `CommandAbstract.c`: the player with that name first, and then the
+// entity with that UUID. The runtime's own entity ids are looked up as
+// well, because they are how a function names an entity.
+//
+// A holder that names no entity at all is reported by the caller.
+func scoreHolderEntity(ctx *exec.Context, holder string) *world.Entity {
+	if p := ctx.World.FindPlayer(holder); p != nil {
+		return p
+	}
+	if e := ctx.World.FindEntity(holder); e != nil {
+		return e
+	}
+	return entityByUUID(ctx, holder)
+}
+
+// checkDataTag checks the dataTag of a scoreboard command against the
+// entity a holder names.
+//
+// 1.12.2 compares the dataTag with the NBT of the entity the holder
+// names, with the same subset match the `nbt=` argument of a selector
+// uses: every key of the dataTag has to be in the entity's NBT with a
+// matching value. A dataTag that does not match is reported with the name
+// the scoreboard knows the entity by, which is the UUID of an entity that
+// is not a player.
+//
+// parsePrefix is the wording the command uses for a dataTag that could
+// not be parsed: the two commands that take a dataTag word it
+// differently.
+func checkDataTag(ctx *exec.Context, holder, text, parsePrefix string) error {
+	e := scoreHolderEntity(ctx, holder)
+	if e == nil {
+		return entityNotFoundError(holder)
+	}
+	filter, err := parseDataTag(text)
+	if err != nil {
+		return exec.Errorf("%s%s", parsePrefix, err)
+	}
+	if !nbt.Matches(e.NBT, filter) {
+		return exec.Errorf("The dataTag does not match for %s", exec.ScoreboardHolder(e))
+	}
+	return nil
+}
+
+// parseDataTag parses the dataTag of a scoreboard command.
+//
+// 1.12.2 parses it with `MojangsonParser`, which only accepts a compound.
+// The error is the *reason* of the failure, without the wording of the
+// command that reports it.
+func parseDataTag(text string) (*nbt.Compound, error) {
+	if text == "" {
+		return nil, errors.New("Expected compound tag, got nothing at: <--[HERE]")
+	}
+	// The parser looks at the first character before it reads anything
+	// else, so a dataTag that does not start with a brace is reported
+	// that way and not as a broken compound.
+	if text[0] != '{' {
+		return nil, errors.New(mojangsonNotCompound(text))
+	}
+	v, err := nbt.ParseSNBT(text)
+	if err != nil {
+		return nil, errors.New(mojangsonReason(text, err))
+	}
+	c, ok := v.(*nbt.Compound)
+	if !ok {
+		return nil, errors.New(mojangsonNotCompound(text))
+	}
+	return c, nil
+}
+
+// mojangsonReason renders the reason 1.12.2 reports a dataTag it could
+// not parse.
+//
+// `MojangsonParseException` builds its message out of the reason and the
+// text up to the place the parser stopped at:
+//
+//	<reason> at: <text><--[HERE]
+//
+// The runtime's own NBT parser reports the same kind of problem with its
+// own wording, so the reason is translated here. Every wording below was
+// measured on a real 1.12.2 server.
+func mojangsonReason(text string, err error) string {
+	e, ok := err.(*nbt.SNBTError)
+	if !ok {
+		return err.Error()
+	}
+	reason, pos := mojangsonReasonAt(text, e.Msg, e.Offset)
+	if pos > len(text) {
+		pos = len(text)
+	}
+	if pos < 0 {
+		pos = 0
+	}
+	return reason + " at: " + text[:pos] + "<--[HERE]"
+}
+
+// mojangsonReasonAt translates the failure of the runtime's NBT parser
+// into the reason 1.12.2 reports, and returns the place in the text the
+// parser stopped at.
+func mojangsonReasonAt(text, msg string, off int) (string, int) {
+	switch {
+	case strings.HasPrefix(msg, "expected ':' after key"):
+		if off < len(text) {
+			return fmt.Sprintf("Expected ':' but got '%c'", text[off]), off + 1
+		}
+		return "Expected ':' but got '<EOF>'", off
+	case msg == "expected value":
+		// A value that is missing inside a list is a missing ']';
+		// everywhere else it is a missing value.
+		if off < len(text) && (text[off] == '}' || text[off] == ']') &&
+			innermostOpen(text, off) == '[' {
+			return fmt.Sprintf("Expected ']' but got '%c'", text[off]), off + 1
+		}
+		return "Expected value", off
+	case msg == "unterminated string":
+		return "Missing termination quote", off
+	case msg == "unterminated compound":
+		if strings.HasSuffix(strings.TrimSpace(text), ",") {
+			// 1.12.2 expects a key after the comma.
+			return "Expected key", off
+		}
+		return "Expected '}' but got '<EOF>'", off
+	case msg == "unterminated list", msg == "unterminated byte array",
+		msg == "unterminated int array":
+		return "Expected ']' but got '<EOF>'", off
+	case msg == "expected key":
+		return "Expected non-empty key", off
+	case msg == "trailing characters after value":
+		return "Trailing data found", off + 1
+	case strings.HasPrefix(msg, "invalid "):
+		// A number the runtime's parser refuses. 1.12.2 reads it as a
+		// string instead, so the dataTag is compared and does not
+		// match; the runtime reports it as a broken value.
+		return "Expected value", off
+	}
+	return "Expected value", off
+}
+
+// mojangsonNotCompound renders the reason 1.12.2 reports a dataTag that
+// is not a compound.
+//
+// Only a compound is a dataTag, and the parser stops at the first
+// character and names it.
+func mojangsonNotCompound(text string) string {
+	if text == "" {
+		return "Expected compound tag, got nothing at: <--[HERE]"
+	}
+	return fmt.Sprintf("Expected '{' but got '%c' at: %c<--[HERE]", text[0], text[0])
+}
+
+// innermostOpen returns the bracket that is open at the given place of
+// the text, or 0 when there is none.
+//
+// It tells a value that is missing inside a list from one that is missing
+// inside a compound: 1.12.2 words the two differently.
+func innermostOpen(text string, off int) byte {
+	var stack []byte
+	quote := byte(0)
+	for i := 0; i < off && i < len(text); i++ {
+		c := text[i]
+		if quote != 0 {
+			if c == quote {
+				quote = 0
+			}
+			continue
+		}
+		switch c {
+		case '"', '\'':
+			quote = c
+		case '{', '[':
+			stack = append(stack, c)
+		case '}', ']':
+			if len(stack) > 0 {
+				stack = stack[:len(stack)-1]
+			}
+		}
+	}
+	if len(stack) == 0 {
+		return 0
+	}
+	return stack[len(stack)-1]
 }
 
 // runPlayers executes the `scoreboard players` subtree.
@@ -241,7 +450,24 @@ func runPlayers(ctx *exec.Context, args []ast.Arg) (int, error) {
 			return 0, exec.Errorf("The objective '%s' is read-only and cannot be set", objective)
 		}
 		value := args[4].(*ast.IntArg).Value
+		dataTag := args[5].(*ast.StringArg).Value
+		// 1.12.2 expands a target list in the command dispatcher and
+		// runs the command once per matched entity, so a holder whose
+		// dataTag does not match does not stop the holders after it.
+		var dataTagErr error
 		for _, h := range holders {
+			// 1.12.2 checks the dataTag before it writes the score,
+			// and it checks it against the NBT of the entity the
+			// holder names. A dataTag that does not match leaves the
+			// score alone.
+			if dataTag != "" {
+				if err := checkDataTag(ctx, h, dataTag, "Could not parse dataTag, reason: "); err != nil {
+					if dataTagErr == nil {
+						dataTagErr = err
+					}
+					continue
+				}
+			}
 			current, tracked := sb.Score(h, objective)
 			if !tracked {
 				current = 0
@@ -261,6 +487,9 @@ func runPlayers(ctx *exec.Context, args []ast.Arg) (int, error) {
 			// the same for set, add and remove.
 			ctx.Engine.Feedback = append(ctx.Engine.Feedback,
 				fmt.Sprintf("Set score of %s for player %s to %d", objective, h, next))
+		}
+		if dataTagErr != nil {
+			return 0, dataTagErr
 		}
 		return len(holders), nil
 	case "reset":
@@ -421,13 +650,35 @@ func runPlayers(ctx *exec.Context, args []ast.Arg) (int, error) {
 			return 0, err
 		}
 		action := args[3].(*ast.StringArg).Value
+		dataTag := args[5].(*ast.StringArg).Value
 		switch action {
 		case "add", "remove":
 			tag := args[4].(*ast.StringArg).Value
+			// 1.12.2 expands a target list in the command dispatcher
+			// and runs the command once per matched entity, so a
+			// holder whose dataTag does not match does not stop the
+			// holders after it.
+			var dataTagErr error
 			for _, h := range holders {
 				e := tagEntity(ctx, h)
 				if e == nil {
-					continue
+					// 1.12.2 resolves the holder of a tag action as an
+					// entity, and it does that before it looks at the
+					// dataTag -- so a holder it cannot find is reported
+					// whether there is a dataTag or not.
+					//
+					// (Measured on a real 1.12.2 server: `scoreboard
+					// players tag Steve add x` says "Entity 'Steve' cannot
+					// be found".)
+					return 0, entityNotFoundError(h)
+				}
+				if dataTag != "" {
+					if err := checkDataTag(ctx, h, dataTag, "Players tag command failed, reason: "); err != nil {
+						if dataTagErr == nil {
+							dataTagErr = err
+						}
+						continue
+					}
 				}
 				if action == "remove" && !e.HasTag(tag) {
 					return 0, exec.Errorf("Entity didn't have the %s tag", tag)
@@ -440,6 +691,9 @@ func runPlayers(ctx *exec.Context, args []ast.Arg) (int, error) {
 					ctx.Engine.Feedback = append(ctx.Engine.Feedback,
 						fmt.Sprintf("Tag %s removed", tag))
 				}
+			}
+			if dataTagErr != nil {
+				return 0, dataTagErr
 			}
 			return len(holders), nil
 		case "list":
@@ -457,13 +711,17 @@ func runPlayers(ctx *exec.Context, args []ast.Arg) (int, error) {
 			for _, h := range holders {
 				e := tagEntity(ctx, h)
 				if e == nil {
-					continue
+					// The holder of a tag action is resolved as an entity,
+					// and the `list` branch does that as well.
+					//
+					// (Measured on a real 1.12.2 server: `scoreboard players
+					// tag Steve list` answers "Entity 'Steve' cannot be
+					// found".)
+					return 0, entityNotFoundError(h)
 				}
 				// The heading names the entity the way the scoreboard
 				// does: `CommandAbstract.f` answers a player with its
 				// user name and every other entity with its UUID.
-				// The runtime does not model UUIDs, so a non-player
-				// entity is named by its internal id.
 				list := e.TagList()
 				if len(list) == 0 {
 					continue

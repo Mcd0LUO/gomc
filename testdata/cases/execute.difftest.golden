@@ -13,7 +13,7 @@ step 4: scoreboard players tag @e[type=zombie] add marked
   feedback: Tag marked added
 step 5: scoreboard players tag @e[tag=marked] list
   count: 1
-  feedback: Tags on entity entity-2 are:
+  feedback: Tags on entity 14d63655-6a4d-45d0-985c-c68fc4cb2a35 are:
   feedback: marked
 step 6: execute @e[type=zombie] ~ ~ ~ detect ~ ~-1 ~ air 0 say ground is clear
   count: 1

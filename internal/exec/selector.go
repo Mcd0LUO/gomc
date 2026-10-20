@@ -630,16 +630,22 @@ func matchTag(e *world.Entity, tag string, negated bool) bool {
 // `scoreboard players set <name> ...` and the `team=` and `score_...`
 // selector arguments refer to.
 //
-// The runtime does not model UUIDs, so a non-player entity is tracked
-// under its internal id instead. That is a known gap: a score written
-// for such an entity is only reachable through the same id, never
-// through a UUID.
+// (Measured on a real 1.12.2 server: `scoreboard players set @e[type=zombie]
+// kills 5` answers "Set score of kills for player
+// 8ec2ce84-37a8-4713-8d8f-c72daff632a1 to 5", and `scoreboard players list`
+// lists that UUID.)
+//
+// The UUID is derived from the entity's internal id, so it is the same on
+// every run; see `world.Entity.EnsureUUID`.
 func ScoreboardHolder(e *world.Entity) string {
 	if e == nil {
 		return ""
 	}
 	if e.IsPlayer && e.PlayerName != "" {
 		return e.PlayerName
+	}
+	if uuid := e.EnsureUUID(); uuid != "" {
+		return uuid
 	}
 	return e.ID
 }

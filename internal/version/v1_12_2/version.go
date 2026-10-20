@@ -33,4 +33,9 @@ func Register(reg *exec.Registry) {
 	registerOutput(reg)
 	registerMisc(reg)
 	registerPlayer(reg)
+	// The four commands that need a registry of their own.
+	registerAdvancement(reg)
+	registerRecipe(reg)
+	registerSpreadPlayers(reg)
+	registerStats(reg)
 }

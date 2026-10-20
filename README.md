@@ -61,7 +61,7 @@ error[Syntax]: 1:31: expected an integer, got "="
 | 文档 | 内容 |
 |---|---|
 | [`docs/SPEC-1.12.2.md`](docs/SPEC-1.12.2.md) | **行为基准**：每条语义都标注了是"读"（反编译）、"验"（真服实测）还是"推"出来的 |
-| [`docs/COMMANDS.md`](docs/COMMANDS.md) | 命令支持矩阵：1.12.2 专用服务器 64 条（`CommandDispatcher` 注册 65 次，三个分支互斥），已实现 46 条，含 1.12.2 真实语法与已知偏差 |
+| [`docs/COMMANDS.md`](docs/COMMANDS.md) | 命令支持矩阵：1.12.2 专用服务器 64 条（`CommandDispatcher` 注册 65 次，三个分支互斥），已实现 50 条，含 1.12.2 真实语法与已知偏差 |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 架构、依赖方向、31 条核心不变量、权威规格的来源与实测流程 |
 | [`docs/DIFFTEST.md`](docs/DIFFTEST.md) | 对拍层使用手册：写用例、跑 golden、和真服对齐 |
 | [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) | 性能评估：测了什么、瓶颈在哪、该怎么改 |
@@ -308,13 +308,9 @@ lexer 里有一个专门防死循环的回归测试（`TestTokenizeOffsetsAdvanc
   因为它们和 1.12.2 的语义是**冲突**的，不是加个开关就能兼容的。
 - 不模拟实体 AI、寻路、重力、区块生成、渲染和网络协议。
 - 1.12.2 专用服务器的命令表是 **64 条**（`CommandDispatcher` 里注册了 65 次，但
-  专用服分支 15 条、客户端分支 1 条是互斥的），当前实现了 **46 条**，
+  专用服分支 15 条、客户端分支 1 条是互斥的），当前实现了 **50 条**，
   优先覆盖写函数时最常用的那些。
   `docs/COMMANDS.md` 记录了完整矩阵（`CommandDispatcher.java`）。
-- 实体没有建模 UUID，所以 1.12.2 那种"用 UUID 指定非玩家实体"的目标写法还不行；
-  非玩家实体目前只能用选择器指定。
-- `/scoreboard players set|add|remove` 末尾可选的 NBT 过滤还没实现
-  （1.12.2 里它会校验目标实体的 NBT 是否匹配）。
 - 服务端管理类命令（`op`/`ban`/`whitelist`/`save-all` 等）没有实现，它们对测试
   mcfunction 没有意义。
 - 1.12.2 **没有独立的 `/tag` 命令**（这一点是跑真实服务端验证出来的），

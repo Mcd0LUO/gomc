@@ -167,6 +167,7 @@ var commandPermissions = map[string]int{
 	// Level 1: `say` only has to be able to talk.
 	"say": 1,
 	// Level 2: the commands an operator may use.
+	"advancement":     2,
 	"blockdata":       2,
 	"clear":           2,
 	"clone":           2,
@@ -185,11 +186,14 @@ var commandPermissions = map[string]int{
 	"particle":        2,
 	"playsound":       2,
 	"replaceitem":     2,
+	"recipe":          2,
 	"scoreboard":      2,
 	"seed":            2,
 	"setblock":        2,
 	"setworldspawn":   2,
 	"spawnpoint":      2,
+	"spreadplayers":   2,
+	"stats":           2,
 	"stopsound":       2,
 	"summon":          2,
 	"tellraw":         2,

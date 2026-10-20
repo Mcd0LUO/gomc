@@ -1,0 +1,67 @@
+# /stats 的参数边界（带标记版）。
+#
+# 每条命令前后夹一条 `say M<n>`，用来精确定位输出属于哪条命令——
+# 探针的输出提取是"按行收集"，不带标记就没法对齐。
+#
+# 关注点：
+#   - 参数到底缺几个才报 usage（entity 形式和 block 形式的门槛不一样）
+#   - "Invalid parameters" 是在解析目标之前还是之后抛的
+#   - stat 参数恰好是 SuccessCount / QueryResult 之类时会发生什么
+#
+# 2026-10-21 第一轮实测（无标记）已经确认：
+#   - entity 形式只要目标解析不出实体，就**什么都不说**（连 Invalid parameters 都没有）
+#   - block 形式先报 Invalid parameters，再谈方块能不能统计
+#
+# 这一轮用 say 标记把每条命令的输出对齐，最后确认：
+#   - entity 形式的门槛是 2 个参数（目标），block 形式是 5 个（三个坐标 + 模式）
+#   - set 形式 entity 要 6 个、block 要 8 个；clear 形式 entity 要 4 个、block 要 6 个
+#   - 统计项的名字被当成"命令结果类型"映射，映射不到就是 Invalid parameters
+
+--- console ---
+say M01
+stats
+say M02
+stats entity
+say M03
+stats entity @e[type=zombie]
+say M04
+stats entity @e[type=zombie] set
+say M05
+stats entity @e[type=zombie] set stat.jump
+say M06
+stats entity @e[type=zombie] set stat.jump @e[type=zombie]
+say M07
+stats entity @e[type=zombie] set stat.jump @e[type=zombie] obj
+say M08
+stats entity @e[type=zombie] clear
+say M09
+stats entity @e[type=zombie] clear stat.jump
+say M10
+stats entity @e[type=zombie] bogus
+say M11
+stats block
+say M12
+stats block 0 4 0
+say M13
+stats block 0 4 0 set
+say M14
+stats block 0 4 0 set stat.jump
+say M15
+stats block 0 4 0 set stat.jump @e[type=zombie]
+say M16
+stats block 0 4 0 set stat.jump @e[type=zombie] obj
+say M17
+stats block 0 4 0 clear
+say M18
+stats block 0 4 0 clear stat.jump
+say M19
+stats block 0 4 0 bogus
+say M20
+stats frobnicate @e[type=zombie]
+say M21
+stats entity @e[type=zombie] set QueryResult @e[type=zombie] obj
+say M22
+stats entity @e[type=zombie] clear QueryResult
+say M23
+stats block 0 4 0 set QueryResult @e[type=zombie] obj
+say M24

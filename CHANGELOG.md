@@ -9,6 +9,49 @@
 
 ## [未发布]
 
+### 新增
+
+- **四条命令**（命令数 46 → 50）：`/advancement`、`/recipe`、`/spreadplayers`、`/stats`。
+  每一条都对着真实 1.12.2 服务端逐条实测过，规格记在
+  [`docs/SPEC-1.12.2.md`](docs/SPEC-1.12.2.md) 第 13 节。
+  - **`/advancement`**：进度注册表取自服务端 jar 里的
+    `assets/minecraft/advancements/**`，**488 条**（`minecraft:<路径>`）。每个进度记下
+    父进度、条件名和条件的组合方式：438 个是"任一条件完成即可"，50 个是"全部条件
+    都要完成"（`adventure/kill_a_mob` 杀一种怪就行，`adventure/kill_all_mobs` 要杀
+    22 种）。五种过滤器（`only`/`until`/`from`/`through`/`everything`）都实现了。
+    1.12.2 的用法行有**两种**形态：顶层和 `test` 带 `Usage: ` 前缀，各个子过滤器是
+    **裸行**，gomc 照做。
+  - **`/recipe`**：**432 个**数据驱动配方（jar 里的 `assets/minecraft/recipes/*.json`）
+    加 **11 个**代码里建的配方（那 11 个在服务端看来都是"特殊"的，给不出去）。回显
+    里用的是配方的**结果物品**的显示名（`minecraft:stone_slab` → "Stone Slab"）。
+    用法行写的是 `[player]`，但玩家其实**不能省**——服务端总是把第二个参数当玩家，
+    所以 `/recipe give <player>` 会读越界，报一句普通的话（真服日志里是
+    `ArrayIndexOutOfBoundsException`）。那条也照抄了。
+  - **`/spreadplayers`**：算法照搬 1.12.2 的**松弛迭代**（每轮把互相靠太近的
+    玩家推开，收敛或到迭代上限为止）。随机数用**自实现的 splitmix64**（不依赖
+    标准库，免得 Go 的版本漂移改结果），种子从命令参数派生，所以同一条命令永远得到
+    同一个位置。"能站"的规则是第一个非空气方块，**排除**液体和火。
+  - **`/stats`**：**1.12.2 上这条命令是坏的**，而且坏法很特别——它把**统计项的名字**
+    当成了"命令结果类型"去映射，映射不到就抛 `Invalid parameters`。gomc 复现的就是
+    这个坏法：entity 形式先看目标（列表选择器匹配 0 个就**什么都不说**，单个选择器
+    解析不出就报 entity 的用法），block 形式先数参数，参数齐了才看统计项，而且
+    **方块一律存不了统计**（箱子、漏斗、熔炉、信标都是同一句 `can not track stats`）。
+- **计分板持有者的 dataTag 过滤**：`scoreboard players set|add|remove <持有者> <目标>
+  <分数> [dataTag]`。dataTag 要和实体的 NBT 对得上才生效，对不上报
+  `The dataTag does not match for <持有者>`；解析失败报
+  `Could not parse dataTag, reason: <Mojangson 的原话>`。**add 和 remove 也校验**
+  ——语言文件里只有 set 的键，但 1.12.2 三个动作共用一个 handler。`scoreboard players
+  tag` 也吃 dataTag（它的报错措辞不同：`Players tag command failed, reason: …`）。
+  解析出来的 dataTag 放在**运行期**才解析，这样才能复现真服"先查目标、再查目标、
+  最后才看 dataTag"的顺序。
+- **实体 UUID**：非玩家实体的计分板持有者现在用 UUID（v4 形状），`scoreboard players
+  set <uuid> …` 这类写法也认得出。UUID 从实体的内部 id **确定性派生**（`md5` + v4 的
+  版本位和 variant 位）——真服是 `UUID.randomUUID()` 随机生成的，而 gomc 是确定性的
+  命令解释器，所以值不可能一样，格式和稳定性才是对齐的。
+- **`scoreboard players tag` 的持有者总是按实体解析**：解析不出就报
+  `Entity '…' cannot be found`（`add`/`remove`/`list` 三个分支都一样），而不是像
+  之前那样静默跳过。
+
 ### 修复
 
 一批按 1.12.2 真实行为对齐的修正（都来自反编译源码 + 真服实测）：
@@ -81,6 +124,12 @@
   `spawn-npcs` 设成 false、难度设成 peaceful。CraftBukkit 的
   `World.addEntity` 会因此让**动物、怪物和村民在真服上 summon 不了**，
   测出来是大面积假失败。现在这三项都打开。
+- **NBT 匹配要求类型一致**：1.12.2 用 `NBTBase.equals` 比较 NBT，**类型是值的一部分**，
+  所以存着的 `20.0f` 匹配不上过滤器里的 `20`。gomc 之前是跨宽度比较，比真服宽松。
+  真服实测：`scoreboard players set <实体> t 7 {Health:20.0f}` 成功，
+  `{Health:20}` 报 `The dataTag does not match`。
+- **用法消息不再被打印两遍**：1.12.2 回答用法错误时给的就是用法行本身，所以
+  错误报告里不该再补一遍 `usage:`。命令的用法行仍然照旧附在描述性错误后面。
 
 
 ### 性能
@@ -96,10 +145,14 @@
 
 ### 计划中
 
-- 方块注册表：让写错的方块名像真服一样报错。
-- 实体 UUID：真服用 UUID 标识非玩家实体的计分板持有者（见 SPEC 第 12 节）。
-- 选择器按 `c` 做部分选择：现在 `@e[c=1]` 也要把匹配到的实体**全部**按距离
-  排一遍才截断（真服也这样，见 SPEC 3.10），这是端到端的下一个大头。
+- **数据包的进度与配方**：1.12.2 的自定义进度在 `<世界>/advancements/<命名空间>/<路径>.json`，
+  自定义配方在 `<世界>/recipes/`。gomc 没有 JSON 解析器，所以只认服务端 jar 里自带的那一套。
+- **`/locate`**：需要结构注册表。
+- **条件的触发机制**：`/advancement` 只能通过命令设置条件，没有触发器（`minecraft:recipe_unlocked`
+  之类）。这也是 `grant everything` 的数字和真服差 7 个的原因。
+- **词法器不配平 NBT 的花括号**：真服先切参数再解析 NBT，报
+  `Could not parse dataTag, reason: …`；gomc 的词法器读命令时配平花括号，不配平就整行报错。
+  改它对 `testfor`/`summon`/`entitydata` 一并有益。
 
 ## [0.1.0] - 2026-10-20
 

@@ -475,8 +475,8 @@ func BenchmarkScoreboardList(b *testing.B) {
 				for o := 0; o < objectives; o++ {
 					name := fmt.Sprintf("%s%d", benchObjective, o)
 					eng.World.Scoreboard.AddObjective(name, world.CriteriaDummy, "")
-					for id := range eng.World.Entities {
-						eng.World.Scoreboard.SetScore(id, name, o)
+					for _, e := range eng.World.Entities {
+						eng.World.Scoreboard.SetScore(exec.ScoreboardHolder(e), name, o)
 					}
 				}
 				b.StartTimer()

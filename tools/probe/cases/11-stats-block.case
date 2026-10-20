@@ -1,0 +1,43 @@
+# /stats 的方块分支：有没有方块是"能统计"的？
+#
+# 上一轮实测：`setblock 0 4 0 chest` 之后，`stats block 0 4 0` 仍然说
+# "can not track stats"。这一轮换几个位置和方块再试一遍：
+#   - 箱子放在地面那一层（y=3，会替换草地）
+#   - 箱子放在别的位置
+#   - 漏斗 / 投掷器这类别的容器
+#
+# 同时测 entity 形式的成功回显里，统计项名和持有者是怎么写的。
+#
+# 2026-10-21 实测：
+#   - 箱子、漏斗、投掷器**全都** "can not track stats"
+#   - 这一轮那几条 entity 命令之所以全静默，是因为用例忘了 summon 盔甲架：
+#     列表选择器匹配 0 个就是静默（下一轮补上）
+
+--- console ---
+say Q01
+setblock 0 3 0 chest
+say Q02
+stats block 0 3 0 set QueryResult @e[type=zombie] obj
+say Q03
+setblock 0 4 5 chest
+say Q04
+stats block 0 4 5 set QueryResult @e[type=zombie] obj
+say Q05
+setblock 0 4 6 hopper
+say Q06
+stats block 0 4 6 set QueryResult @e[type=zombie] obj
+say Q07
+setblock 0 4 7 dropper
+say Q08
+stats block 0 4 7 set QueryResult @e[type=zombie] obj
+say Q09
+stats entity @e[type=armor_stand] set SuccessCount @e[type=armor_stand] obj
+say Q10
+stats entity @e[type=armor_stand] set AffectedBlocks @e[type=armor_stand] obj
+say Q11
+stats entity @e[type=armor_stand] clear AffectedBlocks
+say Q12
+stats entity @e[type=armor_stand] set QueryResult Steve obj
+say Q13
+stats entity @e[type=armor_stand] set QueryResult @e[type=armor_stand]
+say Q14

@@ -1,0 +1,33 @@
+[Server] P01
+Object successfully summoned
+[Server] P02
+Usage: /stats entity <selector> <mode> ...
+[Server] P03
+Usage: /stats <entity|block> ...
+[Server] P04
+Usage: /stats entity <selector> set <stat> <selector> <objective>
+[Server] P05
+Usage: /stats entity <selector> set <stat> <selector> <objective>
+[Server] P06
+Usage: /stats entity <selector> set <stat> <selector> <objective>
+[Server] P07
+Invalid parameters
+[Server] P08
+Usage: /stats entity <selector> clear <stat>
+[Server] P09
+Invalid parameters
+[Server] P10
+Storing QueryResult stats in obj on @e[type=armor_stand]
+[Server] P11
+Cleared QueryResult stats
+[Server] P12
+Block placed
+[Server] P13
+Block at 0, 4, 0 can not track stats
+[Server] P14
+Block at 0, 4, 0 can not track stats
+[Server] P15
+'a' is not a valid number
+[Server] P16
+Usage: /stats block <x> <y> <z> set <stat> <selector> <objective>
+[Server] P17

@@ -1,0 +1,37 @@
+[Server] R01
+Object successfully summoned
+[Server] R02
+Storing SuccessCount stats in obj on @e[type=armor_stand]
+[Server] R03
+Storing AffectedBlocks stats in obj on @e[type=armor_stand]
+[Server] R04
+Storing AffectedEntities stats in obj on @e[type=armor_stand]
+[Server] R05
+Storing AffectedItems stats in obj on @e[type=armor_stand]
+[Server] R06
+Storing QueryResult stats in obj on @e[type=armor_stand]
+[Server] R07
+Cleared QueryResult stats
+[Server] R08
+Cleared SuccessCount stats
+[Server] R09
+Storing QueryResult stats in obj on Steve
+[Server] R10
+Usage: /stats entity <selector> set <stat> <selector> <objective>
+[Server] R11
+Block placed
+[Server] R12
+Block at 0, 4, 8 can not track stats
+[Server] R13
+Block placed
+[Server] R14
+Block at 0, 4, 9 can not track stats
+[Server] R15
+Block placed
+[Server] R16
+Block at 0, 4, 10 can not track stats
+[Server] R17
+Usage: /stats <entity|block> ...
+[Server] R18
+Block at 0, 4, 11 can not track stats
+[Server] R19

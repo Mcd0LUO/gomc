@@ -1,0 +1,56 @@
+# /stats 的最后一轮：目标存在时会怎样。
+#
+# 上一轮实测确定：
+#   - 列表选择器（@e / @a）匹配 0 个 -> 静默
+#   - 单个选择器（@p / @s）或玩家名解析不出 -> entity 的用法
+#   - 列表选择器匹配到实体 -> 继续按参数个数走
+#
+# 这一轮补齐"目标存在"的分支：
+#   - entity 形式在参数各种长度下的输出
+#   - stat 恰好是命令结果名时，entity 形式说什么
+#   - block 形式的坐标非法时说什么（已知：stat 映射优先于坐标解析）
+#   - 方块真的能统计时（箱子）说什么
+#
+# 2026-10-21 实测：
+#   - entity 形式在参数各种长度下的输出（缺 mode / 缺 stat / 缺 holder /
+#     缺 objective），每一种都有各自的用法行
+#   - stat 恰好是命令结果名时，entity 形式真的执行了：
+#     "Storing QueryResult stats in obj on @e[type=armor_stand]"
+#   - clear 形式 -> "Cleared QueryResult stats"
+#   - 坐标非法 -> "'a' is not a valid number"（在 stat 检查**之后**才报）
+#   - 方块即使换成箱子也还是 "can not track stats"
+
+--- console ---
+say P01
+summon armor_stand 0 4 0 {CustomName:"STATS_AS"}
+say P02
+stats entity @e[type=armor_stand]
+say P03
+stats entity @e[type=armor_stand] bogus
+say P04
+stats entity @e[type=armor_stand] set
+say P05
+stats entity @e[type=armor_stand] set stat.jump
+say P06
+stats entity @e[type=armor_stand] set stat.jump @e[type=armor_stand]
+say P07
+stats entity @e[type=armor_stand] set stat.jump @e[type=armor_stand] obj
+say P08
+stats entity @e[type=armor_stand] clear
+say P09
+stats entity @e[type=armor_stand] clear stat.jump
+say P10
+stats entity @e[type=armor_stand] set QueryResult @e[type=armor_stand] obj
+say P11
+stats entity @e[type=armor_stand] clear QueryResult
+say P12
+setblock 0 4 0 chest
+say P13
+stats block 0 4 0 set QueryResult @e[type=zombie] obj
+say P14
+stats block 0 4 0 clear QueryResult
+say P15
+stats block a b c set QueryResult @e[type=zombie] obj
+say P16
+stats block 0 4 0 set QueryResult
+say P17

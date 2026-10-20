@@ -187,7 +187,7 @@ func TestSelectorTeamFilter(t *testing.T) {
 	w := testWorld(t)
 	src := &Source{Name: "Server", World: "world", PermissionLevel: 4}
 	w.Scoreboard.AddTeam("red")
-	w.Scoreboard.AddTeamMember("red", "z1")
+	w.Scoreboard.AddTeamMember("red", ScoreboardHolder(w.Entities["z1"]))
 
 	got := resolve(t, w, src, "@e[team=red]")
 	if !sameSet(got, []string{"z1"}) {
@@ -233,7 +233,7 @@ func TestSelectorScoreFilter(t *testing.T) {
 	w := testWorld(t)
 	src := &Source{Name: "Server", World: "world", PermissionLevel: 4}
 	w.Scoreboard.AddObjective("kills", world.CriteriaDummy, "")
-	w.Scoreboard.SetScore("z1", "kills", 5)
+	w.Scoreboard.SetScore(ScoreboardHolder(w.Entities["z1"]), "kills", 5)
 
 	got := resolve(t, w, src, "@e[score_kills=5]")
 	if !sameSet(got, []string{"z1"}) {

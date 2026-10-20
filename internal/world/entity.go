@@ -1,6 +1,8 @@
 package world
 
 import (
+	"crypto/md5"
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -17,6 +19,12 @@ import (
 type Entity struct {
 	// ID is the entity's unique identifier.
 	ID string
+	// UUID is the entity's 1.12.2 unique id, the one the scoreboard
+	// tracks a non-player entity under.
+	//
+	// It is derived from the entity's internal id when it is not set, so
+	// that it stays the same from run to run. See EnsureUUID.
+	UUID string
 	// Type is the entity type, e.g. "zombie".
 	Type string
 	// Pos is the entity's position.
@@ -128,6 +136,39 @@ func (e *Entity) Clone() *Entity {
 	cp := *e
 	cp.NBT = e.NBT.Clone()
 	return &cp
+}
+
+// EnsureUUID returns the entity's UUID, deriving it when it has none.
+//
+// 1.12.2 gives every entity a random UUID (`Entity.bn()`), and the
+// scoreboard tracks a non-player entity under it. The runtime has to stay
+// deterministic -- the same function has to produce the same output every
+// time -- so the UUID is *derived* from the entity's internal id instead
+// of being drawn at random.
+//
+// The derivation is the one of `java.util.UUID.nameUUIDFromBytes`: the MD5
+// of the id, with the version and the variant bits set the way a random
+// (version 4) UUID has them. The text therefore has exactly the shape the
+// real server prints, and it is stable for the same entity.
+func (e *Entity) EnsureUUID() string {
+	if e.UUID == "" && e.ID != "" {
+		e.UUID = DeriveEntityUUID(e.ID)
+	}
+	return e.UUID
+}
+
+// DeriveEntityUUID derives the UUID of an entity from its internal id.
+//
+// The id is the only thing the derivation looks at, so two entities never
+// get the same UUID and the same entity always gets the same one.
+func DeriveEntityUUID(id string) string {
+	sum := md5.Sum([]byte("gomc:entity:" + id))
+	b := sum[:]
+	// The version and the variant bits of a version 4 UUID: the third
+	// group starts with a 4 and the fourth one with a 8, a 9, an a or a b.
+	b[6] = (b[6] & 0x0f) | 0x40
+	b[8] = (b[8] & 0x3f) | 0x80
+	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
 }
 
 // HasTag reports whether the entity carries tag.

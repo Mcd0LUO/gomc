@@ -1,0 +1,31 @@
+# /scoreboard players tag 的持有者解析。
+#
+# 2026-10-21 实测：add / remove 的持有者解析不出实体时报
+# "Entity 'Steve' cannot be found"。这一轮问两个还没测过的：
+#   - list 分支的持有者解析不出时说什么
+#   - remove 一个实体没有的标签时说什么
+#
+# 2026-10-21 实测：
+#   - list 分支的持有者解析不出时**也**报 "Entity 'Steve' cannot be found"
+#   - add / remove 同样报
+#   - 实体没有标签时，list 什么都不说
+#   - remove 一个实体没有的标签 -> "Entity didn't have the <标签> tag"
+
+--- console ---
+say S01
+scoreboard players tag Steve list
+say S02
+scoreboard players tag Steve add marked
+say S03
+scoreboard players tag Steve remove marked
+say S04
+summon armor_stand 0 4 0 {CustomName:"TAG_AS"}
+say S05
+scoreboard players tag @e[type=armor_stand] list
+say S06
+scoreboard players tag @e[type=armor_stand] remove nothere
+say S07
+scoreboard players tag @e[type=armor_stand] add marked
+say S08
+scoreboard players tag @e[type=armor_stand] list
+say S09

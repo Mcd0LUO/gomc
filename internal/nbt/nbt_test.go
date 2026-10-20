@@ -95,11 +95,29 @@ func TestMatchesSubsetSemantics(t *testing.T) {
 	}
 }
 
-func TestMatchesNumericWidths(t *testing.T) {
+// TestMatchesNumericTypes pins down that the type of a number is part of
+// its value.
+//
+// 1.12.2 compares the NBT with `NBTBase.equals`, which is exact: a stored
+// `20.0f` is not matched by a filter of `20`.
+//
+// (Measured on a real 1.12.2 server: `scoreboard players set <entity> t 7
+// {Health:20.0f}` succeeds while `{Health:20}` answers "The dataTag does not
+// match".)
+func TestMatchesNumericTypes(t *testing.T) {
 	subject, _ := ParseSNBT("{a:1}")
 	filter, _ := ParseSNBT("{a:1b}")
-	if !Matches(subject, filter) {
-		t.Error("expected numeric widths to be ignored when matching")
+	if Matches(subject, filter) {
+		t.Error("expected an int not to match a byte")
+	}
+	same, _ := ParseSNBT("{a:1}")
+	if !Matches(subject, same) {
+		t.Error("expected an int to match an int")
+	}
+	float, _ := ParseSNBT("{a:1.0f}")
+	other, _ := ParseSNBT("{a:1.0d}")
+	if Matches(float, other) {
+		t.Error("expected a float not to match a double")
 	}
 }
 

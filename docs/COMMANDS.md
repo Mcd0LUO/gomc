@@ -16,16 +16,17 @@
 - **专用服务器：64 条**（49 + 15）—— 测试 mcfunction 时面对的就是这张表。
 - **客户端：50 条**（49 + 1）—— 多出来的是 `publish`，它只存在于客户端。
 
-gomc 目前实现了 **46 条**（以专用服务器的 64 条为基准）。
+gomc 目前实现了 **50 条**（以专用服务器的 64 条为基准）。
 
 矩阵里的"1.12.2 语法"一栏是 1.12.2 **真实**的语法，不是 1.13+ 的。
 1.13 重写了命令系统，`execute`、`scoreboard`、`time`、`fill` 等命令的参数
 都变了，直接照搬现代 Wiki 会写出在 1.12.2 上根本跑不出来的函数。
 
-## 已实现（46 条）
+## 已实现（50 条）
 
 | 命令 | 1.12.2 语法 | 备注 |
 |---|---|---|
+| `advancement` | `/advancement <grant\|revoke\|test> <player> ...` | 进度取自服务端 jar 里的 `assets/minecraft/advancements/**`（488 条） |
 | `blockdata` | `/blockdata <x> <y> <z> <nbt>` | 合并进方块实体的 NBT |
 | `clear` | `/clear [<目标>] [<物品> [<数据值> [<最大数量>]] [<nbt>]]` | 目标缺省为执行者 |
 | `clone` | `/clone <x1> <y1> <z1> <x2> <y2> <z2> <x3> <y3> <z3> [<掩码>] [<克隆模式>]` | 掩码在第 10 位、克隆模式在第 11 位 |
@@ -49,6 +50,7 @@ gomc 目前实现了 **46 条**（以专用服务器的 64 条为基准）。
 | `playsound` | `/playsound <音效> <声音源> <目标> [<x> <y> <z>] [<音量>] [<音调>] [<最小音量>]` | **目标在声音源之后** |
 | `reload` | `/reload` | 清空注册表后重载，坏函数只记日志 |
 | `replaceitem` | `/replaceitem <entity\|block> ...` | 实体形式：`entity <目标> <槽位> <物品> [<数量>]` |
+| `recipe` | `/recipe <give\|take> [player] <name\|*>` | 1.12.2 的第二个参数**总是**玩家，缺第三个参数会崩成"unknown error" |
 | `say` | `/say <消息>` | 消息里的选择器会被解析 |
 | `scoreboard` | `/scoreboard <objectives\|players\|teams> ...` | 三棵子树 |
 | `seed` | `/seed` | |
@@ -56,6 +58,8 @@ gomc 目前实现了 **46 条**（以专用服务器的 64 条为基准）。
 | `setidletimeout` | `/setidletimeout <分钟>` | |
 | `setworldspawn` | `/setworldspawn [<x> <y> <z>]` | |
 | `spawnpoint` | `/spawnpoint [<目标>] [<x> <y> <z>]` | |
+| `spreadplayers` | `/spreadplayers <x> <z> <spreadDistance> <maxRange> <respectTeams true\|false> <player ...>` | 散布算法照搬 1.12.2 的松弛迭代，随机数用自实现的 splitmix64 保持确定性 |
+| `stats` | `/stats <entity\|block> ...` | **1.12.2 上这条命令是坏的**，gomc 复现的就是它的坏法 |
 | `stopsound` | `/stopsound <目标> [<声音源>] [<音效>]` | **目标在最前** |
 | `summon` | `/summon <实体> [<x> <y> <z>] [<nbt>]` | |
 | `teleport` | `/teleport <目标> <x> <y> <z>` | |
@@ -73,28 +77,24 @@ gomc 目前实现了 **46 条**（以专用服务器的 64 条为基准）。
 | `worldborder` | `/worldborder <set\|add\|center\|damage\|warning\|get> [...]` | |
 | `xp` | `/xp <数量> [<玩家>]` | 数量带 `L`/`l` 后缀表示经验等级 |
 
-## 未实现（19 条）
+## 未实现（15 条）
 
 分两类：**服务端管理类**对测试 mcfunction 没有意义，**内容类**需要本项目没有建模的
-注册表（配方、进度、数据结构）。
+注册表（数据结构、群系与结构）。
 
 | 命令 | 为什么不实现 |
 |---|---|
-| `advancement` | 需要进度注册表，本项目不建模进度 |
 | `ban` / `ban-ip` / `banlist` / `pardon` / `pardon-ip` | 服务端管理类 |
 | `deop` / `op` | 服务端管理类 |
 | `kick` | 服务端管理类 |
 | `locate` | 需要生物群系与结构注册表 |
 | `publish` | **客户端专用**——专用服务器上根本没有这条命令 |
-| `recipe` | 需要配方注册表 |
 | `save-all` / `save-off` / `save-on` | 服务端管理类 |
-| `spreadplayers` | 需要生物群系数据 |
-| `stats` | 需要统计注册表 |
 | `stop` | 服务端管理类 |
 | `whitelist` | 服务端管理类 |
 
-这 19 条里 `publish` 只在客户端存在，所以对**专用服务器**而言未实现的是 **18 条**；
-46 + 18 = 64，正好是专用服务器的命令总数。
+这 15 条里 `publish` 只在客户端存在，所以对**专用服务器**而言未实现的是 **14 条**；
+50 + 14 = 64，正好是专用服务器的命令总数。
 
 ## 与 1.12.2 的已知偏差
 
@@ -102,7 +102,7 @@ gomc 目前实现了 **46 条**（以专用服务器的 64 条为基准）。
 
 | 地方 | 1.12.2 | gomc | 为什么 |
 |---|---|---|---|
-| 实体标识 | 非玩家实体用 UUID 当计分板持有者 | 用 `entity-N` 这类内部 id | 本项目不建模 UUID |
+| 实体标识 | 玩家用玩家名，非玩家实体用 UUID | 同样：玩家用玩家名，非玩家实体用 UUID | UUID 的**值**不同——真服随机生成，gomc 从实体 id 确定性派生（见 SPEC 第 12 节） |
 | `/scoreboard players list` 的输出 | 发给玩家，不打到控制台 | 打到控制台 | 便于对拍 |
 | 函数内命令失败 | 有的报有的不报 | 统一报在 `error[Runtime]` | 便于定位 |
 | `sendCommandFeedback` gamerule | 控制命令回显 | 控制 CLI 的回显输出 | 便于对拍 |

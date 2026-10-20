@@ -12,6 +12,24 @@ import (
 	"github.com/Mcd0LUO/gomc/internal/world"
 )
 
+// isUsageMessage reports whether an error message is already the usage line
+// of a command.
+//
+// 1.12.2 answers a usage mistake with the usage line itself: sometimes
+// with the "Usage: " prefix of `commands.generic.usage`, sometimes as a
+// bare line. The error report of the runtime must not say it a second
+// time as its own "usage:" line.
+//
+// The bare form is recognised by its shape: a usage line starts with a
+// slash and spells out its arguments in angle brackets. No other message
+// of the runtime starts with a slash.
+func isUsageMessage(msg string) bool {
+	if strings.HasPrefix(msg, "Usage: ") {
+		return true
+	}
+	return strings.HasPrefix(msg, "/") && strings.Contains(msg, "<")
+}
+
 // Function is a loaded mcfunction.
 type Function struct {
 	// ID is the function's namespaced identifier, e.g. "ns:name".
@@ -366,7 +384,7 @@ func (e *Engine) ParseCommand(line string, lineNo int) (*ast.Command, error) {
 			if pe.Source == "" {
 				pe.Source = trimmed
 			}
-			if pe.Usage == "" {
+			if pe.Usage == "" && !isUsageMessage(pe.Msg) {
 				pe.Usage = handler.Usage()
 			}
 		}
@@ -405,7 +423,7 @@ func (e *Engine) Execute(cmd *ast.Command, src *Source) (int, error) {
 	if err != nil {
 		// The command failed while running; the usage of the command is
 		// still worth showing.
-		if ee, ok := err.(*Error); ok && ee.Usage == "" {
+		if ee, ok := err.(*Error); ok && ee.Usage == "" && !isUsageMessage(ee.Msg) {
 			ee.Usage = handler.Usage()
 		}
 		return 0, err

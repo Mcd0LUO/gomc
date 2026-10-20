@@ -167,13 +167,83 @@ func resolveTarget(ctx *exec.Context, arg ast.Arg, entityVariant bool) ([]*world
 		p := ctx.World.FindPlayer(t.Value)
 		if p == nil {
 			if entityVariant {
-				return nil, exec.Errorf("Entity '%s' cannot be found", t.Value)
+				// 1.12.2 resolves an entity target by its UUID as
+				// well: `CommandAbstract.c` looks the name up as a
+				// player first and then parses it as a UUID.
+				if e := entityByUUID(ctx, t.Value); e != nil {
+					return []*world.Entity{e}, nil
+				}
+				return nil, entityNotFoundError(t.Value)
 			}
 			return nil, exec.Errorf("Player '%s' cannot be found", t.Value)
 		}
 		return []*world.Entity{p}, nil
 	}
 	return nil, exec.Errorf("invalid target")
+}
+
+// entityByUUID returns the entity with the given UUID.
+//
+// 1.12.2 looks an entity up by its UUID in `CommandAbstract.c`, which is
+// how `scoreboard players tag <uuid> add x` and `kill <uuid>` find their
+// target. The runtime's entities carry a UUID derived from their internal
+// id, so the lookup compares against it.
+func entityByUUID(ctx *exec.Context, uuid string) *world.Entity {
+	if uuid == "" {
+		return nil
+	}
+	for _, e := range ctx.World.EntitySlice() {
+		if e.EnsureUUID() == uuid {
+			return e
+		}
+	}
+	return nil
+}
+
+// entityNotFoundError builds the error 1.12.2 answers an entity target it
+// cannot resolve with.
+//
+// A name that is written like a UUID but is not one is reported as a
+// malformed UUID: `CommandAbstract.c` parses the name with
+// `UUID.fromString`, and only a name that fails that parse *and* has the
+// five groups a UUID has is called out as malformed.
+//
+// (Measured: `scoreboard players set a-b-c-d-e ...` says "Entity
+// 'a-b-c-d-e' cannot be found", because every group of it is a hex number
+// and so it parses as a UUID -- one that no entity has.)
+func entityNotFoundError(name string) error {
+	if malformedUUID(name) {
+		return exec.Errorf("The entity UUID '%s' is in an invalid format", name)
+	}
+	return exec.Errorf("Entity '%s' cannot be found", name)
+}
+
+// malformedUUID reports whether a name is written like a UUID but cannot
+// be parsed as one.
+//
+// `java.util.UUID.fromString` is lenient: it wants five groups of hex
+// digits separated by dashes, and it does not look at how long they are.
+func malformedUUID(name string) bool {
+	groups := strings.Split(name, "-")
+	if len(groups) != 5 {
+		return false
+	}
+	for _, g := range groups {
+		if g == "" {
+			return true
+		}
+		for i := 0; i < len(g); i++ {
+			c := g[i]
+			switch {
+			case c >= '0' && c <= '9':
+			case c >= 'a' && c <= 'f':
+			case c >= 'A' && c <= 'F':
+			default:
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // selectorIsList reports whether a selector is a target list.

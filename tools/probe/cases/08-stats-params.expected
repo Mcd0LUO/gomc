@@ -1,0 +1,37 @@
+[Server] M01
+Usage: /stats <entity|block> ...
+[Server] M02
+Usage: /stats entity <selector> <mode> ...
+[Server] M03
+[Server] M04
+[Server] M05
+[Server] M06
+[Server] M07
+[Server] M08
+[Server] M09
+[Server] M10
+[Server] M11
+Usage: /stats block <x> <y> <z> <mode> ...
+[Server] M12
+Usage: /stats block <x> <y> <z> <mode> ...
+[Server] M13
+Usage: /stats block <x> <y> <z> set <stat> <selector> <objective>
+[Server] M14
+Usage: /stats block <x> <y> <z> set <stat> <selector> <objective>
+[Server] M15
+Usage: /stats block <x> <y> <z> set <stat> <selector> <objective>
+[Server] M16
+Invalid parameters
+[Server] M17
+Usage: /stats block <x> <y> <z> clear <stat>
+[Server] M18
+Invalid parameters
+[Server] M19
+Usage: /stats <entity|block> ...
+[Server] M20
+Usage: /stats <entity|block> ...
+[Server] M21
+[Server] M22
+[Server] M23
+Block at 0, 4, 0 can not track stats
+[Server] M24

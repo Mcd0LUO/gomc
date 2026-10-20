@@ -1,0 +1,59 @@
+# /stats 的最后一轮：五种命令结果名的区别，和哪些方块能统计。
+#
+# 上一轮的疏漏：忘了 summon 盔甲架，所以那几条 entity 命令全都因为
+# "列表选择器匹配 0 个"而静默，什么都没测出来。这一轮补上。
+#
+# 要弄清两件事：
+#   1. 五个命令结果名（SuccessCount / AffectedBlocks / AffectedEntities /
+#      AffectedItems / QueryResult）在 entity 形式下分别是什么行为——
+#      上一轮只有 QueryResult 真的说话了。
+#   2. 哪些方块"能统计"。箱子、漏斗、投掷器都说了 "can not track stats"，
+#      这一轮试熔炉、酿造台、信标。
+#
+# 2026-10-21 实测：
+#   - 五个命令结果名（SuccessCount / AffectedBlocks / AffectedEntities /
+#     AffectedItems / QueryResult）在 entity 形式下**行为一样**：
+#     "Storing <名字> stats in <目标> on <持有者>"
+#   - clear 形式 -> "Cleared <名字> stats"
+#   - 持有者**根本不解析**：给一个不存在的玩家名，它照样回显出来
+#   - 缺 objective -> entity.set 的用法
+#   - 熔炉、酿造台、信标**也**是 "can not track stats"：1.12.2 没有方块统计
+
+--- console ---
+say R01
+summon armor_stand 0 4 0 {CustomName:"STATS_AS"}
+say R02
+stats entity @e[type=armor_stand] set SuccessCount @e[type=armor_stand] obj
+say R03
+stats entity @e[type=armor_stand] set AffectedBlocks @e[type=armor_stand] obj
+say R04
+stats entity @e[type=armor_stand] set AffectedEntities @e[type=armor_stand] obj
+say R05
+stats entity @e[type=armor_stand] set AffectedItems @e[type=armor_stand] obj
+say R06
+stats entity @e[type=armor_stand] set QueryResult @e[type=armor_stand] obj
+say R07
+stats entity @e[type=armor_stand] clear QueryResult
+say R08
+stats entity @e[type=armor_stand] clear SuccessCount
+say R09
+stats entity @e[type=armor_stand] set QueryResult Steve obj
+say R10
+stats entity @e[type=armor_stand] set QueryResult @e[type=armor_stand]
+say R11
+setblock 0 4 8 furnace
+say R12
+stats block 0 4 8 set QueryResult @e[type=zombie] obj
+say R13
+setblock 0 4 9 brewing_stand
+say R14
+stats block 0 4 9 set QueryResult @e[type=zombie] obj
+say R15
+setblock 0 4 10 beacon
+say R16
+stats block 0 4 10 set QueryResult @e[type=zombie] obj
+say R17
+stats block 0 4 11 furnace
+say R18
+stats block 0 4 11 clear QueryResult
+say R19
