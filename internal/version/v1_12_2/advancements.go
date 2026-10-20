@@ -2,6 +2,8 @@ package v1_12_2
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
 	"sync"
 
@@ -2080,6 +2082,9 @@ type advancement struct {
 	groups [][]string
 	// recipe is the recipe the advancement watches, if it watches one.
 	recipe *advancementRecipe
+	// experience is the experience the advancement hands out when it is
+	// completed. It is zero for the advancements without such a reward.
+	experience int
 }
 
 // advancementRecipe is the recipe side of an advancement.
@@ -2127,11 +2132,12 @@ func newAdvancementSet(root string, custom []*advancement) *advancementSet {
 	for i := range advancementRegistry {
 		def := &advancementRegistry[i]
 		builtIn = append(builtIn, &advancement{
-			name:     def.name,
-			parent:   def.parent,
-			criteria: def.criteria,
-			groups:   def.requirementGroups(),
-			recipe:   builtInAdvancementRecipe(def.name),
+			name:       def.name,
+			parent:     def.parent,
+			criteria:   def.criteria,
+			groups:     def.requirementGroups(),
+			recipe:     builtInAdvancementRecipe(def.name),
+			experience: builtInAdvancementExperience[def.name],
 		})
 	}
 	s := &advancementSet{
@@ -2261,20 +2267,78 @@ func (a *advancement) hasCriterion(name string) bool {
 // advancementStore holds the advancement progress of the players of one
 // world.
 //
-// 1.12.2 keeps the progress of a player in
-// `playerdata/<uuid>.advancements.json`. The world state of gomc lives in
-// package world, which has no room for it, so the command layer keeps it
-// here.
+// 1.12.2 keeps the progress of a player in `advancements/<uuid>.json`, in
+// the directory of the world. The world state of gomc lives in package
+// world, which has no room for it, so the command layer keeps it here.
 type advancementStore struct {
 	mu sync.Mutex
+	// root is the world directory the progress is read from and written
+	// to. It is empty when the runtime has no world directory.
+	root string
 	// players holds the criteria every player has completed, keyed by the
 	// player name and then by the advancement name.
 	players map[string]map[string]map[string]bool
+	// loaded holds the progress that was read from the world directory,
+	// keyed by the uuid of the file it came from.
+	loaded map[string]map[string]map[string]bool
+	// attached holds the players whose progress was already taken out of
+	// "loaded".
+	attached map[string]bool
+	// dirty holds the players whose progress changed since the last save.
+	dirty map[string]bool
+	// loadErrs holds the problems of the read of the world directory.
+	loadErrs []error
+	// reported tells whether the problems were already put in the log.
+	reported bool
 }
 
-// newAdvancementStore returns an empty store.
-func newAdvancementStore() *advancementStore {
-	return &advancementStore{players: map[string]map[string]map[string]bool{}}
+// newAdvancementStore returns the store of a world.
+//
+// The progress the world directory holds is read right away: the server
+// reads the progress of a player when the player joins, and gomc reads it
+// the first time the advancements of the world are needed.
+func newAdvancementStore(root string) *advancementStore {
+	loaded, errs := readAdvancementProgress(root)
+	return &advancementStore{
+		root:     root,
+		players:  map[string]map[string]map[string]bool{},
+		loaded:   loaded,
+		attached: map[string]bool{},
+		dirty:    map[string]bool{},
+		loadErrs: errs,
+	}
+}
+
+// attachLocked takes the progress of a player out of the files of the
+// world.
+//
+// The files are named after the uuid of a player, and gomc derives that
+// uuid from the name of the player, so the file of a player is found the
+// first time the player is asked about.
+//
+// The caller holds the lock.
+func (s *advancementStore) attachLocked(player string) {
+	if s.attached[player] {
+		return
+	}
+	s.attached[player] = true
+	file, ok := s.loaded[world.DeriveEntityUUID(player)]
+	if !ok {
+		return
+	}
+	for advancement, criteria := range file {
+		byAdvancement := s.players[player]
+		if byAdvancement == nil {
+			byAdvancement = map[string]map[string]bool{}
+			s.players[player] = byAdvancement
+		}
+		if byAdvancement[advancement] == nil {
+			byAdvancement[advancement] = map[string]bool{}
+		}
+		for criterion, done := range criteria {
+			byAdvancement[advancement][criterion] = done
+		}
+	}
 }
 
 // obtained returns the criteria the player has completed in the
@@ -2282,6 +2346,7 @@ func newAdvancementStore() *advancementStore {
 func (s *advancementStore) obtained(player, advancement string) map[string]bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.attachLocked(player)
 	out := map[string]bool{}
 	for criterion, done := range s.players[player][advancement] {
 		if done {
@@ -2299,6 +2364,7 @@ func (s *advancementStore) obtained(player, advancement string) map[string]bool 
 func (s *advancementStore) grant(player, advancement, criterion string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.attachLocked(player)
 	byAdvancement := s.players[player]
 	if byAdvancement == nil {
 		byAdvancement = map[string]map[string]bool{}
@@ -2313,6 +2379,7 @@ func (s *advancementStore) grant(player, advancement, criterion string) bool {
 		return false
 	}
 	criteria[criterion] = true
+	s.dirty[player] = true
 	return true
 }
 
@@ -2323,12 +2390,54 @@ func (s *advancementStore) grant(player, advancement, criterion string) bool {
 func (s *advancementStore) revoke(player, advancement, criterion string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.attachLocked(player)
 	criteria := s.players[player][advancement]
 	if criteria == nil || !criteria[criterion] {
 		return false
 	}
 	delete(criteria, criterion)
+	s.dirty[player] = true
 	return true
+}
+
+// save writes the progress of a player to the world directory.
+//
+// The file is written when the progress changed. A file that cannot be
+// written is reported and the progress stays in memory: the server logs
+// the problem and keeps running as well.
+func (s *advancementStore) save(set *advancementSet, player string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.dirty[player] {
+		return nil
+	}
+	s.dirty[player] = false
+	if s.root == "" {
+		return nil
+	}
+	path := advancementProgressPath(s.root, player)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("couldn't save the advancements of %s to %s: %w", player, path, err)
+	}
+	if err := writeAdvancementProgress(path, set, s.players[player]); err != nil {
+		return fmt.Errorf("couldn't save the advancements of %s to %s: %w", player, path, err)
+	}
+	return nil
+}
+
+// takeLoadErrors returns the problems of the read of the world directory.
+//
+// They are returned once: the server reports them when it reads the
+// progress of a player, and gomc reports them the first time the
+// advancements of the world are needed.
+func (s *advancementStore) takeLoadErrors() []error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.reported {
+		return nil
+	}
+	s.reported = true
+	return s.loadErrs
 }
 
 // advancementStores holds the advancement state of every world.
@@ -2339,12 +2448,19 @@ func (s *advancementStore) revoke(player, advancement, criterion string) bool {
 var advancementStores sync.Map
 
 // advancementStoreOf returns the advancement state of a world.
-func advancementStoreOf(w *world.World) *advancementStore {
+//
+// The progress of the players is read from the world directory the first
+// time the state is needed.
+func advancementStoreOf(w *world.World, root string) *advancementStore {
 	if v, ok := advancementStores.Load(w); ok {
-		return v.(*advancementStore)
+		store := v.(*advancementStore)
+		if store.root == root {
+			return store
+		}
 	}
-	v, _ := advancementStores.LoadOrStore(w, newAdvancementStore())
-	return v.(*advancementStore)
+	store := newAdvancementStore(root)
+	advancementStores.Store(w, store)
+	return store
 }
 
 // advancementUsageError builds the error 1.12.2 answers a syntax mistake

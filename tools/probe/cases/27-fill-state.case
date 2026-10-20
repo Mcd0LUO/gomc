@@ -1,0 +1,34 @@
+# /fill 第 8 位的 blockstate 写法在 1.12.2 上到底认什么。
+#
+# 1.12.2 的 CommandBase.a(Block, String) 在数据值读不成整数时走
+# CommandBase.c(Block, String)：按 ',' 拆、按 '=' 拆，查该方块的
+# BlockStateList（状态名 -> 值名）。查不到就是
+# "'%s' is not a state for block %s"。
+#
+# 覆盖：
+#   - 1.12.2 的变体名（granite）和 1.13 的变体名（chiseled）
+#   - 状态名大小写（default / DEFAULT）
+#   - 别的方块的状态名（wool 的 color）
+#   - 放完之后方块的数据值（用 testforblock 反查）
+
+--- console ---
+say N01
+fill 2 4 2 3 4 3 stone variant=granite
+say N02
+testforblock 2 4 2 stone 0
+say N03
+fill 4 4 4 5 4 5 stone variant=bogus
+say N04
+fill 6 4 6 7 4 7 stone DEFAULT
+say N05
+fill 8 4 8 9 4 9 wool color=red
+say N06
+testforblock 8 4 8 wool 14
+say N07
+fill 10 4 10 11 4 11 stone variant=granite,variant=stone
+say N08
+fill 12 4 12 13 4 13 stone default,default
+say N09
+fill 14 4 14 15 4 15 stone variant=granite=1
+say N10
+say N11

@@ -1,0 +1,33 @@
+# 名字的边角：
+#   * 药水这一家（potion / splash_potion / lingering_potion / tipped_arrow）
+#     的名字不跟数据值走，��是跟物品堆的 NBT 走。
+#   * 数据值大于 15 的时候，名字跟哪边走。
+#
+# 2026-10-21 真服实测（协议机器人在线，探针 -Bot Steve）。
+
+--- console ---
+say Z01
+give Steve minecraft:splash_potion 1
+say Z02
+give Steve minecraft:lingering_potion 1
+say Z03
+give Steve minecraft:tipped_arrow 1
+say Z04
+give Steve minecraft:dye 1 16
+say Z05
+give Steve minecraft:wool 1 16
+say Z06
+give Steve minecraft:bed 1 16
+say Z07
+give Steve minecraft:banner 1 16
+say Z08
+give Steve minecraft:skull 1 16
+say Z09
+give Steve minecraft:dye 1 100
+say Z10
+give Steve minecraft:wool 1 100
+say Z11
+give Steve minecraft:stone 1 1
+say Z12
+give Steve minecraft:dye 1 2
+say Z13

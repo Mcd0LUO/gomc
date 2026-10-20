@@ -1,0 +1,14 @@
+# 药水这一家在数据值超出 0..15 的时候显示什么。
+#
+# 2026-10-21 真服实测（协议机器人在线，探针 -Bot Steve）。
+
+--- console ---
+say R01
+give Steve minecraft:potion 1 16
+say R02
+give Steve minecraft:potion 1 100
+say R03
+give Steve minecraft:splash_potion 1 16
+say R04
+give Steve minecraft:tipped_arrow 1 16
+say R05

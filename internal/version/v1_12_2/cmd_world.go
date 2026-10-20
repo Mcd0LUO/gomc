@@ -35,14 +35,17 @@ func (c *setBlockCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 		return nil, err
 	}
 	ref := &ast.BlockRef{Name: block, Data: -1}
+	// The fifth argument is the data value. 1.12.2 reads it when the
+	// command runs and reads it **strictly**: the slot only takes a number,
+	// so a word like "keep" is a broken data value there and not a mode.
+	//
+	// (Measured on a real 1.12.2 server: `setblock 2 4 2 stone keep` answers
+	// "'keep' is not a state for block minecraft:stone", while
+	// `setblock 4 4 4 stone 0 keep` places the block.)
+	dataValue := &fillDataValue{Kind: fillDataValueAbsent}
 	if p.More() {
-		// The next argument is either a data value or a replace mode.
-		if t, ok := p.Peek(); ok && isDataValue(t.Text) {
-			p.Next()
-			n, _ := strconv.Atoi(t.Text)
-			ref.Data = n
-			ref.HasData = true
-		}
+		t, _ := p.Next()
+		dataValue = parseFillDataValue(t.Text)
 	}
 	mode := "replace"
 	if p.More() {
@@ -70,6 +73,7 @@ func (c *setBlockCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 		&ast.Coord{X: pos.X, Y: pos.Y, Z: pos.Z,
 			RelativeX: pos.RelativeX, RelativeY: pos.RelativeY, RelativeZ: pos.RelativeZ},
 		ref,
+		dataValue,
 		&ast.StringArg{Value: mode},
 		&ast.StringArg{Value: text},
 	}, nil
@@ -93,14 +97,21 @@ func (c *setBlockCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	posArg := args[0].(*ast.Coord)
 	pos := resolveRelative(*posArg, ctx.Source.Pos).BlockPos()
 	ref := args[1].(*ast.BlockRef)
-	mode := args[2].(*ast.StringArg).Value
+	mode := args[3].(*ast.StringArg).Value
 	var data *nbt.Compound
-	if text := args[3].(*ast.StringArg).Value; text != "" {
+	if text := args[4].(*ast.StringArg).Value; text != "" {
 		parsed, err := parseDataTagArg(text)
 		if err != nil {
 			return 0, err
 		}
 		data = parsed
+	}
+
+	// 1.12.2 reads the data value before it places the block, and before it
+	// looks at the dataTag, so a broken data value is reported first.
+	dataValue := args[2].(*fillDataValue)
+	if err := dataValue.err(fillBlockName(ref.Name)); err != nil {
+		return 0, err
 	}
 
 	switch mode {
@@ -117,10 +128,7 @@ func (c *setBlockCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		}
 	}
 
-	blockData := ref.Data
-	if blockData < 0 {
-		blockData = 0
-	}
+	blockData := dataValue.data()
 	ctx.World.Blocks.Set(pos, world.BlockState{Name: ref.Name, Data: blockData})
 	if data != nil {
 		existing := ctx.World.Blocks.TileEntity(pos)
@@ -140,6 +148,11 @@ func (c *setBlockCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 // [dataValue|state] [oldBlockHandling] [dataTag]`: the data value is the
 // eighth argument, the mode the ninth and the tenth is the data tag of
 // the block.
+//
+// The eighth argument is read strictly: as soon as there is an argument
+// after the block, that argument is the data value. It is not a mode, so
+// `fill ... stone replace` does not fill in `replace` mode, it fails on
+// the data value.
 //
 // The tenth argument is also where the block to replace goes in `replace`
 // mode, and the eleventh is that block's data value. 1.12.2 tells the two
@@ -173,16 +186,15 @@ func (c *fillCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 		return nil, err
 	}
 	ref := &ast.BlockRef{Name: block, Data: -1}
+	// The eighth argument is the data value of the block. 1.12.2 reads it
+	// when the command runs and reads it strictly: the slot only takes a
+	// number, so a word like "replace" is a broken data value there and
+	// not a mode. The slot is classified here and the failure is
+	// reported when the command runs.
+	dataValue := &fillDataValue{Kind: fillDataValueAbsent}
 	if p.More() {
-		// The data value is the eighth argument. 1.12.2 reads that slot
-		// strictly, but the mode is accepted there as well, which is the
-		// form most functions use.
-		if t, ok := p.Peek(); ok && isFillDataValue(t.Text) {
-			p.Next()
-			n, _ := strconv.Atoi(t.Text)
-			ref.Data = n
-			ref.HasData = true
-		}
+		t, _ := p.Next()
+		dataValue = parseFillDataValue(t.Text)
 	}
 	mode := "replace"
 	if p.More() {
@@ -227,35 +239,12 @@ func (c *fillCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 		&ast.Coord{X: to.X, Y: to.Y, Z: to.Z,
 			RelativeX: to.RelativeX, RelativeY: to.RelativeY, RelativeZ: to.RelativeZ},
 		ref,
+		dataValue,
 		&ast.StringArg{Value: mode},
 		&ast.StringArg{Value: replaceBlock},
 		&ast.StringArg{Value: replaceData},
 		&ast.StringArg{Value: text},
 	}, nil
-}
-
-// isFillDataValue reports whether text is a block data value.
-//
-// A data value is a number, and 1.12.2 refuses the negative ones with
-// "The number you have entered (-1) is too small, it must be at least 0",
-// so they are read as a data value here as well.
-func isFillDataValue(text string) bool {
-	if text == "" {
-		return false
-	}
-	i := 0
-	if text[0] == '-' {
-		i = 1
-		if len(text) == 1 {
-			return false
-		}
-	}
-	for ; i < len(text); i++ {
-		if text[i] < '0' || text[i] > '9' {
-			return false
-		}
-	}
-	return true
 }
 
 // nbtErrorMessage returns the message of a parse error without the
@@ -272,11 +261,18 @@ func (c *fillCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	from := resolveRelative(*args[0].(*ast.Coord), ctx.Source.Pos).BlockPos()
 	to := resolveRelative(*args[1].(*ast.Coord), ctx.Source.Pos).BlockPos()
 	ref := args[2].(*ast.BlockRef)
-	mode := args[3].(*ast.StringArg).Value
-	replaceBlock := args[4].(*ast.StringArg).Value
-	replaceData := args[5].(*ast.StringArg).Value
+	dataValue := args[3].(*fillDataValue)
+	mode := args[4].(*ast.StringArg).Value
+	replaceBlock := args[5].(*ast.StringArg).Value
+	replaceData := args[6].(*ast.StringArg).Value
+	// 1.12.2 reads the data value before it fills the region, and before
+	// it looks at the dataTag, so a broken data value is reported first.
+	if err := dataValue.err(fillBlockName(ref.Name)); err != nil {
+		return 0, err
+	}
+	blockData := dataValue.data()
 	var data *nbt.Compound
-	if text := args[6].(*ast.StringArg).Value; text != "" {
+	if text := args[7].(*ast.StringArg).Value; text != "" {
 		parsed, err := parseDataTagArg(text)
 		if err != nil {
 			return 0, err
@@ -292,16 +288,6 @@ func (c *fillCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		mode = "replace"
 	}
 
-	blockData := ref.Data
-	if ref.HasData && blockData < 0 {
-		return 0, exec.Errorf("The number you have entered (%d) is too small, it must be at least 0", blockData)
-	}
-	if blockData < 0 {
-		blockData = 0
-	}
-	if blockData > 15 {
-		return 0, exec.Errorf("The number you have entered (%d) is too big, it must be at most 15", blockData)
-	}
 	// The data value of the block to replace may be "-1" or "*", which
 	// mean that any data value matches.
 	replaceValue := -1

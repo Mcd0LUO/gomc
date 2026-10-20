@@ -1,0 +1,57 @@
+# 药水的名字跟数据值怎么走。
+#
+# 真服上 /give 的物品堆带 NBT，NBT 里的效果由数据值决定；数据值超出
+# 0..15 的时候走的是另一条路。
+#
+# 2026-10-21 真服实测（协议机器人在线，探针 -Bot Steve）：
+#   give Steve minecraft:potion 1 0   -> Given [Water Bottle] * 1 to Steve
+#   give Steve minecraft:potion 1 1   -> Given [Potion of Regeneration] * 1 to Steve
+#   give Steve minecraft:potion 1 5   -> Given [Potion of Healing] * 1 to Steve
+#   give Steve minecraft:potion 1 16  -> Given [Awkward Potion] * 1 to Steve
+#   give Steve minecraft:potion 1 17  -> Given [Potion of Regeneration] * 1 to Steve
+#   give Steve minecraft:potion 1 20  -> Given [Potion of Poison] * 1 to Steve
+#   give Steve minecraft:potion 1 32  -> Given [Thick Potion] * 1 to Steve
+#   give Steve minecraft:potion 1 48  -> Given [Water Bottle] * 1 to Steve
+#   give Steve minecraft:potion 1 64  -> Given [Mundane Potion] * 1 to Steve
+#   give Steve minecraft:potion 1 80  -> Given [Awkward Potion] * 1 to Steve
+#   give Steve minecraft:potion 1 96  -> Given [Thick Potion] * 1 to Steve
+#   give Steve minecraft:potion 1 100 -> Given [Potion of Poison] * 1 to Steve
+#   give Steve minecraft:potion 1 128 -> Given [Water Bottle] * 1 to Steve
+#   give Steve minecraft:potion 1 255 -> Given [Water Bottle] * 1 to Steve
+
+--- console ---
+say W01
+give Steve minecraft:potion 1 16
+say W02
+give Steve minecraft:potion 1 17
+say W03
+give Steve minecraft:potion 1 18
+say W04
+give Steve minecraft:potion 1 19
+say W05
+give Steve minecraft:potion 1 20
+say W06
+give Steve minecraft:potion 1 32
+say W07
+give Steve minecraft:potion 1 33
+say W08
+give Steve minecraft:potion 1 48
+say W09
+give Steve minecraft:potion 1 49
+say W10
+give Steve minecraft:potion 1 64
+say W11
+give Steve minecraft:potion 1 80
+say W12
+give Steve minecraft:potion 1 96
+say W13
+give Steve minecraft:potion 1 100
+say W14
+give Steve minecraft:potion 1 128
+say W15
+give Steve minecraft:potion 1 255
+say W16
+give Steve minecraft:splash_potion 1 16
+say W17
+give Steve minecraft:tipped_arrow 1 16
+say W18

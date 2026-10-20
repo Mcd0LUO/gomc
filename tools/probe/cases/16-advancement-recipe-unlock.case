@@ -69,3 +69,5 @@ advancement test Steve minecraft:recipes/redstone/redstone has_the_recipe
 say M27
 advancement test Steve minecraft:recipes/redstone/redstone has_redstone_block
 say M28
+
+# bot: Steve

@@ -1,0 +1,16 @@
+[Server] M00
+Added new objective 't' successfully
+Object successfully summoned
+[Server] M01
+Could not parse dataTag, reason: Expected '{' but got '"' at: "<--[HERE]
+[Server] M02
+Could not parse dataTag, reason: Expected '}' but got '"' at: {a:1 "<--[HERE]
+[Server] M03
+Data tag parsing failed: Expected '}' but got '"' at: {a:1 "<--[HERE]
+[Server] M04
+Data tag parsing failed: Expected '}' but got 'c' at: {a:"b" c<--[HERE]
+[Server] M05
+Data tag parsing failed: Expected '}' but got 'b' at: {a:1 b<--[HERE]
+[Server] M06
+Data tag parsing failed: Expected '}' but got 'b' at: {a:1 b<--[HERE]
+[Server] M07

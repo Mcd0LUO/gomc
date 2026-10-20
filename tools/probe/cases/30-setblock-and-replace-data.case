@@ -1,0 +1,25 @@
+# 收尾：
+#   - /setblock 的数据值槽是不是同样严格（第 5 位）
+#   - /fill 第 11 位（替换方块的数据值）读不成数字时报什么
+#
+# 只做对照用，不改 gomc。
+
+--- console ---
+say U01
+setblock 2 4 2 stone keep
+say U02
+setblock 4 4 4 stone 0 keep
+say U03
+setblock 6 4 6 stone
+say U04
+setblock 8 4 8 stone replace
+say U05
+fill 20 4 20 21 4 21 stone 1
+say U06
+fill 20 4 20 21 4 21 stone 0 replace stone abc
+say U07
+fill 22 4 22 23 4 23 stone 1
+say U08
+fill 22 4 22 23 4 23 stone 0 replace stone abc
+say U09
+say U10

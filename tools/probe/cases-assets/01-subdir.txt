@@ -1,0 +1,19 @@
+# 配方的键：assets 根里的子目录怎么变成配方名。
+# 期望：aaa_first -> Block of Diamond；sub/inner -> Block of Gold；
+#       sub/deep/deeper -> Emerald Block；zzz_last -> Block of Iron；
+#       jar 自带的 stone_slab 在自己的 assets 根里，所以这里是 unknown。
+say M1
+recipe give Steve aaa_first
+say M2
+recipe give Steve sub/inner
+say M3
+recipe give Steve minecraft:sub/inner
+say M4
+recipe give Steve sub/deep/deeper
+say M5
+recipe give Steve zzz_last
+say M6
+recipe give Steve stone_slab
+say M7
+recipe give Steve sub
+say M8

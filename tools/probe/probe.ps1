@@ -470,6 +470,8 @@ try {
 			-ArgumentList @($BotScript, '127.0.0.1', $Port, $Bot, '300') `
 			-NoNewWindow -PassThru `
 			-RedirectStandardOutput $botLog -RedirectStandardError "$botLog.err"
+		# 机器人也要在收尾时收掉——探针被中断时它会留下来。
+		$script:StartedProcs += $botProc
 		# 等它登录完：登录之后服务端才认这个玩家。
 		$deadline = (Get-Date).AddSeconds(30)
 		while ((Get-Date) -lt $deadline) {

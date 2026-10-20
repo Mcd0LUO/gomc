@@ -710,11 +710,24 @@ fill <x1> <y1> <z1> <x2> <y2> <z2> <方块> [<数据值>] [<模式> [<替换方�
 **只有这五个词特殊，其它词一律当 `replace`**——真服不对模式位报错。
 （真服的位置是严格按位数的：`stone replace` 在真服上会被当成"数据值"，
 而数据值只接受 0..15，所以报 "'replace' is not a state for block minecraft:stone"。
-gomc 更宽松，两种写法都收。）
+**gomc 现在也这样了**——见 6.4。）
+
+> "is not a state for block" 这句是**原版 1.12.2** 的措辞，不是 Paper 加的：
+> vanilla 的 `en_US.lang` 里有 `commands.generic.blockstate.invalid`，vanilla 的
+> `CommandBase`（混淆名 `bi`）里也握着这个字符串。
 
 **第 10 位有两种身份**（真服 `CommandFill`）：放置的方块**有方块实体**时它是
 **dataTag**（NBT），否则它是**要替换的方块**。gomc 没有方块实体注册表，
 用形状判断：`{...}` 开头当 NBT，否则当方块名。
+
+> 真服实测（2026-10-21）：`fill 4 4 4 5 4 5 stone 0 replace {Tags:` 报的是
+> `There is no such block with name {tags:`——那一格是**替换方块**，不是 dataTag，
+> 因为石头没有方块实体。`fill … chest 0 {Items:[]}` 则是 dataTag（箱子有方块实体），
+> 正常填充。
+
+**第 11 位**是**替换方块的数据值**，报错时说的是**替换方块**的注册名
+（`fill … stone 0 replace stone abc` → `'abc' is not a state for block
+minecraft:stone`），不是放置的那个方块。
 
 **`-1` / `*`（"任意数据值"）只对第 11 位的替换数据值有效**，
 放置方块自己的数据值（第 8 位）只接受 0..15。
@@ -738,6 +751,65 @@ particle <名称> <x> <y> <z> <dx> <dy> <dz> <速度> [<数量>] [<模式>] [<�
 - **`/trigger` 的 `set` 是赋值不是累加**（gomc 之前一律当加法）。
   真服只有**创造模式**才发成功消息，gomc 一律发。
 - **`/particle` 的模式从不校验**：只有字面量 `force` 特殊，其它词当 normal。
+
+### 6.4 `/fill` 的数据值 [验][读]
+
+1.12.2 的 `/fill` 语法是：
+
+```
+/fill <x1> <y1> <z1> <x2> <y2> <z2> <方块> [<数据值>] [<模式> [<dataTag> 或 <替换方块> [<替换数据值>]]]
+```
+
+**方块之后只要还有参数，那一个一定是数据值**——读不成数据值就报错，**不会**
+被当成模式。真服实测（2026-10-21）：
+
+| 命令 | 真服输出 |
+|---|---|
+| `fill 2 4 2 3 4 3 stone {Tags:` | `'{Tags:' is not a state for block minecraft:stone` |
+| `fill 6 4 6 7 4 7 stone replace {Tags:` | `'replace' is not a state for block minecraft:stone` |
+| `fill … stone abc` | `'abc' is not a state for block minecraft:stone` |
+| `fill … stone -1` | `The number you have entered (-1) is too small, it must be at least 0` |
+| `fill … stone 16` | `The number you have entered (16) is too big, it must be at most 15` |
+| `fill … stone default` | 正常填充（默认状态） |
+| `fill … stone variant=granite` | 正常填充（花岗岩，数据值 1） |
+
+**数据值有三种写法**（`CommandBase.a(Block, String)` 的分类）：
+
+| 写法 | 是什么 |
+|---|---|
+| 十进制数字，0..15 | 旧式数据值 |
+| `default` | 方块的默认状态（数据值 0） |
+| 其它 | **方块状态字符串**（`name=value` 的列表） |
+
+**已知偏差**：gomc **没有方块状态**，所以第三种写法一律拒绝
+（`'<原文>' is not a state for block <方块名>`）。真服接受它——`variant=granite`
+就是 1.12 放花岗岩的常用写法。gomc 里可以用旧式数字代替（`stone 1` 就是
+花岗岩）。要补齐这张表，得给 254 个方块各记一份"变种名 → 数据值"的列表。
+
+**措辞里的方块名**是注册表里的键（`minecraft:stone`），不是写出来的原文
+（`stone`、`STONE`、`minecraft:stone` 都显示成 `minecraft:stone`）。
+
+### 6.5 `/setblock` 的数据值 [验][读]
+
+`/setblock` 的**第 5 个参数**是数据值，而且和 `/fill` 一样**严格**：
+
+```
+/setblock <x> <y> <z> <方块> [<数据值>] [<模式>] [<nbt>]
+```
+
+真服实测（2026-10-21）：
+
+| 命令 | 真服输出 |
+|---|---|
+| `setblock 2 4 2 stone keep` | `'keep' is not a state for block minecraft:stone` |
+| `setblock 4 4 4 stone 0 keep` | `Block placed` |
+
+也就是说**模式必须写在数据值之后**：`setblock x y z dirt 0 keep` 才是"放泥土、
+保留模式"。`setblock x y z dirt keep` 在真服上是**错的**——`keep` 落在数据值那一格，
+而那一格只收数字。
+
+**gomc 之前把第 5 个参数"是数字就当数据值、否则当模式"**，所以
+`setblock x y z dirt keep` 在 gomc 上能跑、在真服上跑不了。现在改成一致。
 
 ---
 
@@ -841,7 +913,7 @@ say @a（无匹配） → Selector '@a' found nothing
 |---|---|
 | `summon` | `Object successfully summoned` |
 | `kill` | `Killed <实体名>` |
-| `give` | `Given <物品> * <数量> to <玩家名>` |
+| `give` | `Given [<显示名>] * <数量> to <玩家名>`（**显示名外面套方括号**，见 10.1） |
 | `setblock` | `Block placed` |
 | `fill` | `<n> blocks filled` |
 | `clone` | `<n> blocks cloned` |
@@ -868,6 +940,38 @@ say @a（无匹配） → Selector '@a' found nothing
 不是注册名（`armor_stand`）——见 3.9。`function` 的名字是**规范化之后**的 id
 （命名空间和路径都小写化，见 1.1）。
 
+### 10.1 `/give` 的回显：显示名外面套方括号 [验]
+
+真服上 `/give` 给的是**显示名**，而且**外面套着方括号**：
+
+| 命令 | 真服输出 |
+|---|---|
+| `give Steve stone` | `Given [Stone] * 1 to Steve` |
+| `give Steve minecraft:dye 1 3` | `Given [Cocoa Beans] * 1 to Steve` |
+| `give Steve minecraft:banner 1 14` | `Given [Orange Banner] * 1 to Steve` |
+| `give Steve minecraft:bed 1 4` | `Given [Yellow Bed] * 1 to Steve` |
+| `give Steve minecraft:skull 1 2` | `Given [Zombie Head] * 1 to Steve` |
+| `give Steve minecraft:wool 1 5` | `Given [Lime Wool] * 1 to Steve` |
+| `give Steve Steve` | **无输出**（回显发给了玩家自己，控制台看不到） |
+
+两点要注意：
+
+- **命名空间被换掉**：`minecraft:dye` 显示成 `[Cocoa Beans]`，不显示 `minecraft:`。
+- **数据值改名字**：染料、旗帜、床、头骷髅、毛这些物品的显示名**跟着数据值
+  变**（`dye` 的数据值 3 是 "Cocoa Beans"），不只是染料和旗帜。
+
+**数据值没给、或者超出 0..15，都用数据值 0 的名字**（真服实测）：
+
+| 命令 | 真服输出 |
+|---|---|
+| `give Steve minecraft:dye 1`（不给数据值） | `Given [Ink Sac] * 1 to Steve` |
+| `give Steve minecraft:dye 1 0` | `Given [Ink Sac] * 1 to Steve` |
+| `give Steve minecraft:dye 1 16` | `Given [Ink Sac] * 1 to Steve` |
+| `give Steve minecraft:dye 1 100` | `Given [Ink Sac] * 1 to Steve` |
+
+`/recipe` 的回显**不带方括号**（`Successfully given Steve the recipe for
+Stone Slab`）——它给的是**配方**不是物品。
+
 **还没对齐的**（下一批）：
 
 - **实体重力**：真服的实体会落到地面上（见 2.5），所以"实体的位置"通常是落地后的
@@ -881,12 +985,9 @@ say @a（无匹配） → Selector '@a' found nothing
 - **玩家专属命令的目标**：1.12.2 里下面这些命令的目标用
   `CommandAbstract.b`（**EntityPlayer** 变体）解析，**只接受玩家**：
   `give` / `gamemode` / `title` / `spawnpoint` / `tellraw` / `playsound` /
-  `stopsound` / `clear` / `trigger` / `tp`（`/teleport` 才是实体版）。
-  gomc 用的是通用的目标解析，**实体也能当目标**——方向是 gomc 更宽松：
-  真服会报 `Player '...' cannot be found`，gomc 则照做。
-  > 这条没改是有原因的：gomc 的世界里**没有"在线玩家"这个概念**，
-  > 改成"只接受玩家"会让这些命令在 gomc 里几乎永远报错，
-  > 而它们本来就没什么可操作的对象。等 gomc 建模了玩家再说。
+  `stopsound` / `clear` / `trigger` / `xp`。
+  **2026-10-21 已经改过来了**（见 15 节）：目标匹配到非玩家时，报的是那个实体的
+  **UUID**（`Player '8de4ef1b-…' cannot be found`），匹配 0 个时什么都不说。
 - **Paper 私有扩展：函数里的管理命令被静默忽略**。Paper 给
   `CommandBlockListenerAbstract.executeCommand` 打了补丁：从命令方块或
   **函数**里执行命令时走的是
@@ -919,7 +1020,6 @@ say @a（无匹配） → Selector '@a' found nothing
 |---|---|
 | 实体落地后的精确位置 | 真服有重力，gomc 不模拟（见 2.5） |
 | 函数内命令失败何时报错 | 真实服务端有的报有的不报，gomc 统一报 |
-| `/fill` 的 dataValue 位置 | **位置是对的**（方块之后的第 8 个参数），但 gomc **允许省略**它：方块之后如果下一个参数不是数字，gomc 把它当成模式，真服则**一定**把它当数据值来读，于是报错。实测（Paper 1.12.2）：`fill 2 4 2 3 4 3 stone {Tags:` 真服说 `'{Tags:' is not a state for block minecraft:stone`，gomc 却当成模式、把区域填满了。修它要跟着 Paper 的方块状态检查走，措辞还依赖方块名，所以单独做 |
 
 ### 实体 UUID 已经建模（2026-10-21 改）
 
@@ -1044,6 +1144,61 @@ variant 位）。同一个实体永远是同一个 UUID，不同实体一定不�
 进度"，数据来自服务端 jar 的 `rewards.recipes`，遍历顺序也复刻了服务端的
 `java.util.HashMap`（所以跳过的是**同样那 7 个**）。
 
+### 13.1c 奖励里的经验 [验][读]
+
+1.12.2 的进度奖励只有**两种**（已核实：444 个进度有 `rewards`，其中 432 个有
+`recipes`、12 个有 `experience`）：
+
+| 键 | 条数 | 状态 |
+|---|---|---|
+| `recipes` | 432 | ✅ 已建模（也是 `grant everything` 差 7 个的原因） |
+| `experience` | 12 | ✅ 已建模 |
+| `items` / `loot` | 0 | **1.12.2 根本没有**（`loot` 是 1.13 的） |
+
+那 12 个里的是 `experience: 100`（`minecraft:adventure/kill_all_mobs`）和
+`experience: 500`（`minecraft:adventure/adventuring_time`）这样的。
+
+经验给的是**总经验**（`XpTotal`），不是等级——1.12.2 的玩家 NBT 里
+`XpLevel` 是等级、`XpTotal` 是总经验。
+
+### 13.1c 进度的存盘 [验]
+
+1.12.2 把玩家的进度存在 **`<世界>/advancements/<UUID>.json`**——
+**不是** `playerdata/<uuid>.advancements.json`（那是 1.13+ 的布局）。
+
+而且这个目录同时也是**自定义进度**的目录（`<世界>/advancements/<命名空间>/<路径>.json`），
+所以两者的文件名不会撞：一个是 `<UUID>.json`，另一个是带命名空间目录的路径。
+
+**格式**（2026-10-21 从真实服务端取到的样本，103599 字节）：
+
+```json
+{
+  "minecraft:recipes/tools/fishing_rod": {
+    "criteria": {
+      "has_string": "2026-10-20 21:44:38 +0800",
+      "has_the_recipe": "2026-10-20 21:44:38 +0800"
+    },
+    "done": true
+  }
+}
+```
+
+| | 1.12.2 | 1.13+ |
+|---|---|---|
+| 顶层 | 直接是 `{...}`，**没有** `Version` | `{"Version":1,"advancements":{...}}` |
+| `criteria` 的值 | **一个时间戳字符串** | `{"trigger":"minecraft:impossible"}` |
+| `requirements` | **没有**（靠"哪些条件有时间戳"判断完成） | 有 |
+
+**时间戳**：真服记的是"这个条件何时完成"。gomc 是**确定性**的解释器，真实
+时间是不确定的，所以它写一个**固定的**时间戳：格式与真服一样、语义一样
+（"这个条件完成了"），但值是常量，这样同一个世界跑两次得到的内容一模一样。
+读回的时候**不看时间戳的值**——它只是"完成了"的标记。
+
+**写盘范围**：gomc 只写 `<世界>/advancements/<uuid>.json` 这**一个文件**，别的
+什么都不写。文件名里的 UUID 是 **gomc 派生的**（`world.DeriveEntityUUID`，
+玩家用**玩家名**派生），所以**不会覆盖用户真服存档里的那一个**（真 UUID 是
+随机生成的，名字不同）。这也是 gomc 第一次**写**用户的存档目录。
+
 ### 13.2 `/recipe` [验][读]
 
 语法：
@@ -1118,9 +1273,14 @@ gomc 读世界目录，是给写函数的人一个能用的地方——**这是�
 （`minecraft:crafting_shaped` 那种 1.13 写法不认，和真服一样），结果物品
 必须是 1.12.2 认识的物品。
 
-三处没做：子目录不支持（真服的 assets 布局支持）；坏文件只跳过（真服是
-**一个坏文件就中止后面所有配方**）；染料和旗帜这类名字跟着数据值变的物品，
-只按数据值 0 给名字。
+三处已经补上（2026-10-21）：
+
+- **子目录**也是配方，键形如 `minecraft:sub/x`（真服的 assets 布局就是这么定的：
+  `recipes/sub/x.json` → `minecraft:sub/x`）。
+- **坏文件会中止后面的加载**：真服解析一个配方文件失败时，**后面的配方全都不
+  认识**（不是跳过那一个）。gomc 现在照做。
+- **名字跟着数据值变**的物品补全了——不只是染料和旗帜，**床、头骷髅、毛**也算。
+  详见 10.1。
 
 ### 13.3 `/spreadplayers` [验][读]
 

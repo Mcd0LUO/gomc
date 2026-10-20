@@ -25,9 +25,13 @@
 .PARAMETER Record
 	把抓到的输出写成 .expected（重建基准用），录完**必须人工核对**。
 
+.PARAMETER Bot
+	默认的机器人名字。用例自己写了 `# bot: <名字>` 的以用例里的为准。
+
 .EXAMPLE
 	.\run-all.ps1
 	.\run-all.ps1 -Filter execute
+	.\run-all.ps1 -Record
 #>
 [CmdletBinding()]
 param(
@@ -35,6 +39,7 @@ param(
 	[string]$Work = (Join-Path $env:TEMP 'mc122probe'),
 	[string]$Template = (Join-Path $env:TEMP 'mc122probe-template'),
 	[string]$Filter = '',
+	[string]$Bot = '',
 	[switch]$Record
 )
 
@@ -57,17 +62,43 @@ if ($cases.Count -eq 0) {
 }
 
 $recordArg = @()
-if ($Record) { $recordArg = @('-Record') }
+$compareArg = @()
+if ($Record) { $recordArg = @('-Record') } else { $compareArg = @('-Compare') }
 
 $failed = @()
+$skipped = @()
 foreach ($c in $cases) {
 	Write-Host ""
 	Write-Host "######## $($c.Name) ########" -ForegroundColor Magenta
-	& pwsh -NoProfile -ExecutionPolicy Bypass -File $probe -Case $c.FullName -Work $Work -Template $Template @recordArg
+
+	# 有些命令只对**在线玩家**有用（/advancement 和 /recipe），控制台上没有
+	# 玩家，所以那些用例要靠一个协议机器人登录进去。用例自己声明要谁：
+	# 在注释里写一行 `# bot: Steve`。
+	$botArg = @()
+	if ($Bot) { $botArg = @('-Bot', $Bot) }
+	$head = Get-Content $c.FullName -TotalCount 30 -ErrorAction SilentlyContinue
+	$botLine = $head | Where-Object { $_ -match '^\s*#\s*bot:\s*(\S+)' } | Select-Object -First 1
+	if ($botLine -and $botLine -match '^\s*#\s*bot:\s*(\S+)') {
+		$botArg = @('-Bot', $matches[1])
+	}
+
+	# 没有基线的用例（还没录、或者录了会自己跟自己对不上的）只跑一遍，
+	# 不算失败——但要说出来，免得被当成"通过了"。
+	$expectedPath = [IO.Path]::ChangeExtension($c.FullName, '.expected')
+	$hasBaseline = Test-Path $expectedPath
+	if (-not $Record -and -not $hasBaseline) {
+		$skipped += $c.Name
+	}
+
+	& pwsh -NoProfile -ExecutionPolicy Bypass -File $probe -Case $c.FullName -Work $Work -Template $Template @recordArg @compareArg @botArg
 	if ($LASTEXITCODE -ne 0) { $failed += $c.Name }
 }
 
 Write-Host ""
+if ($skipped.Count -gt 0) {
+	Write-Host "跳过比对 $($skipped.Count) 个（没有基线）：" -ForegroundColor Yellow
+	$skipped | ForEach-Object { Write-Host "  $_" -ForegroundColor Yellow }
+}
 if ($failed.Count -gt 0) {
 	Write-Host "失败 $($failed.Count)/$($cases.Count) 个：" -ForegroundColor Red
 	$failed | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }

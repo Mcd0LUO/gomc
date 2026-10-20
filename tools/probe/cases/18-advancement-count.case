@@ -44,3 +44,5 @@ advancement test Steve minecraft:recipes/misc/gold_nugget
 say M15
 advancement test Steve minecraft:recipes/misc/iron_nugget
 say M16
+
+# bot: Steve

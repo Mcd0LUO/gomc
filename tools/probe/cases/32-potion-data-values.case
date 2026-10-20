@@ -1,0 +1,132 @@
+# 药水这一家的名字跟数据值有关（真服上 /give 的物品堆带 NBT，NBT 里的效果由数据值决定）。
+# 2026-10-21 真服实测（协议机器人在线，探针 -Bot Steve）。
+--- console ---
+say M01
+give Steve minecraft:potion 1 0
+say M02
+give Steve minecraft:potion 1 1
+say M03
+give Steve minecraft:potion 1 2
+say M04
+give Steve minecraft:potion 1 3
+say M05
+give Steve minecraft:potion 1 4
+say M06
+give Steve minecraft:potion 1 5
+say M07
+give Steve minecraft:potion 1 6
+say M08
+give Steve minecraft:potion 1 7
+say M09
+give Steve minecraft:potion 1 8
+say M10
+give Steve minecraft:potion 1 9
+say M11
+give Steve minecraft:potion 1 10
+say M12
+give Steve minecraft:potion 1 11
+say M13
+give Steve minecraft:potion 1 12
+say M14
+give Steve minecraft:potion 1 13
+say M15
+give Steve minecraft:potion 1 14
+say M16
+give Steve minecraft:potion 1 15
+say M17
+give Steve minecraft:splash_potion 1 0
+say M18
+give Steve minecraft:splash_potion 1 1
+say M19
+give Steve minecraft:splash_potion 1 2
+say M20
+give Steve minecraft:splash_potion 1 3
+say M21
+give Steve minecraft:splash_potion 1 4
+say M22
+give Steve minecraft:splash_potion 1 5
+say M23
+give Steve minecraft:splash_potion 1 6
+say M24
+give Steve minecraft:splash_potion 1 7
+say M25
+give Steve minecraft:splash_potion 1 8
+say M26
+give Steve minecraft:splash_potion 1 9
+say M27
+give Steve minecraft:splash_potion 1 10
+say M28
+give Steve minecraft:splash_potion 1 11
+say M29
+give Steve minecraft:splash_potion 1 12
+say M30
+give Steve minecraft:splash_potion 1 13
+say M31
+give Steve minecraft:splash_potion 1 14
+say M32
+give Steve minecraft:splash_potion 1 15
+say M33
+give Steve minecraft:lingering_potion 1 0
+say M34
+give Steve minecraft:lingering_potion 1 1
+say M35
+give Steve minecraft:lingering_potion 1 2
+say M36
+give Steve minecraft:lingering_potion 1 3
+say M37
+give Steve minecraft:lingering_potion 1 4
+say M38
+give Steve minecraft:lingering_potion 1 5
+say M39
+give Steve minecraft:lingering_potion 1 6
+say M40
+give Steve minecraft:lingering_potion 1 7
+say M41
+give Steve minecraft:lingering_potion 1 8
+say M42
+give Steve minecraft:lingering_potion 1 9
+say M43
+give Steve minecraft:lingering_potion 1 10
+say M44
+give Steve minecraft:lingering_potion 1 11
+say M45
+give Steve minecraft:lingering_potion 1 12
+say M46
+give Steve minecraft:lingering_potion 1 13
+say M47
+give Steve minecraft:lingering_potion 1 14
+say M48
+give Steve minecraft:lingering_potion 1 15
+say M49
+give Steve minecraft:tipped_arrow 1 0
+say M50
+give Steve minecraft:tipped_arrow 1 1
+say M51
+give Steve minecraft:tipped_arrow 1 2
+say M52
+give Steve minecraft:tipped_arrow 1 3
+say M53
+give Steve minecraft:tipped_arrow 1 4
+say M54
+give Steve minecraft:tipped_arrow 1 5
+say M55
+give Steve minecraft:tipped_arrow 1 6
+say M56
+give Steve minecraft:tipped_arrow 1 7
+say M57
+give Steve minecraft:tipped_arrow 1 8
+say M58
+give Steve minecraft:tipped_arrow 1 9
+say M59
+give Steve minecraft:tipped_arrow 1 10
+say M60
+give Steve minecraft:tipped_arrow 1 11
+say M61
+give Steve minecraft:tipped_arrow 1 12
+say M62
+give Steve minecraft:tipped_arrow 1 13
+say M63
+give Steve minecraft:tipped_arrow 1 14
+say M64
+give Steve minecraft:tipped_arrow 1 15
+say M65

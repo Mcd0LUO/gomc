@@ -1,0 +1,24 @@
+# 药水这一家在 /give 下显示的名字，和数据值有关。
+#
+# 2026-10-21 真服实测（协议机器人在线，探针 -Bot Steve）：
+#   give Steve minecraft:potion 1     -> Given [Water Bottle] * 1 to Steve
+#   give Steve minecraft:potion 1 1   -> ?
+#   give Steve minecraft:potion 1 5   -> ?
+#   give Steve minecraft:air 1        -> ?
+
+--- console ---
+say P01
+give Steve minecraft:potion 1
+say P02
+give Steve minecraft:potion 1 1
+say P03
+give Steve minecraft:potion 1 5
+say P04
+give Steve minecraft:splash_potion 1
+say P05
+give Steve minecraft:lingering_potion 1
+say P06
+give Steve minecraft:tipped_arrow 1
+say P07
+give Steve minecraft:air 1
+say P08

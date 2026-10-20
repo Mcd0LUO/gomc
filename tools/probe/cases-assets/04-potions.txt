@@ -1,0 +1,15 @@
+# 药水这一家在 /recipe 下显示的名字。
+#
+# /give 显示的是 "Water Bottle"，而配方里显示的是 "Uncraftable Potion"：
+# 服务端起服之前就把配方的物品堆造好了，那时还没有 NBT。
+#
+# 2026-10-21 真服实测（协议机器人在线，探针 -Bot Steve）。
+
+--- console ---
+say Q1
+recipe give Steve splash
+say Q2
+recipe give Steve lingering
+say Q3
+recipe give Steve tipped
+say Q4

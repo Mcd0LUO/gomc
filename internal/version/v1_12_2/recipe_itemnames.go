@@ -13,10 +13,10 @@ package v1_12_2
 // names a recipe after the item the recipe produces, and a custom recipe
 // can produce any item.
 //
-// The names of the dyed items depend on the data value of the item: a
-// dye with the data value 0 is the black one, which the server calls
-// "Ink Sac", and a banner with the data value 0 is the black one. The
-// table holds the name of the data value 0 for every item.
+// The table holds the name of the data value 0 of every item. The name of
+// an item that has more than one form depends on the data value, so
+// those items have a table of their own (see itemFormNames) and the
+// helper that reads both is itemDisplayName.
 //
 // (Measured on a real Paper 1.12.2: a recipe whose result is
 // "minecraft:beef" is answered with "Raw Beef", one whose result is
@@ -29,6 +29,7 @@ var customItemNames = map[string]string{
 	"acacia_fence_gate":             "Acacia Fence Gate",
 	"acacia_stairs":                 "Acacia Wood Stairs",
 	"activator_rail":                "Activator Rail",
+	"air":                           "Air",
 	"anvil":                         "Anvil",
 	"apple":                         "Apple",
 	"armor_stand":                   "Armor Stand",
@@ -224,6 +225,7 @@ var customItemNames = map[string]string{
 	"iron_nugget":                   "Iron Nugget",
 	"iron_ore":                      "Iron Ore",
 	"iron_pickaxe":                  "Iron Pickaxe",
+	"iron_shovel":                   "Iron Shovel",
 	"iron_sword":                    "Iron Sword",
 	"iron_trapdoor":                 "Iron Trapdoor",
 	"item_frame":                    "Item Frame",
@@ -252,7 +254,7 @@ var customItemNames = map[string]string{
 	"light_weighted_pressure_plate": "Weighted Pressure Plate (Light)",
 	"lime_glazed_terracotta":        "Lime Glazed Terracotta",
 	"lime_shulker_box":              "Lime Shulker Box",
-	"lingering_potion":              "Lingering Potion",
+	"lingering_potion":              "Lingering Water Bottle",
 	"lit_pumpkin":                   "Jack o'Lantern",
 	"log":                           "Oak Wood",
 	"log2":                          "Acacia Wood",
@@ -297,7 +299,7 @@ var customItemNames = map[string]string{
 	"poisonous_potato":              "Poisonous Potato",
 	"porkchop":                      "Raw Porkchop",
 	"potato":                        "Potato",
-	"potion":                        "Potion",
+	"potion":                        "Water Bottle",
 	"prismarine":                    "Prismarine",
 	"prismarine_crystals":           "Prismarine Crystals",
 	"prismarine_shard":              "Prismarine Shard",
@@ -371,7 +373,7 @@ var customItemNames = map[string]string{
 	"speckled_melon":                "Glistering Melon",
 	"spectral_arrow":                "Spectral Arrow",
 	"spider_eye":                    "Spider Eye",
-	"splash_potion":                 "Splash Potion",
+	"splash_potion":                 "Splash Water Bottle",
 	"sponge":                        "Sponge",
 	"spruce_boat":                   "Spruce Boat",
 	"spruce_door":                   "Spruce Door",
@@ -401,7 +403,7 @@ var customItemNames = map[string]string{
 	"structure_void":                "Structure Void",
 	"sugar":                         "Sugar",
 	"tallgrass":                     "Shrub",
-	"tipped_arrow":                  "Tipped Arrow",
+	"tipped_arrow":                  "Arrow of Splashing",
 	"tnt":                           "TNT",
 	"tnt_minecart":                  "Minecart with TNT",
 	"torch":                         "Torch",

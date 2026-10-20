@@ -1,0 +1,69 @@
+# /fill 的第 8 个参数（数据值槽）在真服上到底接受什么。
+#
+# 真服语法：
+#   /fill <x1> <y1> <z1> <x2> <y2> <z2> <方块> [<数据值|state>] [<模式> [<dataTag>]]
+# 第 8 位只要不是 7 个参数里的最后一个，就**必须**是数据值；
+# 读不成数字就走 1.12.2 的 blockstate 分支，读不出合法状态就报
+# "'%s' is not a state for block %s"。
+#
+# 覆盖：
+#   - 数据值槽是非数字（{Tags: / abc / replace / keep）
+#   - 数据值槽是小数（1.5）
+#   - 数据值槽是负数（-1）、是超过 15 的数（16）
+#   - 参数刚好 7 个（唯一的合法省略）
+#   - "default" 与 blockstate 写法（variant=...）
+#   - 数据值之后的模式、替换方块、替换数据值、dataTag
+
+--- console ---
+say M01
+fill 2 4 2 3 4 3 stone {Tags:
+say M02
+fill 4 4 4 5 4 5 stone abc
+say M03
+fill 6 4 6 7 4 7 stone 1.5
+say M04
+fill 8 4 8 9 4 9 stone -1
+say M05
+fill 10 4 10 11 4 11 stone 16
+say M06
+fill 12 4 12 13 4 13 stone
+say M07
+fill 14 4 14 15 4 15 stone default
+say M08
+fill 16 4 16 17 4 17 stone variant=chiseled
+say M09
+fill 18 4 18 19 4 19 stone 0
+say M10
+fill 20 4 20 21 4 21 stone replace
+say M11
+fill 22 4 22 23 4 23 stone keep
+say M12
+fill 24 4 24 25 4 25 stone 007
+say M13
+fill 26 4 26 27 4 27 stone +1
+say M14
+fill 28 4 28 29 4 29 stone 0 keep
+say M15
+fill 30 4 30 31 4 31 stone 0 destroy
+say M16
+fill 32 4 32 33 4 33 stone 0 hollow
+say M17
+fill 34 4 34 35 4 35 stone 0 outline
+say M18
+fill 36 4 36 37 4 37 stone 0 replace stone
+say M19
+fill 38 4 38 39 4 39 stone 0 replace stone 1
+say M20
+fill 40 4 40 41 4 41 stone 0 bogus
+say M21
+fill 42 4 42 43 4 43 chest 0 {Items:[]}
+say M22
+fill 44 4 44 45 4 45 stone 0 replace
+say M23
+fill 46 4 46 47 4 47 stone 1
+say M24
+fill 46 4 46 47 4 47 stone 0 replace stone 1
+say M25
+fill 48 4 48 49 4 49 stone 0 replace stone 99
+say M26
+say M27

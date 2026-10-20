@@ -371,6 +371,12 @@ func TestScoreboardTeamsFeedback(t *testing.T) {
 }
 
 // TestGiveFeedback pins down the wording of `/give`.
+//
+// 1.12.2 names the item by its **display name**, and the name is wrapped
+// in square brackets.
+//
+// (Measured on a real 1.12.2 server: `give Steve stone 5` answers
+// "Given [Stone] * 5 to Steve".)
 func TestGiveFeedback(t *testing.T) {
 	e := newTestEngine(t)
 	addPlayer(t, e, "Steve")
@@ -378,7 +384,25 @@ func TestGiveFeedback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("give: %v", err)
 	}
-	want := "Given stone * 5 to Steve"
+	want := "Given [Stone] * 5 to Steve"
+	if len(got) != 1 || got[0] != want {
+		t.Errorf("give said %q, want %q", got, want)
+	}
+}
+
+// TestGiveFeedbackOfAnItemWithForms pins down that the display name
+// follows the data value.
+//
+// (Measured on a real 1.12.2 server: `give Steve minecraft:dye 1 3` answers
+// "Given [Cocoa Beans] * 1 to Steve".)
+func TestGiveFeedbackOfAnItemWithForms(t *testing.T) {
+	e := newTestEngine(t)
+	addPlayer(t, e, "Steve")
+	got, err := runLineFeedback(e, "give Steve minecraft:dye 1 3")
+	if err != nil {
+		t.Fatalf("give: %v", err)
+	}
+	want := "Given [Cocoa Beans] * 1 to Steve"
 	if len(got) != 1 || got[0] != want {
 		t.Errorf("give said %q, want %q", got, want)
 	}

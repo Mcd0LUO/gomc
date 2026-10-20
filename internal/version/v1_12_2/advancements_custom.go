@@ -46,6 +46,8 @@ type customAdvancementFile struct {
 	Rewards struct {
 		// Recipes are the recipes the advancement unlocks.
 		Recipes []string `json:"recipes"`
+		// Experience is the experience the advancement hands out.
+		Experience int `json:"experience"`
 	} `json:"rewards"`
 }
 
@@ -114,20 +116,22 @@ func loadCustomAdvancements(root string) ([]*advancement, []error) {
 //
 // The path is split at the first slash: the part before it is the
 // namespace and the part after it is the name, so "my_pack/thing.json" is
-// "my_pack:thing". A file right in the directory has no namespace of its
-// own and is the "minecraft" one.
+// "my_pack:thing". 1.12.2 builds a `MinecraftKey` out of the two parts,
+// and a `MinecraftKey` lower-cases both of them.
 //
-// 1.12.2 builds a `MinecraftKey` out of the two parts, and a `MinecraftKey`
-// lower-cases both of them.
+// A file right in the directory has no namespace of its own, and the
+// server skips it: it splits the path of the file and keeps only the ones
+// that have a slash in it. That is how the progress file of a player
+// (`<world>/advancements/<uuid>.json`) stays out of the advancements of
+// the world.
 //
-// (The server only reads the files that have a namespace of their own --
-// it splits the path and skips a file that has no slash in it. gomc reads
-// those files as well, as the "minecraft" ones.)
+// (Read from the bytecode of `AdvancementDataWorld.d` and `MinecraftKey`
+// of the 1.12.2 server jar.)
 func customAdvancementName(rel string) (string, bool) {
 	rel = strings.TrimSuffix(rel, ".json")
 	namespace, name, found := strings.Cut(rel, "/")
 	if !found {
-		namespace, name = "minecraft", rel
+		return "", false
 	}
 	if namespace == "" || name == "" {
 		return "", false
@@ -193,6 +197,9 @@ func readCustomAdvancement(path, name string) (*advancement, error) {
 		}
 		a.recipe.rewards = normalizeRecipes(file.Rewards.Recipes)
 	}
+	// The experience of the "rewards" block. The server hands it out
+	// when the advancement is completed.
+	a.experience = file.Rewards.Experience
 	return a, nil
 }
 

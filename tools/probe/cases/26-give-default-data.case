@@ -1,0 +1,25 @@
+# /give 不给数据值时，显示名用的是哪个数据值的。
+#
+# 2026-10-21 真服实测（协议机器人在线，探针 -Bot Steve）：
+#   give Steve minecraft:dye 1     -> ?
+#   give Steve minecraft:banner 1   -> ?
+#   give Steve minecraft:bed 1      -> ?
+#   give Steve minecraft:potion 1   -> ?
+#
+# 要回答的是：命令里没写数据值的时候，物品堆的数据值是 0 还是别的，
+# 显示名跟着哪个走。
+
+--- console ---
+say Y01
+give Steve minecraft:dye 1
+say Y02
+give Steve minecraft:banner 1
+say Y03
+give Steve minecraft:bed 1
+say Y04
+give Steve minecraft:potion 1
+say Y05
+give Steve minecraft:skull 1
+say Y06
+give Steve minecraft:wool 1
+say Y07

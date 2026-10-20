@@ -1,0 +1,30 @@
+# 配方的回显用的是**结果物品堆的显示名**，而显示名跟着数据值走。
+# 期望：
+#   dye00 -> Ink Sac；dye01 -> Rose Red；dye03 -> Cocoa Beans；
+#   dye11 -> Dandelion Yellow；dye15 -> Bone Meal；
+#   banner00 -> Black Banner；banner14 -> Orange Banner；
+#   bed04 -> Yellow Bed；skull02 -> Zombie Head；wool05 -> Lime Wool；
+#   plain -> Block of Diamond。
+say N1
+recipe give Steve dye00
+say N2
+recipe give Steve dye01
+say N3
+recipe give Steve dye03
+say N4
+recipe give Steve dye11
+say N5
+recipe give Steve dye15
+say N6
+recipe give Steve banner00
+say N7
+recipe give Steve banner14
+say N8
+recipe give Steve bed04
+say N9
+recipe give Steve skull02
+say N10
+recipe give Steve wool05
+say N11
+recipe give Steve plain
+say N12

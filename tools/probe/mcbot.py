@@ -150,6 +150,11 @@ def main():
             data = conn.read_packet()
         except (EOFError, socket.timeout):
             break
+        except Exception as exc:
+            # 一个包解不开（压缩的帧对不上、载荷不认识……）不该让机器人
+            # 整个崩掉——崩了连接就断，服务端会记一条 "lost connection"。
+            print("BOT: cannot read a packet: %r" % (exc,), flush=True)
+            break
         pid, rest = split_varint(data)
         if os.environ.get("BOT_DEBUG"):
             print("BOT: raw packet %s" % data[:80].hex(), flush=True)
@@ -167,9 +172,19 @@ def main():
                 break
             continue
         if pid == 0x1F:  # keep alive (play)
-            # The serverbound keep alive is packet 0x0B in 1.12.2.
+            # The clientbound keep alive is packet 31 (0x1F) and the
+            # serverbound one is 11 (0x0B). The two directions have their
+            # own tables, so the numbers are not the same.
+            #
+            # The server sends it every 15 seconds and drops the player
+            # that does not answer, so getting this id wrong looks like
+            # "the bot logs in and then vanishes a minute later".
             conn.write_packet(0x0B, rest)
-        elif pid == 0x00:  # disconnect
+        elif pid == 0x1A:  # disconnect (play)
+            # 0x1A is 26. The mistake here is easy to make: 0x00 is
+            # *not* the disconnect, it is the spawn of an entity, and a
+            # bot that treats it as the end of the connection walks out
+            # of the server on its own.
             print("BOT: disconnected by server", flush=True)
             break
     if not logged_in:
@@ -180,4 +195,10 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except Exception:
+        import traceback
+
+        traceback.print_exc()
+        sys.exit(2)

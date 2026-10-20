@@ -40,6 +40,10 @@ type customRecipe struct {
 	name string
 	// result is the item the recipe produces, e.g. "minecraft:diamond_block".
 	result string
+	// data is the data value of the item the recipe produces. The name
+	// of the recipe depends on it: a recipe that produces a dye of the
+	// data value 3 is the recipe for "Cocoa Beans".
+	data int
 	// count is how many items the recipe produces. The server keeps the
 	// count but never prints it.
 	count int
@@ -57,6 +61,10 @@ type customRecipeFile struct {
 	Result struct {
 		// Item is the item the recipe produces.
 		Item string `json:"item"`
+		// Data is the data value of the item the recipe produces. It is
+		// nil when the file does not say, which the server refuses for
+		// an item that has more than one form.
+		Data *int `json:"data"`
 		// Count is how many of them it produces. It defaults to one.
 		Count int `json:"count"`
 	} `json:"result"`
@@ -82,81 +90,135 @@ var customRecipeTypes = map[string]bool{
 //
 // The name of a recipe is the name of its file, in the "minecraft"
 // namespace and lower-cased, the way 1.12.2 reads a name: the file
-// "my_recipe.json" is the recipe "minecraft:my_recipe".
+// "my_recipe.json" is the recipe "minecraft:my_recipe". A file in a
+// subdirectory is a recipe as well, and the name of that recipe is the
+// path of the file below the recipes directory: the file
+// "sub/my_recipe.json" is the recipe "minecraft:sub/my_recipe".
 //
-// A file the server would not read is not a recipe: a file that is not
-// JSON, a file of another type and a file whose result is an item
-// 1.12.2 does not know are all left out. The real server stops loading
-// the recipes that come after such a file; gomc keeps them, because the
-// recipes of the world directory are not the recipes of the server and
-// one broken file should not take the others with it.
+// (Measured on a real Paper 1.12.2: the server walks the recipes
+// directory with `Files.walk`, so a file in a subdirectory is a recipe,
+// and `recipe give <player> sub/my_recipe` hands it out.)
 //
-// (Measured on a real Paper 1.12.2: the server answers "<name> is an
-// unknown recipe" for a file of an unknown type and for a file whose
-// result is an item it does not know.)
+// A file the server would not read is not a recipe, and it takes the
+// recipes that come after it with it: the server stops reading the
+// recipes when a file is broken, so the recipes after the broken file
+// are not read either.
+//
+// (Measured on a real Paper 1.12.2: the server logs "Parsing error
+// loading recipe minecraft:<name>" and "Errors with built-in recipes!",
+// and a recipe that comes after the broken file answers "<name> is an
+// unknown recipe".)
+//
+// The files are read in the order of their names, so that the same world
+// always gives the same recipes. The server reads them in the order of
+// the file system, which is not the same from one machine to the next.
 func loadCustomRecipes(root string) []customRecipe {
 	if root == "" {
 		return nil
 	}
 	dir := filepath.Join(root, "recipes")
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil
-	}
 	var out []customRecipe
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
-			continue
+	for _, rel := range recipeFiles(dir, "") {
+		recipe, ok := readCustomRecipe(filepath.Join(dir, filepath.FromSlash(rel)), rel)
+		if !ok {
+			// The server stops reading the recipes here, so the
+			// recipes that come after the broken file are not read
+			// either.
+			break
 		}
-		data, err := os.ReadFile(filepath.Join(dir, entry.Name()))
-		if err != nil {
-			continue
-		}
-		var file customRecipeFile
-		if err := json.Unmarshal(data, &file); err != nil {
-			continue
-		}
-		if !customRecipeTypes[file.Type] {
-			continue
-		}
-		result := customResultItem(file.Result.Item)
-		if result == "" {
-			continue
-		}
-		name, known := customItemNames[result]
-		if !known {
-			// The result is an item 1.12.2 does not know, so the server
-			// cannot read the file either.
-			continue
-		}
-		count := file.Result.Count
-		if count < 1 {
-			count = 1
-		}
-		out = append(out, customRecipe{
-			key:    recipeKey(strings.TrimSuffix(entry.Name(), ".json")),
-			name:   name,
-			result: result,
-			count:  count,
-		})
+		out = append(out, recipe)
 	}
 	return out
 }
 
-// customResultItem turns the result of a recipe file into the id of the
-// item the recipe produces.
+// recipeFiles returns the recipe files of a directory, as the paths below
+// that directory.
 //
-// 1.12.2 knows the items of the "minecraft" namespace only, so a result
-// of another namespace is an item the server does not know.
-func customResultItem(item string) string {
-	namespace, name := "minecraft", item
-	if i := strings.Index(item, ":"); i >= 0 {
-		namespace, name = item[:i], item[i+1:]
+// The files are the ones whose name ends in ".json": the server walks
+// the recipes directory and reads the files with that ending, in the
+// directories below it as well. A directory whose name ends in ".json"
+// is a file for the server as well -- it tries to read it and fails,
+// which stops the reading of the recipes.
+//
+// The paths are separated by "/", the way the server writes them, and
+// the order is the order of the names, so that the same world always
+// gives the same recipes.
+func recipeFiles(dir, prefix string) []string {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
 	}
-	if namespace != "minecraft" {
-		return ""
+	var out []string
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() && !strings.HasSuffix(name, ".json") {
+			out = append(out, recipeFiles(filepath.Join(dir, name), prefix+name+"/")...)
+			continue
+		}
+		if !strings.HasSuffix(name, ".json") {
+			continue
+		}
+		out = append(out, prefix+name)
 	}
-	return strings.ToLower(name)
+	return out
+}
+
+// readCustomRecipe reads one recipe file of the world directory.
+//
+// The second value is false when the server would not read the file: a
+// file that is not JSON, a file of a type the server does not know, a
+// file whose result the server cannot read.
+//
+// (Measured on a real Paper 1.12.2: the server logs "Invalid or
+// unsupported recipe type 'minecraft:crafting_shaped'" for a file of an
+// unknown type, "Unknown item 'minecraft:not_a_real_item'" for a file
+// whose result is an item it does not know, and "Missing data for item
+// 'minecraft:dye'" for a file whose result is an item that has more than
+// one form and that does not say which form it is.)
+//
+// The path is the path of the file below the recipes directory, and it
+// is the name of the recipe.
+func readCustomRecipe(path, rel string) (customRecipe, bool) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return customRecipe{}, false
+	}
+	var file customRecipeFile
+	if err := json.Unmarshal(data, &file); err != nil {
+		return customRecipe{}, false
+	}
+	if !customRecipeTypes[file.Type] {
+		return customRecipe{}, false
+	}
+	result, ok := minecraftItemKey(file.Result.Item)
+	if !ok {
+		return customRecipe{}, false
+	}
+	if _, known := customItemNames[result]; !known {
+		// The result is an item 1.12.2 does not know, so the server
+		// cannot read the file either.
+		return customRecipe{}, false
+	}
+	dataValue := 0
+	if file.Result.Data != nil {
+		dataValue = *file.Result.Data
+	} else if itemHasForms(result) {
+		// The result is an item with more than one form and the file
+		// does not say which form it is.
+		return customRecipe{}, false
+	}
+	name, _ := recipeItemName(result, dataValue)
+	count := file.Result.Count
+	if count < 1 {
+		count = 1
+	}
+	return customRecipe{
+		key:    recipeKey(strings.TrimSuffix(rel, ".json")),
+		name:   name,
+		result: result,
+		data:   dataValue,
+		count:  count,
+	}, true
 }
 
 // customRecipeCache holds the custom recipes of the world directories

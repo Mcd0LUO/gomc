@@ -208,6 +208,57 @@
 - 完整的性能评估（测了什么、瓶颈在哪、哪些是伪瓶颈）见
   [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md)。
 
+### 修复
+
+- **`/fill` 的数据值位置严格了**：方块之后**只要还有参数**，那一个就一定是数据值
+  ——读不成数据值就报错，**不会**被当成模式。1.12.2 的
+  `CommandBase.a(Block, String)` 有三种写法：十进制数字（0..15）、`default`
+  （默认状态）、以及**方块状态字符串**。真服实测（2026-10-21）：
+  `fill 2 4 2 3 4 3 stone {Tags:` 说
+  `'{Tags:' is not a state for block minecraft:stone`，
+  `fill … stone -1` 说 `The number you have entered (-1) is too small, it must be
+  at least 0`，`stone 16` 说 `… too big, it must be at most 15`。
+  > 这句 "is not a state for block" 是**原版 1.12.2** 的措辞，不是 Paper 加的：
+  > vanilla 的 `en_US.lang` 里有 `commands.generic.blockstate.invalid`，vanilla 的
+  > `CommandBase`（混淆名 `bi`）里也握着这个字符串。
+- **`/setblock` 的数据值位置也一样严格了**（它有**同一个**缺陷）：第 5 个参数**一定**
+  是数据值，所以**模式必须写在数据值之后**——`setblock x y z dirt 0 keep` 才是
+  "放泥土、保留模式"，而 `setblock x y z dirt keep` 在真服上是**错的**（`keep` 落在
+  数据值那一格，报 `'keep' is not a state for block minecraft:dirt`）。
+  gomc 之前把第 5 个参数"是数字就当数据值、否则当模式"，所以那种写法在 gomc 上
+  能跑、在真服上跑不了。
+- **进度会存盘**：1.12.2 把玩家的进度放在 **`<世界>/advancements/<UUID>.json`**
+  （**不是** `playerdata/<uuid>.advancements.json`，那是 1.13+ 的），gomc 现在也写
+  ——**这是 gomc 第一次写用户的存档目录**。文件名里的 UUID 是 gomc **派生的**
+  （`world.DeriveEntityUUID`，玩家用玩家名派生），所以**不会覆盖用户真服存档里的
+  那一个**（真 UUID 是随机的，名字不同）。文件格式与真服一致（条件名 → 完成时间），
+  但**时间是固定的**——gomc 是确定性的命令解释器，同一个世界跑两次必须得到一模一样的
+  文件。读回的时候只看"条件在不在"，不看时间。
+- **`/advancement` 的奖励会发经验**：1.12.2 的进度奖励有两种，`recipes`（已建模）
+  和 `experience`（这次补的，12 个进度有）。
+- **`/recipe` 的自定义配方支持子目录**：`<世界>/recipes/sub/x.json` 是配方
+  `minecraft:sub/x`（真服的 assets 布局就是这么定的）。
+- **坏的自定义配方文件会中止后面的加载**：真服解析一个配方文件失败时**后面的配方
+  全都不认识**（不是跳过那一个），gomc 现在照做。
+- **物品的显示名跟着数据值走**：染料、旗帜、**床、头骷髅、毛**这些物品的显示名
+  跟着数据值变（`minecraft:dye` 的数据值 3 是 "Cocoa Beans"），不只是染料和旗帜。
+  数据值没给、或者超出 0..15，都用数据值 0 的名字。
+- **`/give` 的回显改用显示名**：真服打的是 `Given [Stone] * 1 to Steve`——
+  **显示名外面套方括号**，命名空间被换掉，而且**显示名跟着数据值走**
+  （`minecraft:dye` 的数据值 3 是 "Cocoa Beans"）。gomc 之前打的是**注册名**
+  （`Given stone * 1 to Steve`）。
+  跟着数据值变的不只是染料和旗帜：**床、头骷髅、毛**也算。
+  数据值没给、或者超出 0..15，都用数据值 0 的名字。
+- **探针的协议机器人修好了一个 bug**：`tools/probe/mcbot.py` 原来把 clientbound 的
+  `0x00` 当成断线，但 1.12.2 的 `0x00` 是**生成实体**，真正的断线是 `0x1A`、
+  keep alive 是 `0x1F`（回 `0x0B`）。所以机器人登录后会**自己走掉**，之后所有命令
+  都变成 `Player 'Steve' cannot be found`——测出来的东西是错的。
+- **`run-all.ps1` 现在真的做比对**：它以前只跑一遍、从不和 `.expected` 比。现在默认
+  `-Compare`，没有基线的用例只跑一遍（但会在结尾列出来，免得被当成"通过了"），
+  需要在线玩家的用例在文件里写一行 `# bot: Steve` 就会自动带上机器人。
+- **比较时把 UUID 归一化**：真服每次开服给的实体 UUID 都不一样，所以期望文件里
+  留着真的 UUID（好看），比的是占位符——不然含 UUID 的用例自己跟自己对不上。
+
 ### 计划中
 
 - **数据包的进度与配方**：1.12.2 的自定义进度在 `<世界>/advancements/<命名空间>/<路径>.json`，

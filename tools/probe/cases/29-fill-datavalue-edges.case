@@ -1,0 +1,22 @@
+# /fill 数据值槽的收尾用例。
+#
+#   - 花括号整体落在数据值位上（真服当字符串读）
+#   - 带引号的数字（真服不剥引号）
+#   - 15 是最大的数据值
+#   - 第 10 位在非 replace 模式下被真服忽略
+
+--- console ---
+say T01
+fill 2 4 2 3 4 3 stone {Items:[]}
+say T02
+fill 4 4 4 5 4 5 stone "0"
+say T03
+fill 6 4 6 7 4 7 stone 15
+say T04
+fill 8 4 8 9 4 9 stone 15 outline
+say T05
+fill 10 4 10 11 4 11 stone 0 keep destroy
+say T06
+fill 12 4 12 13 4 13 stone 0 replace stone 0
+say T07
+say T08

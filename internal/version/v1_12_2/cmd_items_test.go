@@ -1,6 +1,7 @@
 package v1_12_2
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/Mcd0LUO/gomc/internal/nbt"
@@ -122,12 +123,18 @@ func TestTestForBlocks(t *testing.T) {
 func TestSetBlockModes(t *testing.T) {
 	e := newTestEngine(t)
 	e.World.Blocks.Set(world.Pos{X: 0, Y: 0, Z: 0}, world.BlockState{Name: "stone"})
-	// The keep mode refuses to change a position that is not empty.
-	if err := runLine(e, "setblock 0 0 0 dirt keep"); err == nil {
+	// The mode comes **after** the data value: 1.12.2 reads the fifth
+	// argument strictly as the data value, so a mode written there is a
+	// broken data value.
+	//
+	// (Measured on a real 1.12.2 server: `setblock 2 4 2 stone keep`
+	// answers "'keep' is not a state for block minecraft:stone", while
+	// `setblock 4 4 4 stone 0 keep` places the block.)
+	if err := runLine(e, "setblock 0 0 0 dirt 0 keep"); err == nil {
 		t.Error("expected the keep mode to refuse")
 	}
 	// The destroy mode clears the position first.
-	if err := runLine(e, "setblock 0 0 0 dirt destroy"); err != nil {
+	if err := runLine(e, "setblock 0 0 0 dirt 0 destroy"); err != nil {
 		t.Fatalf("setblock destroy: %v", err)
 	}
 	if got := e.World.Blocks.Get(world.Pos{X: 0, Y: 0, Z: 0}); got.Name != "dirt" {
@@ -135,10 +142,43 @@ func TestSetBlockModes(t *testing.T) {
 	}
 }
 
+// TestSetBlockDataValueIsStrict pins down that the fifth argument of
+// `/setblock` is the data value and nothing else.
+//
+// (Measured on a real 1.12.2 server: `setblock 2 4 2 stone keep` answers
+// "'keep' is not a state for block minecraft:stone".)
+func TestSetBlockDataValueIsStrict(t *testing.T) {
+	e := newTestEngine(t)
+	for _, line := range []string{
+		"setblock 0 4 0 stone keep",
+		"setblock 0 4 0 stone destroy",
+		"setblock 0 4 0 stone {Tags:[]}",
+		"setblock 0 4 0 stone abc",
+	} {
+		err := runLine(e, line)
+		if err == nil {
+			t.Errorf("%q: expected an error", line)
+			continue
+		}
+		if want := "is not a state for block minecraft:stone"; !strings.Contains(err.Error(), want) {
+			t.Errorf("%q: the error was %q, want it to contain %q", line, err.Error(), want)
+		}
+	}
+	// The data value itself is fine, and so is the mode after it.
+	if err := runLine(e, "setblock 0 4 0 stone 0"); err != nil {
+		t.Errorf("setblock with a data value: %v", err)
+	}
+	if err := runLine(e, "setblock 0 4 0 stone 0 replace"); err != nil {
+		t.Errorf("setblock with a data value and a mode: %v", err)
+	}
+}
+
 func TestFillModes(t *testing.T) {
 	e := newTestEngine(t)
-	// The outline mode only fills the shell.
-	if err := runLine(e, "fill 0 0 0 2 2 2 stone outline"); err != nil {
+	// The outline mode only fills the shell. The data value is the
+	// eighth argument and 1.12.2 reads it strictly, so the mode cannot
+	// take its place.
+	if err := runLine(e, "fill 0 0 0 2 2 2 stone 0 outline"); err != nil {
 		t.Fatalf("fill outline: %v", err)
 	}
 	if got := e.World.Blocks.Get(world.Pos{X: 1, Y: 1, Z: 1}); !got.IsAir() {

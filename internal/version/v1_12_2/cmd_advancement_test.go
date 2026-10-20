@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/Mcd0LUO/gomc/internal/exec"
+	"github.com/Mcd0LUO/gomc/internal/nbt"
 	"github.com/Mcd0LUO/gomc/internal/world"
 )
 
@@ -596,5 +597,204 @@ func TestAdvancementRecipeUnlock(t *testing.T) {
 	}
 	if !known["minecraft:acacia_planks"] {
 		t.Errorf("the player does not know the acacia planks recipe")
+	}
+}
+
+// advancementExperience checks the experience of a player.
+func advancementExperience(t *testing.T, p *world.Entity, total, level int) {
+	t.Helper()
+	if got, _ := p.NBT.Get("XpTotal").(nbt.Int); int(got) != total {
+		t.Errorf("the total experience is %d, want %d", got, total)
+	}
+	if got, _ := p.NBT.Get("XpLevel").(nbt.Int); int(got) != level {
+		t.Errorf("the experience level is %d, want %d", got, level)
+	}
+}
+
+// TestAdvancementExperienceReward pins down the experience reward of an
+// advancement.
+//
+// 1.12.2 hands out the experience of the "rewards" block of an advancement
+// when the advancement is completed. The experience is *points*: they go
+// into the total experience of the player and move the level up along the
+// usual curve.
+//
+// (Measured on a real 1.12.2 server: granting "minecraft:adventure/
+// kill_all_mobs" -- 100 experience -- leaves the player with 100 total
+// experience and level 7, granting "minecraft:adventure/sniper_duel" --
+// 50 experience -- with 150 and level 9, and granting "minecraft:nether/
+// all_effects" -- 1000 experience -- with 1150 and level 27.)
+func TestAdvancementExperienceReward(t *testing.T) {
+	e := newAdvancementEngine(t)
+	addPlayer(t, e, "Steve")
+	p := e.World.FindPlayer("Steve")
+
+	advancementFeedback(t, e, "advancement grant Steve only minecraft:adventure/kill_all_mobs")
+	advancementExperience(t, p, 100, 7)
+
+	advancementFeedback(t, e, "advancement grant Steve only minecraft:adventure/sniper_duel")
+	advancementExperience(t, p, 150, 9)
+
+	advancementFeedback(t, e, "advancement grant Steve only minecraft:nether/all_effects")
+	advancementExperience(t, p, 1150, 27)
+
+	// The progress towards the next level is the one of the server: 61
+	// of the 97 points of level 28.
+	if got, _ := p.NBT.Get("XpP").(nbt.Float); float64(got) < 0.6288 || float64(got) > 0.6289 {
+		t.Errorf("the progress towards the next level is %v, want about 0.62887", got)
+	}
+}
+
+// TestAdvancementExperienceOfACustomAdvancement pins down the experience
+// reward of a custom advancement, and what the server does with a reward
+// it does not know.
+//
+// 1.12.2 reads four keys of the "rewards" block: "experience", "loot",
+// "recipes" and "function". A key it does not know -- "items" is the one
+// of 1.13 -- is ignored: the advancement still loads and the other
+// rewards still work.
+//
+// (Measured on a real 1.12.2 server: an advancement with an "items"
+// reward and an "experience" of 7 loads, hands out the 7 points and says
+// nothing about the items.)
+func TestAdvancementExperienceOfACustomAdvancement(t *testing.T) {
+	root := t.TempDir()
+	writeAdvancementFile(t, root, "my_pack/thing.json", `{
+		"criteria": {"done": {"trigger": "minecraft:impossible"}},
+		"requirements": [["done"]],
+		"rewards": {"items": [{"item": "minecraft:diamond", "count": 5}], "experience": 7}
+	}`)
+	e := newAdvancementEngine(t)
+	e.SetRoot(root)
+	addPlayer(t, e, "Steve")
+	p := e.World.FindPlayer("Steve")
+
+	// The advancement exists: the key the server does not know does not
+	// keep it from loading.
+	if got, want := advancementFeedback(t, e, "advancement grant Steve only my_pack:thing"),
+		"Granted the entire advancement 'my_pack:thing' to Steve"; got != want {
+		t.Errorf("the message was %q, want %q", got, want)
+	}
+	// The experience of the block is handed out, the items are not: gomc
+	// has no items to hand out, and the server does not know the key
+	// either.
+	advancementExperience(t, p, 7, 1)
+}
+
+// writeAdvancementProgressFile writes the progress file of a player.
+//
+// The file is the one 1.12.2 keeps in `<world>/advancements/<uuid>.json`.
+func writeAdvancementProgressFile(t *testing.T, root, uuid, body string) {
+	t.Helper()
+	path := filepath.Join(root, "advancements", uuid+".json")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("creating %s: %v", filepath.Dir(path), err)
+	}
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatalf("writing %s: %v", path, err)
+	}
+}
+
+// TestAdvancementProgressIsSaved pins down the progress file of a player.
+//
+// 1.12.2 keeps the progress of a player in `advancements/<uuid>.json`, in
+// the directory of the world, and writes it when the progress changes.
+//
+// The file holds the advancements the player has started, with the moment
+// every criterion was completed and the "done" flag of the advancement.
+//
+// (Measured on a real 1.12.2 server: the file of a player holds the
+// advancements the player has started, with the moment every criterion
+// was completed and the "done" flag of the advancement.)
+func TestAdvancementProgressIsSaved(t *testing.T) {
+	root := t.TempDir()
+	e := newAdvancementEngine(t)
+	e.SetRoot(root)
+	addPlayer(t, e, "Steve")
+
+	advancementFeedback(t, e, "advancement grant Steve only minecraft:story/root")
+
+	path := filepath.Join(root, "advancements", world.DeriveEntityUUID("Steve")+".json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("reading %s: %v", path, err)
+	}
+	want := `{
+  "minecraft:story/root": {
+    "criteria": {
+      "crafting_table": "1970-01-01 00:00:00 +0000"
+    },
+    "done": true
+  }
+}`
+	if string(data) != want {
+		t.Errorf("the file holds\n%s\nwant\n%s", data, want)
+	}
+}
+
+// TestAdvancementProgressIsRead pins down that the progress of a player is
+// read back.
+//
+// 1.12.2 reads the file when the player joins: the criteria that are in it
+// are the ones the player has completed. The "done" flag of the file is not
+// read -- the server works it out from the requirements of the
+// advancement, and so does gomc.
+func TestAdvancementProgressIsRead(t *testing.T) {
+	root := t.TempDir()
+	writeAdvancementProgressFile(t, root, world.DeriveEntityUUID("Steve"), `{
+  "minecraft:story/root": {
+    "criteria": {
+      "crafting_table": "2026-10-20 21:44:38 +0800"
+    },
+    "done": true
+  }
+}`)
+	e := newAdvancementEngine(t)
+	e.SetRoot(root)
+	addPlayer(t, e, "Steve")
+
+	if got, want := advancementFeedback(t, e, "advancement test Steve minecraft:story/root"),
+		"Player Steve has completed advancement 'minecraft:story/root'"; got != want {
+		t.Errorf("the message was %q, want %q", got, want)
+	}
+	// The player cannot be given the advancement again: it is already
+	// completed.
+	if got, want := advancementError(t, e, "advancement grant Steve only minecraft:story/root"),
+		"Couldn't grant the advancement 'minecraft:story/root' to Steve because they already have it"; got != want {
+		t.Errorf("the error was %q, want %q", got, want)
+	}
+}
+
+// TestAdvancementProgressIsNotACustomAdvancement pins down that the
+// progress file of a player is not read as a custom advancement.
+//
+// The two live in the same directory: the progress of a player is a file
+// right in it (`<world>/advancements/<uuid>.json`) and a custom
+// advancement is in a directory named after its namespace
+// (`<world>/advancements/<namespace>/<path>.json`). The server skips
+// every file that is not in such a directory.
+func TestAdvancementProgressIsNotACustomAdvancement(t *testing.T) {
+	root := t.TempDir()
+	uuid := world.DeriveEntityUUID("Steve")
+	writeAdvancementProgressFile(t, root, uuid, `{
+  "minecraft:story/root": {
+    "criteria": {
+      "crafting_table": "2026-10-20 21:44:38 +0800"
+    },
+    "done": true
+  }
+}`)
+	e := newAdvancementEngine(t)
+	e.SetRoot(root)
+	addPlayer(t, e, "Steve")
+
+	if got, want := advancementError(t, e, "advancement test Steve minecraft:"+uuid),
+		"No advancement was found by the name 'minecraft:"+uuid+"'"; got != want {
+		t.Errorf("the error was %q, want %q", got, want)
+	}
+	// The file is still the progress of the player.
+	if got, want := advancementFeedback(t, e, "advancement test Steve minecraft:story/root"),
+		"Player Steve has completed advancement 'minecraft:story/root'"; got != want {
+		t.Errorf("the message was %q, want %q", got, want)
 	}
 }

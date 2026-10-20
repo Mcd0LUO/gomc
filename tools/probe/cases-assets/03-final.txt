@@ -1,0 +1,17 @@
+# 收尾核对：
+#   sub/inner.json  -> 子目录里的配方
+#   dye3.json       -> 结果是数据值 3 的染料
+#   potion.json     -> 结果是药水
+#   air.json        -> 结果是空气
+#   iron.json       -> 结果是铁锹
+say F1
+recipe give Steve sub/inner
+say F2
+recipe give Steve dye3
+say F3
+recipe give Steve potion
+say F4
+recipe give Steve air
+say F5
+recipe give Steve iron
+say F6

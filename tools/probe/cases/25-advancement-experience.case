@@ -1,0 +1,34 @@
+# 验证：进度奖励里的 "experience" 到底给玩家什么。
+#
+# 1.12.2 的进度奖励有两种："recipes"（解锁配方）和 "experience"（给经验）。
+# 内置进度里有 12 个带 experience：kill_all_mobs 100、sniper_duel 50、
+# all_effects 1000……
+#
+# 这一轮看三件事：
+#   1. 发奖励时服务端会不会说点什么（聊天消息 / 命令回显）
+#   2. 玩家拿到的到底是"经验点"还是"等级"（看存盘的 playerdata/*.dat）
+#   3. 进度进度是不是真的落盘了（看 advancements/<uuid>.json）
+#
+# 期望：
+#   - 三条 grant 各只有一行命令回显，没有别的消息
+#   - 玩家 XpTotal = 100+50+1000 = 1150，XpLevel = 28
+#   - advancements/<uuid>.json 里有刚给的几个进度
+#
+# **这个用例不录基线**（父会话统一录）。
+
+--- console ---
+say X01
+advancement grant Steve only minecraft:adventure/kill_all_mobs
+say X02
+advancement grant Steve only minecraft:adventure/sniper_duel
+say X03
+advancement grant Steve only minecraft:nether/all_effects
+say X04
+advancement test Steve minecraft:adventure/kill_all_mobs
+say X05
+advancement grant Steve only minecraft:adventure/kill_all_mobs
+say X06
+save-all
+say X07
+
+# bot: Steve

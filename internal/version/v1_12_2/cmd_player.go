@@ -186,8 +186,19 @@ func (c *giveCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		if name == "" {
 			name = e.DisplayName()
 		}
+		// The item is named by its **display name**, and the name is
+		// wrapped in square brackets. The display name follows the data
+		// value: `minecraft:dye` with the data value 3 is "Cocoa Beans".
+		//
+		// (Measured on a real 1.12.2 server: `give Steve stone` answers
+		// "Given [Stone] * 1 to Steve" and `give Steve minecraft:dye 1 3`
+		// answers "Given [Cocoa Beans] * 1 to Steve".)
+		shown := item.Name
+		if display, known := itemDisplayName(item.Name, item.Data); known {
+			shown = "[" + display + "]"
+		}
 		ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-			fmt.Sprintf("Given %s * %d to %s", item.Name, count, name))
+			fmt.Sprintf("Given %s * %d to %s", shown, count, name))
 	}
 	return len(entities), nil
 }

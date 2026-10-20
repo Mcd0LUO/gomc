@@ -1,0 +1,20 @@
+# /fill 第 9~11 位（模式 / 替换方块 / 替换数据值）的文案。
+#
+# 数据值是 0 时，第 9 位是模式，第 10 位是替换方块，第 11 位是替换方块的
+# 数据值。替换方块的数据值读不成数字时报什么？
+
+--- console ---
+say R01
+fill 2 4 2 3 4 3 stone 0 replace stone abc
+say R02
+fill 4 4 4 5 4 5 stone 0 replace notablock
+say R03
+fill 6 4 6 7 4 7 stone 0 replace stone -1
+say R04
+fill 8 4 8 9 4 9 stone 0 replace stone *
+say R05
+fill 10 4 10 11 4 11 stone 0 replace stone 99
+say R06
+fill 12 4 12 13 4 13 stone 0 replace wool
+say R07
+say R08

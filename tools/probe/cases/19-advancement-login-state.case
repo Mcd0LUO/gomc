@@ -34,3 +34,5 @@ advancement test Steve minecraft:recipes/building_blocks/coal_block
 say M14
 advancement test Steve minecraft:recipes/root
 say M15
+
+# bot: Steve

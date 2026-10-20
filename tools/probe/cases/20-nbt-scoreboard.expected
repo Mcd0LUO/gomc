@@ -1,0 +1,28 @@
+[Server] M00
+Added new objective 't' successfully
+Object successfully summoned
+[Server] M01
+Could not parse dataTag, reason: Expected ':' but got '<EOF>' at: {Tags<--[HERE]
+[Server] M02
+Could not parse dataTag, reason: Expected '}' but got '<EOF>' at: {Tags:1<--[HERE]
+[Server] M03
+Could not parse dataTag, reason: Expected '}' but got '<EOF>' at: {<--[HERE]
+[Server] M04
+Could not parse dataTag, reason: Expected key at: {Tags:1,<--[HERE]
+[Server] M05
+Could not parse dataTag, reason: Missing termination quote at: {Tags:"abc<--[HERE]
+[Server] M06
+Set score of t for player 357ca390-f94b-4bdf-bf74-193cf1841990 to 1
+[Server] M07
+Players tag command failed, reason: Expected ':' but got '<EOF>' at: {Tags<--[HERE]
+[Server] M08
+Players tag command failed, reason: Expected '}' but got '<EOF>' at: {Tags:1<--[HERE]
+[Server] M09
+Players tag command failed, reason: Expected '}' but got '<EOF>' at: {<--[HERE]
+[Server] M10
+Players tag command failed, reason: Expected key at: {Tags:1,<--[HERE]
+[Server] M11
+Players tag command failed, reason: Missing termination quote at: {Tags:"abc<--[HERE]
+[Server] M12
+Tag marked added
+[Server] M13

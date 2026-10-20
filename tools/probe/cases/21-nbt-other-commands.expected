@@ -1,0 +1,77 @@
+[Server] M00
+Added new objective 't' successfully
+Object successfully summoned
+Block placed
+[Server] M01
+Data tag parsing failed: Expected ':' but got '<EOF>' at: {Tags<--[HERE]
+[Server] M02
+Data tag parsing failed: Expected '}' but got '<EOF>' at: {Tags:1<--[HERE]
+[Server] M03
+Data tag parsing failed: Expected '}' but got '<EOF>' at: {<--[HERE]
+[Server] M04
+Data tag parsing failed: Expected key at: {Tags:1,<--[HERE]
+[Server] M05
+Data tag parsing failed: Missing termination quote at: {Tags:"abc<--[HERE]
+[Server] M06
+Found NBT_AS
+[Server] M07
+Data tag parsing failed: Expected ':' but got '<EOF>' at: {Tags<--[HERE]
+[Server] M08
+Data tag parsing failed: Expected '}' but got '<EOF>' at: {Tags:1<--[HERE]
+[Server] M09
+Data tag parsing failed: Expected '}' but got '<EOF>' at: {<--[HERE]
+[Server] M10
+Data tag parsing failed: Expected key at: {Tags:1,<--[HERE]
+[Server] M11
+Data tag parsing failed: Missing termination quote at: {Tags:"abc<--[HERE]
+[Server] M12
+The data tag did not change: {HurtByTimestamp:0,Attributes:[{Base:20.0d,Name:"generic.maxHealth"},{Base:0.0d,Name:"generic.knockbackResistance"},{Base:0.699999988079071d,Name:"generic.movementSpeed"},{Base:0.0d,Name:"generic.armor"},{Base:0.0d,Name:"generic.armorToughness"}],Invulnerable:0b,FallFlying:0b,ShowArms:0b,PortalCooldown:0,AbsorptionAmount:0.0f,FallDistance:0.0f,DisabledSlots:0,DeathTime:0s,WorldUUIDMost:5128265807944829578L,Pose:{},Spigot.ticksLived:690,Invisible:0b,Paper.CanTick:1b,Motion:[0.0d,-0.0784000015258789d,0.0d],Small:0b,UUIDLeast:-6957713876796365311L,Health:20.0f,Bukkit.updateLevel:2,Air:300s,OnGround:1b,Dimension:0,Rotation:[0.0f,0.0f],HandItems:[{},{}],UUIDMost:-2861008829570529149L,CustomName:"NBT_AS",Pos:[2.5d,4.0d,0.5d],Fire:-1s,ArmorItems:[{},{},{},{}],NoBasePlate:0b,HurtTime:0s,WorldUUIDLeast:-7985742384632965490L,Paper.Origin:[2.5d,4.0d,0.5d]}
+[Server] M13
+Data tag parsing failed: Expected ':' but got '<EOF>' at: {Tags<--[HERE]
+[Server] M14
+Data tag parsing failed: Expected '}' but got '<EOF>' at: {Tags:1<--[HERE]
+[Server] M15
+Data tag parsing failed: Expected '}' but got '<EOF>' at: {<--[HERE]
+[Server] M16
+Data tag parsing failed: Expected key at: {Tags:1,<--[HERE]
+[Server] M17
+Data tag parsing failed: Missing termination quote at: {Tags:"abc<--[HERE]
+[Server] M18
+The data tag did not change: {x:0,y:4,z:0,Items:[],id:"minecraft:chest",Lock:""}
+[Server] M19
+Data tag parsing failed: Expected ':' but got '<EOF>' at: {Tags<--[HERE]
+[Server] M20
+Data tag parsing failed: Expected '}' but got '<EOF>' at: {Tags:1<--[HERE]
+[Server] M21
+Data tag parsing failed: Expected '}' but got '<EOF>' at: {<--[HERE]
+[Server] M22
+Data tag parsing failed: Expected key at: {Tags:1,<--[HERE]
+[Server] M23
+Data tag parsing failed: Missing termination quote at: {Tags:"abc<--[HERE]
+[Server] M24
+1 blocks filled
+[Server] M25
+Data tag parsing failed: Expected ':' but got '<EOF>' at: {Tags<--[HERE]
+[Server] M26
+Data tag parsing failed: Expected '}' but got '<EOF>' at: {Tags:1<--[HERE]
+[Server] M27
+Data tag parsing failed: Expected '}' but got '<EOF>' at: {<--[HERE]
+[Server] M28
+Data tag parsing failed: Expected key at: {Tags:1,<--[HERE]
+[Server] M29
+Data tag parsing failed: Missing termination quote at: {Tags:"abc<--[HERE]
+[Server] M30
+The block at 0, 4, 0 had the data value of 2 (expected: 0)
+[Server] M31
+Data tag parsing failed: Expected ':' but got '<EOF>' at: {Tags<--[HERE]
+[Server] M32
+Data tag parsing failed: Expected '}' but got '<EOF>' at: {Tags:1<--[HERE]
+[Server] M33
+Data tag parsing failed: Expected '}' but got '<EOF>' at: {<--[HERE]
+[Server] M34
+Data tag parsing failed: Expected key at: {Tags:1,<--[HERE]
+[Server] M35
+Data tag parsing failed: Missing termination quote at: {Tags:"abc<--[HERE]
+[Server] M36
+Object successfully summoned
+[Server] M37

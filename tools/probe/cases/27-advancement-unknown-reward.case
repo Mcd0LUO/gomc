@@ -1,0 +1,27 @@
+# 验证：进度奖励里服务端不认识的键会怎样。
+#
+# 1.12.2 的 "rewards" 块只认四个键：experience、loot、recipes、function。
+# 其它的键（1.13 的 items、随便什么）服务端会怎样？
+#
+# 这一轮用一个自定义进度：
+#   - rewards 里写一个 1.13 风格的 items（服务端 1.12.2 根本不认）
+#   - rewards 里写一个 experience: 7（服务端认的）
+#
+# 期望：
+#   - 服务端**不**报 "Parsing error loading custom advancement"（那就说明
+#     不认识的键是被忽略的，而不是让整个进度加载失败）
+#   - 进度存在，能被 grant
+#   - 玩家拿到 7 点经验（items 没有生效）
+#
+# **这个用例不录基线**（父会话统一录）。
+
+--- console ---
+say Y01
+advancement grant Steve only mypack:items
+say Y02
+advancement test Steve mypack:items
+say Y03
+advancement grant Steve only mypack:items
+say Y04
+
+# bot: Steve

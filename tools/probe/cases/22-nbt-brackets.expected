@@ -1,0 +1,28 @@
+[Server] M00
+Added new objective 't' successfully
+Object successfully summoned
+[Server] M01
+[Server] @e[type=armor_stand
+[Server] M02
+Set score of t for player @e[type=armor_stand to 1
+[Server] M03
+Entity '@e[type=armor_stand' cannot be found
+[Server] M04
+'(0' is not a valid number
+[Server] M05
+[Server] (hello
+[Server] M06
+[Server] hello)
+[Server] M07
+[Server] [hello
+[Server] M08
+Invalid selector argument: 'nbt={Tags:'
+[Server] M09
+Data tag parsing failed: Expected '}' but got '<EOF>' at: {Tags: extra<--[HERE]
+[Server] M10
+Data tag parsing failed: Expected '}' but got '<EOF>' at: {Tags:1, b:2<--[HERE]
+[Server] M11
+Data tag parsing failed: Expected ':' but got '<EOF>' at: ...:1,Key2:2,Key3:3,Key4:4,Key5:5,Key6<--[HERE]
+[Server] M12
+Data tag parsing failed: Expected ':' but got '<EOF>' at: ...:2,Key3:3,Key4:4,Key5:5,Key6:7,Key7<--[HERE]
+[Server] M13

@@ -131,7 +131,7 @@ func runAdvancementTest(ctx *exec.Context, args []ast.Arg) (int, error) {
 	if !ok {
 		return 0, exec.Errorf("No advancement was found by the name '%s'", name)
 	}
-	store := advancementStoreOf(ctx.World)
+	store := advancementStoreOfCommand(ctx)
 	obtained := store.obtained(advancementPlayerName(player), advancement.name)
 	if len(args) < 4 {
 		// The whole advancement is tested.
@@ -170,8 +170,17 @@ func runAdvancementChange(ctx *exec.Context, args []ast.Arg, action string) (int
 		return 0, advancementPlainUsageError(commandUsage("advancement " + action))
 	}
 	playerName := advancementPlayerName(player)
-	store := advancementStoreOf(ctx.World)
+	store := advancementStoreOfCommand(ctx)
 	set := advancementSetOfCommand(ctx)
+	// The progress of a player is written to the world directory as soon
+	// as the command changed it, the way the server writes the progress
+	// of a player when it saves it. A file that cannot be written is
+	// reported in the log of the server and the command still succeeds.
+	defer func() {
+		if err := store.save(set, playerName); err != nil {
+			ctx.Engine.Logs = append(ctx.Engine.Logs, err.Error())
+		}
+	}()
 
 	if filter == "everything" {
 		// "everything" takes no advancement, so any further argument is a
@@ -249,6 +258,20 @@ func advancementSetOfCommand(ctx *exec.Context) *advancementSet {
 	return set
 }
 
+// advancementStoreOfCommand returns the advancement progress of the world
+// the command runs in.
+//
+// The progress of the players is read from the world directory the first
+// time the progress is needed, the way 1.12.2 reads it when a player
+// joins. A file that does not load is reported in the log of the server.
+func advancementStoreOfCommand(ctx *exec.Context) *advancementStore {
+	store := advancementStoreOf(ctx.World, ctx.Engine.Root)
+	for _, err := range store.takeLoadErrors() {
+		ctx.Engine.Logs = append(ctx.Engine.Logs, err.Error())
+	}
+	return store
+}
+
 // advancementFilterTargets returns the advancements a filter reaches.
 //
 // 1.12.2 walks the parents of the advancement first, then the advancement
@@ -323,14 +346,14 @@ func changeAdvancement(store *advancementStore, set *advancementSet, player *wor
 	return true
 }
 
-// grantAdvancementRewards hands the player the recipes an advancement
+// grantAdvancementRewards hands the player the rewards an advancement
 // gives and completes the advancements that are about them.
 //
-// 1.12.2 gives the recipes of the "rewards" block of an advancement when
-// the advancement is completed, and learning a recipe fires the
-// "minecraft:recipe_unlocked" trigger, which completes the criterion of
-// the advancement that watches that recipe. The trigger only fires for a
-// recipe the player does not know yet.
+// 1.12.2 hands out the rewards of an advancement when it is completed:
+// the experience of the "rewards" block goes to the player, and learning
+// a recipe fires the "minecraft:recipe_unlocked" trigger, which completes
+// the criterion of the advancement that watches that recipe. The trigger
+// only fires for a recipe the player does not know yet.
 //
 // This is why a player that is given every advancement is left with a few
 // advancements that only have their "has_the_recipe" criterion: the
@@ -342,6 +365,11 @@ func changeAdvancement(store *advancementStore, set *advancementSet, player *wor
 // player that has just logged in, and the advancements that are only half
 // done are the ones the trigger completed.)
 func grantAdvancementRewards(store *advancementStore, set *advancementSet, player *world.Entity, advancement *advancement) {
+	// The server gives the experience first, then the loot, then the
+	// recipes and last the function.
+	if advancement.experience > 0 {
+		giveAdvancementExperience(player, advancement.experience)
+	}
 	if advancement.recipe == nil {
 		return
 	}

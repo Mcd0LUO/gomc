@@ -17,3 +17,5 @@ advancement revoke Steve everything
 say M07
 advancement grant Steve everything
 say M08
+
+# bot: Steve

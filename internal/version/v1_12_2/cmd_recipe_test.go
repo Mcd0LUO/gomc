@@ -3,6 +3,7 @@ package v1_12_2
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Mcd0LUO/gomc/internal/exec"
@@ -25,7 +26,7 @@ func recipeEngine(t *testing.T) *exec.Engine {
 //
 // The files are the recipes of the world directory: they are written to
 // `<root>/recipes/<name>` and are read by the command the first time it
-// needs them.
+// needs them. A name with a "/" in it is a file in a subdirectory.
 func recipeWorld(t *testing.T, recipes map[string]string) *exec.Engine {
 	t.Helper()
 	root := t.TempDir()
@@ -34,7 +35,11 @@ func recipeWorld(t *testing.T, recipes map[string]string) *exec.Engine {
 		t.Fatalf("MkdirAll: %v", err)
 	}
 	for name, body := range recipes {
-		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644); err != nil {
+		path := filepath.Join(dir, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatalf("MkdirAll: %v", err)
+		}
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
 			t.Fatalf("WriteFile: %v", err)
 		}
 	}
@@ -347,6 +352,21 @@ func customRecipeBody(item string, count int) string {
 		item + `", "count": ` + itoa(count) + `}}`
 }
 
+// customRecipeBodyWithData is the body of a recipe file that produces an
+// item of a data value.
+//
+// The server refuses a result whose item has more than one form when
+// the file does not say which form it is, so the data value is written
+// for those items.
+//
+// (Measured on a real Paper 1.12.2: the server logs "Missing data for
+// item 'minecraft:dye'" for a file whose result is a dye and that has no
+// "data".)
+func customRecipeBodyWithData(item string, data, count int) string {
+	return `{"type": "crafting_shaped", "pattern": ["#"], "key": {"#": {"item": "minecraft:stick"}}, "result": {"item": "` +
+		item + `", "data": ` + itoa(data) + `, "count": ` + itoa(count) + `}}`
+}
+
 // itoa writes a small number, so the tests do not need the fmt package.
 func itoa(n int) string {
 	if n == 0 {
@@ -473,19 +493,215 @@ func TestRecipeCustomRecipeOfAnUnknownType(t *testing.T) {
 }
 
 // TestRecipeCustomRecipeOfABrokenFile checks that a file the server
-// cannot read is not a recipe, and that it does not take the other
-// recipes of the world with it.
+// cannot read is not a recipe, and that it takes the recipes that come
+// after it with it.
+//
+// The server stops reading the recipes when a file is broken, so the
+// recipes after the broken file are not read either.
+//
+// (Measured on a real Paper 1.12.2: the server logs "Parsing error
+// loading recipe minecraft:bbb_broken" and "Errors with built-in
+// recipes!", the recipe before the broken file is handed out, and the
+// recipe after it answers "ccc_good is an unknown recipe".)
 func TestRecipeCustomRecipeOfABrokenFile(t *testing.T) {
 	e := recipeWorld(t, map[string]string{
-		"broken.json":    `{"type": "crafting_shaped", "result":`,
+		"aaa_good.json":   customRecipeBody("minecraft:diamond_block", 1),
+		"bbb_broken.json": `{"type": "crafting_shaped", "result":`,
+		"ccc_good.json":   customRecipeBody("minecraft:emerald_block", 1),
+	})
+	recipePlayer(t, e, "Steve")
+
+	msgs, err := recipeRun(e, "recipe give Steve aaa_good")
+	if err != nil {
+		t.Fatalf("recipe give: %v", err)
+	}
+	want := "Successfully given Steve the recipe for Block of Diamond"
+	if len(msgs) != 1 || msgs[0] != want {
+		t.Errorf("the command said %q, want %q", msgs, want)
+	}
+	if got := recipeError(t, e, "recipe give Steve bbb_broken"); got !=
+		"bbb_broken is an unknown recipe" {
+		t.Errorf("the error was %q, want the wording of an unknown recipe", got)
+	}
+	// The broken file takes the recipes that come after it with it.
+	if got := recipeError(t, e, "recipe give Steve ccc_good"); got !=
+		"ccc_good is an unknown recipe" {
+		t.Errorf("the error was %q, want the wording of an unknown recipe", got)
+	}
+}
+
+// TestRecipeCustomRecipeOfAnUnknownTypeStopsTheRest checks that a file
+// of a type the server does not know takes the recipes that come after
+// it with it.
+//
+// (Measured on a real Paper 1.12.2: the server logs "Invalid or
+// unsupported recipe type 'minecraft:crafting_shaped'", and the recipes
+// that come after the file answer "<name> is an unknown recipe".)
+func TestRecipeCustomRecipeOfAnUnknownTypeStopsTheRest(t *testing.T) {
+	e := recipeWorld(t, map[string]string{
+		"aaa_bad.json":  `{"type": "minecraft:crafting_shaped", "pattern": ["#"], "key": {"#": {"item": "minecraft:stick"}}, "result": {"item": "minecraft:emerald"}}`,
+		"bbb_good.json": customRecipeBody("minecraft:diamond_block", 1),
+	})
+	recipePlayer(t, e, "Steve")
+
+	if got := recipeError(t, e, "recipe give Steve aaa_bad"); got !=
+		"aaa_bad is an unknown recipe" {
+		t.Errorf("the error was %q, want the wording of an unknown recipe", got)
+	}
+	if got := recipeError(t, e, "recipe give Steve bbb_good"); got !=
+		"bbb_good is an unknown recipe" {
+		t.Errorf("the error was %q, want the wording of an unknown recipe", got)
+	}
+}
+
+// TestRecipeCustomRecipeOfAnUnknownItemStopsTheRest checks that a file
+// whose result is an item 1.12.2 does not know takes the recipes that
+// come after it with it.
+//
+// (Measured on a real Paper 1.12.2: the server logs "Unknown item
+// 'minecraft:not_a_real_item'", and the recipes that come after the
+// file answer "<name> is an unknown recipe".)
+func TestRecipeCustomRecipeOfAnUnknownItemStopsTheRest(t *testing.T) {
+	e := recipeWorld(t, map[string]string{
+		"aaa_bad.json":  customRecipeBody("minecraft:not_a_real_item", 1),
+		"bbb_good.json": customRecipeBody("minecraft:diamond_block", 1),
+	})
+	recipePlayer(t, e, "Steve")
+
+	if got := recipeError(t, e, "recipe give Steve aaa_bad"); got !=
+		"aaa_bad is an unknown recipe" {
+		t.Errorf("the error was %q, want the wording of an unknown recipe", got)
+	}
+	if got := recipeError(t, e, "recipe give Steve bbb_good"); got !=
+		"bbb_good is an unknown recipe" {
+		t.Errorf("the error was %q, want the wording of an unknown recipe", got)
+	}
+}
+
+// TestRecipeCustomRecipeWithoutADataValueStopsTheRest checks that a
+// file whose result is an item that has more than one form and that
+// does not say which form it is takes the recipes that come after it
+// with it.
+//
+// (Measured on a real Paper 1.12.2: the server logs "Missing data for
+// item 'minecraft:dye'", and the recipes that come after the file answer
+// "<name> is an unknown recipe".)
+func TestRecipeCustomRecipeWithoutADataValueStopsTheRest(t *testing.T) {
+	e := recipeWorld(t, map[string]string{
+		"aaa_bad.json":  `{"type": "crafting_shaped", "pattern": ["#"], "key": {"#": {"item": "minecraft:stick"}}, "result": {"item": "minecraft:dye"}}`,
+		"bbb_good.json": customRecipeBody("minecraft:diamond_block", 1),
+	})
+	recipePlayer(t, e, "Steve")
+
+	if got := recipeError(t, e, "recipe give Steve aaa_bad"); got !=
+		"aaa_bad is an unknown recipe" {
+		t.Errorf("the error was %q, want the wording of an unknown recipe", got)
+	}
+	if got := recipeError(t, e, "recipe give Steve bbb_good"); got !=
+		"bbb_good is an unknown recipe" {
+		t.Errorf("the error was %q, want the wording of an unknown recipe", got)
+	}
+}
+
+// TestRecipeCustomRecipeInASubdirectory checks that a recipe file in a
+// subdirectory is a recipe, and that the name of that recipe is the path
+// of the file below the recipes directory.
+//
+// (Measured on a real Paper 1.12.2: the server walks the recipes
+// directory with `Files.walk`, so a file in a subdirectory is a recipe,
+// and `recipe give <player> sub/my_recipe` hands it out.)
+func TestRecipeCustomRecipeInASubdirectory(t *testing.T) {
+	e := recipeWorld(t, map[string]string{
+		"sub/my_recipe.json": customRecipeBody("minecraft:diamond_block", 1),
+	})
+	recipePlayer(t, e, "Steve")
+
+	for _, line := range []string{
+		"recipe give Steve sub/my_recipe",
+		"recipe give Steve minecraft:sub/my_recipe",
+	} {
+		msgs, err := recipeRun(e, line)
+		if err != nil {
+			t.Fatalf("%q: %v", line, err)
+		}
+		want := "Successfully given Steve the recipe for Block of Diamond"
+		if len(msgs) != 1 || msgs[0] != want {
+			t.Errorf("%q: the command said %q, want %q", line, msgs, want)
+		}
+		if _, err := recipeRun(e, "recipe take Steve sub/my_recipe"); err != nil {
+			t.Fatalf("%q: %v", line, err)
+		}
+	}
+}
+
+// TestRecipeCustomRecipeInADeepSubdirectory checks that a recipe file
+// in a subdirectory of a subdirectory is a recipe as well.
+func TestRecipeCustomRecipeInADeepSubdirectory(t *testing.T) {
+	e := recipeWorld(t, map[string]string{
+		"sub/deep/my_recipe.json": customRecipeBody("minecraft:emerald_block", 1),
+	})
+	recipePlayer(t, e, "Steve")
+
+	msgs, err := recipeRun(e, "recipe give Steve sub/deep/my_recipe")
+	if err != nil {
+		t.Fatalf("recipe give: %v", err)
+	}
+	want := "Successfully given Steve the recipe for Block of Emerald"
+	if len(msgs) != 1 || msgs[0] != want {
+		t.Errorf("the command said %q, want %q", msgs, want)
+	}
+}
+
+// TestRecipeCustomRecipeOfADataValue checks that the name of a recipe
+// is the name of the item it produces, with the data value of that
+// item.
+//
+// (Measured on a real Paper 1.12.2: a recipe whose result is a dye of
+// the data value 3 is answered with "Cocoa Beans", one whose result is
+// a banner of the data value 14 with "Orange Banner", one whose result
+// is a bed of the data value 4 with "Yellow Bed" and one whose result
+// is a skull of the data value 2 with "Zombie Head".)
+func TestRecipeCustomRecipeOfADataValue(t *testing.T) {
+	for _, tc := range []struct {
+		file string
+		item string
+		data int
+		want string
+	}{
+		{"dye.json", "minecraft:dye", 0, "Ink Sac"},
+		{"dye3.json", "minecraft:dye", 3, "Cocoa Beans"},
+		{"dye11.json", "minecraft:dye", 11, "Dandelion Yellow"},
+		{"banner.json", "minecraft:banner", 0, "Black Banner"},
+		{"banner14.json", "minecraft:banner", 14, "Orange Banner"},
+		{"bed.json", "minecraft:bed", 4, "Yellow Bed"},
+		{"skull.json", "minecraft:skull", 2, "Zombie Head"},
+		{"wool.json", "minecraft:wool", 5, "Lime Wool"},
+	} {
+		e := recipeWorld(t, map[string]string{
+			tc.file: customRecipeBodyWithData(tc.item, tc.data, 1),
+		})
+		recipePlayer(t, e, "Steve")
+
+		msgs, err := recipeRun(e, "recipe give Steve "+strings.TrimSuffix(tc.file, ".json"))
+		if err != nil {
+			t.Fatalf("%s: %v", tc.file, err)
+		}
+		want := "Successfully given Steve the recipe for " + tc.want
+		if len(msgs) != 1 || msgs[0] != want {
+			t.Errorf("%s: the command said %q, want %q", tc.file, msgs, want)
+		}
+	}
+}
+
+// TestRecipeCustomRecipeOfAnItemWithoutForms checks that a recipe whose
+// result is an item that has only one form is a recipe even when the
+// file does not say a data value.
+func TestRecipeCustomRecipeOfAnItemWithoutForms(t *testing.T) {
+	e := recipeWorld(t, map[string]string{
 		"my_recipe.json": customRecipeBody("minecraft:diamond_block", 1),
 	})
 	recipePlayer(t, e, "Steve")
 
-	if got := recipeError(t, e, "recipe give Steve broken"); got !=
-		"broken is an unknown recipe" {
-		t.Errorf("the error was %q, want the wording of an unknown recipe", got)
-	}
 	msgs, err := recipeRun(e, "recipe give Steve my_recipe")
 	if err != nil {
 		t.Fatalf("recipe give: %v", err)
@@ -614,5 +830,176 @@ func TestRecipeCustomRecipesAreTheSameEveryTime(t *testing.T) {
 	want := "Successfully given Steve the recipe for Block of Diamond"
 	if len(msgs) != 1 || msgs[0] != want {
 		t.Errorf("the command said %q, want %q", msgs, want)
+	}
+}
+
+// TestItemDisplayName checks the name 1.12.2 shows for an item stack.
+//
+// (Measured on a real Paper 1.12.2: `give <player> <item> [amount]
+// [data]` answers "Given [<name>] * <amount> to <player>".)
+func TestItemDisplayName(t *testing.T) {
+	for _, tc := range []struct {
+		item string
+		data int
+		want string
+	}{
+		// An item without a namespace is the item of the "minecraft"
+		// namespace.
+		{"stone", 0, "Stone"},
+		{"minecraft:stone", 0, "Stone"},
+		{"MINECRAFT:STONE", 0, "Stone"},
+		{"minecraft:beef", 0, "Raw Beef"},
+		{"minecraft:map", 0, "Empty Map"},
+		{"minecraft:wooden_slab", 0, "Oak Wood Slab"},
+		// The names of the items that have more than one form follow
+		// the data value.
+		{"minecraft:dye", 0, "Ink Sac"},
+		{"minecraft:dye", 3, "Cocoa Beans"},
+		{"minecraft:dye", 11, "Dandelion Yellow"},
+		{"minecraft:dye", 15, "Bone Meal"},
+		{"minecraft:banner", 0, "Black Banner"},
+		{"minecraft:banner", 14, "Orange Banner"},
+		{"minecraft:bed", 0, "White Bed"},
+		{"minecraft:bed", 4, "Yellow Bed"},
+		{"minecraft:skull", 0, "Skeleton Skull"},
+		{"minecraft:skull", 2, "Zombie Head"},
+		{"minecraft:wool", 5, "Lime Wool"},
+		// The name of a potion says which effect it has, and the effect
+		// of a plain potion is in the data value.
+		{"minecraft:potion", 0, "Water Bottle"},
+		{"minecraft:potion", 1, "Potion of Regeneration"},
+		{"minecraft:potion", 5, "Potion of Healing"},
+		{"minecraft:potion", 14, "Potion of Invisibility"},
+		// A data value outside 0..15 is read as the effect of the data
+		// value and 15, and a few of them are a variant of the potion.
+		{"minecraft:potion", 16, "Awkward Potion"},
+		{"minecraft:potion", 17, "Potion of Regeneration"},
+		{"minecraft:potion", 32, "Thick Potion"},
+		{"minecraft:potion", 48, "Water Bottle"},
+		{"minecraft:potion", 64, "Mundane Potion"},
+		{"minecraft:potion", 100, "Potion of Poison"},
+		{"minecraft:splash_potion", 0, "Splash Water Bottle"},
+		{"minecraft:splash_potion", 5, "Splash Water Bottle"},
+		{"minecraft:lingering_potion", 0, "Lingering Water Bottle"},
+		{"minecraft:tipped_arrow", 0, "Arrow of Splashing"},
+		// A data value of -1 is "not given", and the server uses the
+		// data value 0 then.
+		{"minecraft:dye", -1, "Ink Sac"},
+		{"minecraft:wool", -1, "White Wool"},
+		// A data value outside 0..15 gives the name of the data value 0.
+		{"minecraft:dye", 16, "Ink Sac"},
+		{"minecraft:dye", 100, "Ink Sac"},
+		{"minecraft:wool", 16, "White Wool"},
+		{"minecraft:bed", 16, "White Bed"},
+		{"minecraft:banner", 16, "Black Banner"},
+		{"minecraft:skull", 16, "Skeleton Skull"},
+	} {
+		got, known := itemDisplayName(tc.item, tc.data)
+		if !known {
+			t.Errorf("itemDisplayName(%q, %d): the item is not known", tc.item, tc.data)
+			continue
+		}
+		if got != tc.want {
+			t.Errorf("itemDisplayName(%q, %d) = %q, want %q", tc.item, tc.data, got, tc.want)
+		}
+	}
+}
+
+// TestItemDisplayNameOfAnUnknownItem checks that an item the server does
+// not know has no name.
+func TestItemDisplayNameOfAnUnknownItem(t *testing.T) {
+	for _, item := range []string{
+		"",
+		"not_a_real_item",
+		"minecraft:not_a_real_item",
+		// An item of another namespace is an item the server does not
+		// know: 1.12.2 knows the items of the "minecraft" namespace
+		// only.
+		"other:dye",
+		"minecraft2:dye",
+	} {
+		got, known := itemDisplayName(item, 0)
+		if known {
+			t.Errorf("itemDisplayName(%q, 0) = %q, want the item to be unknown", item, got)
+		}
+		if got != "" {
+			t.Errorf("itemDisplayName(%q, 0) = %q, want an empty name", item, got)
+		}
+	}
+}
+
+// TestRecipeItemName checks the name the server calls a recipe that
+// produces an item.
+//
+// It is the name of the item, except for the potions: the name of a
+// potion says which effect it has, and the effect is in the NBT of the
+// stack. The server builds the stack of a recipe before it starts, so
+// the stack has no NBT then and the potion is the uncraftable one.
+//
+// (Measured on a real Paper 1.12.2: a recipe whose result is
+// "minecraft:potion" is answered with "the recipe for Uncraftable
+// Potion", while `give <player> minecraft:potion 1` answers "Given
+// [Water Bottle] * 1 to <player>".)
+func TestRecipeItemName(t *testing.T) {
+	for _, tc := range []struct {
+		item string
+		data int
+		want string
+	}{
+		{"minecraft:diamond_block", 0, "Block of Diamond"},
+		{"minecraft:dye", 3, "Cocoa Beans"},
+		{"minecraft:wool", 5, "Lime Wool"},
+		{"minecraft:potion", 0, "Uncraftable Potion"},
+		{"minecraft:potion", 5, "Uncraftable Potion"},
+		{"minecraft:splash_potion", 0, "Splash Uncraftable Potion"},
+		{"minecraft:lingering_potion", 0, "Lingering Uncraftable Potion"},
+		{"minecraft:tipped_arrow", 0, "Uncraftable Tipped Arrow"},
+	} {
+		got, known := recipeItemName(tc.item, tc.data)
+		if !known {
+			t.Errorf("recipeItemName(%q, %d): the item is not known", tc.item, tc.data)
+			continue
+		}
+		if got != tc.want {
+			t.Errorf("recipeItemName(%q, %d) = %q, want %q", tc.item, tc.data, got, tc.want)
+		}
+	}
+}
+
+// TestItemFormNamesMatchTheItemNames checks that the table of the forms
+// and the table of the items tell the same name for the data value 0.
+//
+// The two tables hold the same information in two places, so they have
+// to agree.
+func TestItemFormNamesMatchTheItemNames(t *testing.T) {
+	for item, names := range itemFormNames {
+		if len(names) != 16 {
+			t.Errorf("the item %q has %d names, want 16", item, len(names))
+			continue
+		}
+		want, known := customItemNames[item]
+		if !known {
+			t.Errorf("the item %q is not in the table of the items", item)
+			continue
+		}
+		if names[0] != want {
+			t.Errorf("the item %q is called %q by the table of the forms and %q by the table of the items",
+				item, names[0], want)
+		}
+	}
+	for item, names := range itemEffectNames {
+		if len(names) != 16 {
+			t.Errorf("the item %q has %d names, want 16", item, len(names))
+			continue
+		}
+		want, known := customItemNames[item]
+		if !known {
+			t.Errorf("the item %q is not in the table of the items", item)
+			continue
+		}
+		if names[0] != want {
+			t.Errorf("the item %q is called %q by the table of the effects and %q by the table of the items",
+				item, names[0], want)
+		}
 	}
 }
