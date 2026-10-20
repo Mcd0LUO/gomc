@@ -23,6 +23,29 @@ type Function struct {
 	LineNumbers []int
 	// Path is the file the function was loaded from.
 	Path string
+	// Commands holds the parsed form of each entry in Lines, in the same
+	// order.
+	//
+	// The loader parses every line once and keeps the result here, so a
+	// command is not parsed again on every run of the function. A nil
+	// entry means the line was not cached: either it does not parse, or
+	// the function was not built by the loader. Such a line is parsed
+	// when it runs, which is where 1.12.2 reports the mistake as well.
+	//
+	// The cached commands are shared by every run of the function, so a
+	// handler must not modify the arguments it is given.
+	Commands []*ast.Command
+}
+
+// cachedCommand returns the parsed form of the line at index i.
+//
+// It returns nil when the line was not cached, in which case the caller
+// has to parse it.
+func (f *Function) cachedCommand(i int) *ast.Command {
+	if i < 0 || i >= len(f.Commands) {
+		return nil
+	}
+	return f.Commands[i]
 }
 
 // FunctionStore holds the loaded functions.
@@ -54,6 +77,9 @@ func (s *FunctionStore) IDs() []string { return append([]string(nil), s.order...
 //
 // This mirrors `CustomFunctionData.f`, which empties the registry before
 // reloading it.
+//
+// The cached commands of a function belong to the function, so they are
+// dropped with it: nothing keeps pointing at a function that is gone.
 func (s *FunctionStore) Clear() {
 	s.funcs = map[string]*Function{}
 	s.order = nil
@@ -231,6 +257,13 @@ func (e *Engine) LoadFunction(id string) error {
 //
 // Validation mirrors `CustomFunction.a`: comments and blank lines are
 // skipped, and an unknown command name aborts the whole file.
+//
+// Every other line is parsed as well, and the parsed form is kept, so
+// the function does not have to parse its commands again on every run.
+// A line that does not parse is *not* a load error: 1.12.2 only checks
+// the command name when a function is loaded, so a mistake in the
+// arguments stays hidden until the function runs. Such a line is simply
+// left out of the cache and parsed when it runs.
 func (e *Engine) loadFunctionFile(id, path string) (*Function, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -250,6 +283,14 @@ func (e *Engine) loadFunctionFile(id, path string) (*Function, error) {
 		}
 		fn.Lines = append(fn.Lines, line)
 		fn.LineNumbers = append(fn.LineNumbers, lineNo)
+		cmd, parseErr := e.ParseCommand(line, lineNo)
+		if parseErr != nil {
+			// The line is kept, but not its parsed form: the failure
+			// is reported when the function runs.
+			fn.Commands = append(fn.Commands, nil)
+			continue
+		}
+		fn.Commands = append(fn.Commands, cmd)
 	}
 	return fn, nil
 }
@@ -406,6 +447,10 @@ func (e *Engine) ExecuteLine(line string, lineNo int, src *Source) (int, error) 
 // error per command (`CommandBlockListenerAbstract.executeSafely`) and
 // carries on with the next one. The failures are collected in
 // Engine.Errors.
+//
+// The commands of the function are parsed when it is loaded, so a run does
+// not parse them again. A line that does not parse is parsed when it runs,
+// which is where 1.12.2 reports the mistake as well.
 func (e *Engine) RunFunction(fn *Function, src *Source) (int, error) {
 	limit := e.World.Rules.Int("maxCommandChainLength")
 	// The commands of a function run at permission level 2. The cap is
@@ -462,6 +507,7 @@ func (e *Engine) pushFunction(fn *Function, src *Source) {
 			lineNo: fn.LineNumbers[i],
 			path:   fn.Path,
 			src:    src,
+			cmd:    fn.cachedCommand(i),
 		})
 	}
 }
@@ -483,6 +529,7 @@ func (e *Engine) expandFunction(item pendingEntry, limit int) {
 			lineNo: item.fn.LineNumbers[i],
 			path:   item.fn.Path,
 			src:    item.src,
+			cmd:    item.fn.cachedCommand(i),
 		})
 	}
 }
@@ -491,8 +538,21 @@ func (e *Engine) expandFunction(item pendingEntry, limit int) {
 //
 // A command that fails does not stop the function: the failure is
 // collected and the next entry runs.
+//
+// The line is parsed again only when it was not cached, which is the
+// case for a line that does not parse and for a function that was not
+// built by the loader.
 func (e *Engine) runEntry(item pendingEntry) {
-	if _, err := e.ExecuteLine(item.line, item.lineNo, item.src); err != nil {
+	cmd := item.cmd
+	if cmd == nil {
+		parsed, err := e.ParseCommand(item.line, item.lineNo)
+		if err != nil {
+			e.Errors = append(e.Errors, e.decorate(err, item.lineNo, item.line, item.path))
+			return
+		}
+		cmd = parsed
+	}
+	if _, err := e.Execute(cmd, item.src); err != nil {
 		e.Errors = append(e.Errors, e.decorate(err, item.lineNo, item.line, item.path))
 	}
 }
@@ -597,6 +657,10 @@ type pendingEntry struct {
 	fn *Function
 	// src is the source the entry runs under.
 	src *Source
+	// cmd is the parsed form of the command line, when the line was
+	// cached. It is nil for a function entry and for a line that has to
+	// be parsed when it runs.
+	cmd *ast.Command
 }
 
 // RunFunctionByID runs a function by its namespaced id.
