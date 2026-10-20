@@ -163,8 +163,21 @@ java -jar .ref\tools\cfr.jar <jar> --outputdir .ref\src --comments false
 
 ---
 
-## 改公共逻辑时
+## 热路径上的小技巧
 
+- **命令的回显用字符串拼接，别用 `fmt.Sprintf`**。`Sprintf` 要装箱参数、
+  要走反射，拼接只要一次分配。`scoreboard players list` 那条已经这么写了
+  （见 `cmd_scoreboard_players.go`）。
+- **别想着把格式化推到"输出阶段"**。听起来像真服的做法（那边消息是对象，
+  进队列后台写），但 Go 的装箱模型会让它**更慢**：变参 `[]any` 照样要分配、
+  每个参数照样要装箱。实测数据见 [`docs/PERFORMANCE.md`](PERFORMANCE.md)
+  的"试过但没做"一节。
+- **别用正则改 Go 源码**。要批量改写就写个小工具走 `go/ast`：
+  字符串里的括号会让正则的括号配对切错位置。
+
+---
+
+## 改公共逻辑时
 - `internal/parser` 或 `internal/exec` 改了 → 跑全部 golden，
   `gomc difftest check` 看 diff 合不合理。
 - 选择器语义改了 → 同步更新 `docs/SPEC-1.12.2.md` 第 3 节，
