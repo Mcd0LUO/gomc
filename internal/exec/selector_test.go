@@ -658,3 +658,72 @@ func TestSelectorGameModeNotSet(t *testing.T) {
 		t.Errorf("@e[m=!abc,type=zombie] = %v, want no match", got)
 	}
 }
+
+// TestCountOnePicksTheSameEntityAsTheSortedList pins down the shortcut
+// that is used when exactly one entity is asked for.
+//
+// 1.12.2 sorts the matching entities by their distance and then takes
+// the first one, and the sort is stable: entities at the same distance
+// keep the order they were matched in. The shortcut finds that one
+// without sorting, so it has to give the same answer -- including when
+// two entities are equally far away.
+func TestCountOnePicksTheSameEntityAsTheSortedList(t *testing.T) {
+	w := world.NewWorld()
+	// Two entities at the same distance, then one that is farther, then
+	// one that is closer.
+	places := []struct {
+		id  string
+		pos world.Vec
+	}{
+		{"same-a", world.Vec{X: 5, Y: 0, Z: 0}},
+		{"same-b", world.Vec{X: 0, Y: 0, Z: 5}},
+		{"far", world.Vec{X: 50, Y: 0, Z: 0}},
+		{"near", world.Vec{X: 1, Y: 0, Z: 0}},
+	}
+	for _, p := range places {
+		e := &world.Entity{
+			ID: p.id, Type: "zombie",
+			Pos: p.pos,
+			NBT: nbt.NewCompound(), Width: 0.6, Height: 1.95,
+		}
+		w.AddEntity(e)
+	}
+	src := &Source{Name: "Server", World: "world", PermissionLevel: 4}
+
+	// The closest one wins.
+	got := resolve(t, w, src, "@e[c=1]")
+	if len(got) != 1 || got[0] != "near" {
+		t.Errorf("@e[c=1] = %v, want [near]", got)
+	}
+
+	// With the two closest ones left out, the one that was matched
+	// first wins the tie.
+	got = resolve(t, w, src, "@e[c=1,type=!zombie]")
+	if len(got) != 0 {
+		t.Errorf("@e[c=1,type=!zombie] = %v, want no match", got)
+	}
+	sel, err := parser.ParseSelector("@e[c=1]")
+	if err != nil {
+		t.Fatalf("ParseSelector: %v", err)
+	}
+	r := &SelectorResolver{World: w}
+	entities, err := r.Resolve(src, sel)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if len(entities) != 1 || entities[0].ID != "near" {
+		t.Fatalf("@e[c=1] = %v, want [near]", entities)
+	}
+
+	// The executor wins over the closest one, exactly like it does when
+	// the whole list is sorted.
+	executor := w.Entities["far"]
+	srcWithEntity := &Source{Name: "Server", World: "world", PermissionLevel: 4, Entity: executor}
+	entities, err = r.Resolve(srcWithEntity, sel)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if len(entities) != 1 || entities[0].ID != "far" {
+		t.Errorf("@e[c=1] with the executor = %v, want [far]", entities)
+	}
+}

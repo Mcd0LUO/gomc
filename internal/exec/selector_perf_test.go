@@ -103,6 +103,50 @@ func BenchmarkSelectorScanFewHits(b *testing.B) {
 	}
 }
 
+// BenchmarkSelectorScanOneHit measures a selector that asks for exactly
+// one entity out of a big world.
+//
+// This is the case the shortcut for `c=1` is for: 1.12.2 sorts the
+// matching entities by their distance and then takes the first one, so
+// the sort only has to find the closest one when one entity is wanted.
+// The walk of the world is the same as in the other benchmarks, so the
+// numbers show what the sort costs.
+func BenchmarkSelectorScanOneHit(b *testing.B) {
+	sel, err := parser.ParseSelector("@e[type=zombie,c=1]")
+	if err != nil {
+		b.Fatalf("ParseSelector: %v", err)
+	}
+
+	for _, n := range []int{100, 500, 2000, perfEntities} {
+		b.Run(fmt.Sprintf("Entities%d", n), func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				b.StopTimer()
+				eng := newBenchEngine(b)
+				src := benchSource()
+				addEntitiesOfType(eng.World, "armor_stand", n)
+				// One entity of the wanted type, at the far end of
+				// the world.
+				zombie, ok := eng.World.EntityTypes.NewEntity("zombie", "")
+				if !ok {
+					b.Fatal("zombie is not a registered entity type")
+				}
+				zombie.Pos = world.Vec{X: float64(n), Y: 64, Z: 0}
+				eng.World.AddEntity(zombie)
+				resolver := &exec.SelectorResolver{World: eng.World}
+				b.StartTimer()
+				matched, err := resolver.Resolve(src, sel)
+				if err != nil {
+					b.Fatalf("Resolve: %v", err)
+				}
+				if len(matched) != 1 {
+					b.Fatalf("matched %d entities, want 1", len(matched))
+				}
+			}
+		})
+	}
+}
+
 // BenchmarkSelectorScanRepeated measures many selections over a world
 // that does not change.
 //
