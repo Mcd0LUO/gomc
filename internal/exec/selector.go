@@ -125,20 +125,6 @@ func (r *SelectorResolver) Resolve(src *Source, sel *ast.Selector) ([]*world.Ent
 		shuffle(matched)
 	}
 
-	if sel.Base == "s" {
-		// @s can only ever be the executing entity.
-		if src.Entity == nil {
-			return nil, nil
-		}
-		for _, e := range matched {
-			if e.ID == src.Entity.ID {
-				matched = []*world.Entity{e}
-				break
-			}
-		}
-		return matched, nil
-	}
-
 	// When exactly one entity is asked for, 1.12.2 prefers the executor.
 	if limit == 1 && sel.Base != "r" && src.Entity != nil {
 		for _, e := range matched {

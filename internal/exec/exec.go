@@ -245,7 +245,14 @@ func (r *Registry) Names() []string {
 }
 
 // NBTOf is a helper to read an NBT argument from a parsed argument list.
+//
+// It returns nil when the argument is not an NBT one or when the list is
+// too short: the position is a convention between the command and the
+// parser, and a wrong one must not take the whole run down.
 func NBTOf(args []ast.Arg, i int) *nbt.Compound {
+	if i < 0 || i >= len(args) {
+		return nil
+	}
 	if a, ok := args[i].(*ast.NBTArg); ok {
 		return a.Value
 	}
@@ -253,7 +260,13 @@ func NBTOf(args []ast.Arg, i int) *nbt.Compound {
 }
 
 // SelectorOf is a helper to read a selector argument from a parsed list.
+//
+// It returns nil when the argument is not a selector one or when the list
+// is too short, see NBTOf.
 func SelectorOf(args []ast.Arg, i int) *ast.Selector {
+	if i < 0 || i >= len(args) {
+		return nil
+	}
 	if a, ok := args[i].(*ast.Selector); ok {
 		return a
 	}
