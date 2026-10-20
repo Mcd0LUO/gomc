@@ -1,0 +1,31 @@
+[Server] B01
+The number you have entered (30000001.00) is too big, it must be at most 30000000
+[Server] B02
+The number you have entered (-30000001.00) is too small, it must be at least -30000000
+[Server] B03
+The number you have entered (30000000.50) is too big, it must be at most 30000000
+[Server] B04
+Cannot place block outside of the world
+[Server] B05
+The number you have entered (30000001.00) is too big, it must be at most 30000000
+[Server] B06
+Cannot place block outside of the world
+[Server] B07
+The number you have entered (257.00) is too big, it must be at most 256
+[Server] B08
+The number you have entered (-1.00) is too small, it must be at least 0
+[Server] B09
+The block couldn't be placed
+[Server] B10
+The number you have entered (100000000000000000000.00) is too big, it must be at most 30000000
+[Server] B11
+The number you have entered (30000001.50) is too big, it must be at most 30000000
+[Server] B12
+Too many blocks in the specified area (30000001 > 32768)
+[Server] B13
+101 blocks filled
+[Server] B14
+Cannot place block outside of the world
+[Server] B15
+Cannot place block outside of the world
+[Server] B16

@@ -2,7 +2,6 @@ package v1_12_2
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/Mcd0LUO/gomc/internal/ast"
@@ -19,7 +18,9 @@ type setBlockCmd struct{}
 func (c *setBlockCmd) Name() string { return "setblock" }
 
 // Usage implements exec.Handler.
-func (c *setBlockCmd) Usage() string { return "/setblock <x> <y> <z> <block> [<data>] [<replaceMode>]" }
+func (c *setBlockCmd) Usage() string {
+	return "/setblock <x> <y> <z> <block> [dataValue|state] [oldBlockHandling] [dataTag]"
+}
 
 // Parse implements exec.Handler.
 func (c *setBlockCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
@@ -36,16 +37,18 @@ func (c *setBlockCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	}
 	ref := &ast.BlockRef{Name: block, Data: -1}
 	// The fifth argument is the data value. 1.12.2 reads it when the
-	// command runs and reads it **strictly**: the slot only takes a number,
-	// so a word like "keep" is a broken data value there and not a mode.
+	// command runs and reads it **strictly**: the slot only takes a
+	// number, a state of the block or the word "default", so a word
+	// like "keep" is a broken data value there and not a mode.
 	//
 	// (Measured on a real 1.12.2 server: `setblock 2 4 2 stone keep` answers
 	// "'keep' is not a state for block minecraft:stone", while
 	// `setblock 4 4 4 stone 0 keep` places the block.)
-	dataValue := &fillDataValue{Kind: fillDataValueAbsent}
+	registryName := fillBlockName(block)
+	dataValue := absentFillDataValue(registryName)
 	if p.More() {
 		t, _ := p.Next()
-		dataValue = parseFillDataValue(t.Text)
+		dataValue = parseFillDataValue(registryName, t.Text)
 	}
 	mode := "replace"
 	if p.More() {
@@ -114,6 +117,14 @@ func (c *setBlockCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		return 0, err
 	}
 
+	// 1.12.2 refuses a position whose chunk is not loaded.
+	//
+	// (Measured on a real 1.12.2 server: `setblock 144 4 0 stone` answers
+	// "Cannot place block outside of the world".)
+	if !ctx.World.IsLoaded(pos) {
+		return 0, exec.Errorf("Cannot place block outside of the world")
+	}
+
 	switch mode {
 	case "destroy":
 		// The old block is dropped, and placing air over air changes
@@ -126,6 +137,16 @@ func (c *setBlockCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		if !ctx.World.Blocks.Get(pos).IsAir() {
 			return 0, exec.Errorf("The block couldn't be placed")
 		}
+	}
+
+	// 1.12.2 puts the block with `World.setTypeAndData`, which refuses a
+	// position outside the height of the world: the command then says the
+	// block couldn't be placed.
+	//
+	// (Measured on a real 1.12.2 server: `setblock 0 256 0 stone` answers
+	// "The block couldn't be placed".)
+	if pos.Y < 0 || pos.Y >= 256 {
+		return 0, exec.Errorf("The block couldn't be placed")
 	}
 
 	blockData := dataValue.data()
@@ -188,13 +209,14 @@ func (c *fillCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	ref := &ast.BlockRef{Name: block, Data: -1}
 	// The eighth argument is the data value of the block. 1.12.2 reads it
 	// when the command runs and reads it strictly: the slot only takes a
-	// number, so a word like "replace" is a broken data value there and
-	// not a mode. The slot is classified here and the failure is
-	// reported when the command runs.
-	dataValue := &fillDataValue{Kind: fillDataValueAbsent}
+	// number, a state of the block or the word "default", so a word like
+	// "replace" is a broken data value there and not a mode. The slot is
+	// classified here and the failure is reported when the command runs.
+	registryName := fillBlockName(block)
+	dataValue := absentFillDataValue(registryName)
 	if p.More() {
 		t, _ := p.Next()
-		dataValue = parseFillDataValue(t.Text)
+		dataValue = parseFillDataValue(registryName, t.Text)
 	}
 	mode := "replace"
 	if p.More() {
@@ -247,6 +269,70 @@ func (c *fillCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	}, nil
 }
 
+// regionSizes returns the number of blocks of a region along its three
+// axes.
+//
+// The difference of two coordinates can be bigger than an int, so it is
+// computed with the unsigned arithmetic and cut off.
+func regionSizes(min, max world.Pos) (int, int, int) {
+	return int(regionSize(min.X, max.X)),
+		int(regionSize(min.Y, max.Y)),
+		int(regionSize(min.Z, max.Z))
+}
+
+// regionSize returns the number of blocks of a region along one axis.
+func regionSize(a, b int) int64 {
+	if a > b {
+		a, b = b, a
+	}
+	// The difference is computed with the unsigned arithmetic, because
+	// the signed one would overflow.
+	d := uint64(b) - uint64(a)
+	if d >= uint64(1)<<31 {
+		return int64(1) << 31
+	}
+	return int64(d) + 1
+}
+
+// regionVolume returns the number of blocks in a region.
+//
+// 1.12.2 counts the blocks in a 32 bit int, so its number is only right
+// while it fits in an int. gomc's coordinates have no such limit, so the
+// runtime counts without overflowing and cuts the result off at the
+// biggest number 1.12.2 could have printed.
+func regionVolume(min, max world.Pos) int64 {
+	const maxCount = int64(1) << 31
+	sx := regionSize(min.X, max.X)
+	sy := regionSize(min.Y, max.Y)
+	sz := regionSize(min.Z, max.Z)
+	if sx == 0 || sy == 0 || sz == 0 {
+		return 0
+	}
+	if sy > maxCount/sx {
+		return maxCount
+	}
+	p := sx * sy
+	if sz > maxCount/p {
+		return maxCount
+	}
+	return p * sz
+}
+
+// regionLoaded reports whether every chunk of the region is loaded.
+//
+// 1.12.2 walks the region in steps of 16 blocks and checks the chunk of
+// every step, so the chunks of the whole region have to be loaded.
+func regionLoaded(w *world.World, min, max world.Pos) bool {
+	for x := min.X; x <= max.X; x += 16 {
+		for z := min.Z; z <= max.Z; z += 16 {
+			if !w.IsLoaded(world.Pos{X: x, Y: min.Y, Z: z}) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 // nbtErrorMessage returns the message of a parse error without the
 // position it carries.
 func nbtErrorMessage(err error) string {
@@ -290,26 +376,40 @@ func (c *fillCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 
 	// The data value of the block to replace may be "-1" or "*", which
 	// mean that any data value matches.
-	replaceValue := -1
-	if replaceData != "" && replaceData != "-1" && replaceData != "*" {
-		n, err := strconv.Atoi(replaceData)
-		if err != nil {
-			return 0, exec.Errorf("'%s' is not a state for block %s", replaceData, ref.Name)
-		}
-		replaceValue = n
-	}
+	//
+	// 1.12.2 reads it **inside** the loop, and only for a block that is
+	// the block to replace: so a data value the block does not know is
+	// only reported when the region holds such a block.
+	replaceValue := 0
+	hasReplaceValue := false
+	replaceValueRead := false
 
 	min, max := orderCorners(from, to)
 	// 1.12.2 refuses a fill that is too big and a fill that reaches out
 	// of the world, before it changes anything.
-	sizeX := max.X - min.X + 1
-	sizeY := max.Y - min.Y + 1
-	sizeZ := max.Z - min.Z + 1
-	volume := sizeX * sizeY * sizeZ
+	volume := regionVolume(min, max)
 	if volume > 32768 {
 		return 0, exec.Errorf("Too many blocks in the specified area (%d > 32768)", volume)
 	}
 	if min.Y < 0 || max.Y >= 256 {
+		// 1.12.2 puts the blocks with `World.setTypeAndData`, which
+		// refuses a position outside the height of the world. The blocks
+		// that cannot be placed are not counted, so the command says
+		// that nothing was filled.
+		//
+		// (Measured on a real 1.12.2 server: `fill 0 256 0 1 256 1
+		// stone` answers "No blocks filled".)
+	}
+	if min.Y < 0 || max.Y >= 256 {
+		// 1.12.2 refuses a region that reaches out of the height of the
+		// world, before it changes anything.
+		//
+		// (Measured on a real 1.12.2 server: `fill 0 256 0 1 256 1
+		// stone` answers "Cannot place blocks outside of the world".)
+		return 0, exec.Errorf("Cannot place blocks outside of the world")
+	}
+	// 1.12.2 checks that every chunk of the region is loaded.
+	if !regionLoaded(ctx.World, min, max) {
 		return 0, exec.Errorf("Cannot place blocks outside of the world")
 	}
 	count := 0
@@ -345,7 +445,18 @@ func (c *fillCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 						if !strings.EqualFold(existing.Name, replaceBlock) {
 							continue
 						}
-						if replaceValue >= 0 && existing.Data != replaceValue {
+						if !replaceValueRead {
+							replaceValueRead = true
+							if replaceData != "" && replaceData != "-1" && replaceData != "*" {
+								v, err := replaceBlockData(fillBlockName(replaceBlock), replaceData)
+								if err != nil {
+									return 0, err
+								}
+								replaceValue = v
+								hasReplaceValue = true
+							}
+						}
+						if hasReplaceValue && existing.Data != replaceValue {
 							continue
 						}
 					}
@@ -422,6 +533,10 @@ func (c *blockDataCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 // Run implements exec.Handler.
 func (c *blockDataCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	pos := resolveRelative(*args[0].(*ast.Coord), ctx.Source.Pos).BlockPos()
+	// 1.12.2 refuses a position whose chunk is not loaded.
+	if !ctx.World.IsLoaded(pos) {
+		return 0, exec.Errorf("Cannot change block outside of the world")
+	}
 	data, err := parseDataTagArg(args[1].(*ast.StringArg).Value)
 	if err != nil {
 		return 0, err
@@ -442,7 +557,9 @@ type testForBlockCmd struct{}
 func (c *testForBlockCmd) Name() string { return "testforblock" }
 
 // Usage implements exec.Handler.
-func (c *testForBlockCmd) Usage() string { return "/testforblock <x> <y> <z> <block> [<data>]" }
+func (c *testForBlockCmd) Usage() string {
+	return "/testforblock <x> <y> <z> <block> [dataValue|-1|state|*] [dataTag]"
+}
 
 // Parse implements exec.Handler.
 func (c *testForBlockCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
@@ -458,18 +575,23 @@ func (c *testForBlockCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 		return nil, err
 	}
 	ref := &ast.BlockRef{Name: block, Data: -1}
+	// The fifth argument is the data value of the block. 1.12.2 reads it
+	// with `CommandAbstract.b(Block, String)`, which is the predicate of a
+	// block: a number is compared with the data value of the block, and
+	// anything else is a state string the block has to know.
+	//
+	// The argument is read here, but the failure is reported when the
+	// command runs: 1.12.2 looks at the block first.
+	data := &blockDataArg{Text: "", Any: true}
 	if p.More() {
-		if t, ok := p.Peek(); ok && isDataValue(t.Text) {
-			p.Next()
-			n, _ := strconv.Atoi(t.Text)
-			ref.Data = n
-			ref.HasData = true
-		}
+		t, _ := p.Next()
+		data = parseBlockDataArg(fillBlockName(block), t.Text)
 	}
 	return []ast.Arg{
 		&ast.Coord{X: pos.X, Y: pos.Y, Z: pos.Z,
 			RelativeX: pos.RelativeX, RelativeY: pos.RelativeY, RelativeZ: pos.RelativeZ},
 		ref,
+		data,
 	}, nil
 }
 
@@ -477,14 +599,32 @@ func (c *testForBlockCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 func (c *testForBlockCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	pos := resolveRelative(*args[0].(*ast.Coord), ctx.Source.Pos).BlockPos()
 	ref := args[1].(*ast.BlockRef)
+	data := args[2].(*blockDataArg)
+	// 1.12.2 refuses a position whose chunk is not loaded, before it
+	// looks at the block.
+	if !ctx.World.IsLoaded(pos) {
+		return 0, exec.Errorf("Cannot test for block outside of the world")
+	}
 	block := ctx.World.Blocks.Get(pos)
 	if !strings.EqualFold(block.Name, ref.Name) {
 		return 0, exec.Errorf("The block at %s is %s (expected: %s)",
 			blockPos(pos), describeBlocks(block), describeBlocks(world.BlockState{Name: ref.Name, Data: ref.Data}))
 	}
-	if ref.HasData && block.Data != ref.Data {
+	// 1.12.2 looks at the block first and only then at its data value, so
+	// a data value the block does not know is reported after the block
+	// turned out to be the right one.
+	if data.Err != nil {
+		return 0, data.Err
+	}
+	if !data.Any && block.Data != data.Data {
+		if data.IsState {
+			// The server shows the state of the block and the state
+			// that was asked for.
+			return 0, exec.Errorf("The block at %s had the data value of %s (expected: %s)",
+				blockPos(pos), blockStateText(fillBlockName(block.Name), block.Data), data.Text)
+		}
 		return 0, exec.Errorf("The block at %s had the data value of %d (expected: %d)",
-			blockPos(pos), block.Data, ref.Data)
+			blockPos(pos), block.Data, data.Data)
 	}
 	ctx.Engine.Feedback = append(ctx.Engine.Feedback,
 		fmt.Sprintf("Successfully found the block at %s", blockPos(pos)))

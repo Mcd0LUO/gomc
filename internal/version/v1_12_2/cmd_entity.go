@@ -28,7 +28,7 @@ func (c *summonCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	}
 	pos := ast.Coord{}
 	if p.More() {
-		parsed, err := p.Coord(ast.Coord{})
+		parsed, err := p.CoordWith(ast.Coord{}, parser.Summon)
 		if err != nil {
 			return nil, err
 		}
@@ -81,6 +81,10 @@ func (c *summonCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	e, ok := ctx.World.EntityTypes.NewEntity(canonical, "")
 	if !ok {
 		return 0, exec.Errorf("Unable to summon object")
+	}
+	// 1.12.2 refuses a position whose chunk is not loaded.
+	if !ctx.World.IsLoaded(world.Pos{X: int(pos.X), Y: int(pos.Y), Z: int(pos.Z)}) {
+		return 0, exec.Errorf("Cannot summon the object out of the world")
 	}
 	e.Pos = pos
 	if text := args[2].(*ast.StringArg).Value; text != "" {
@@ -320,7 +324,7 @@ func (c *tpCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	if err != nil {
 		return nil, err
 	}
-	pos, err := p.Coord(ast.Coord{})
+	pos, err := p.CoordWith(ast.Coord{}, parser.Tp)
 	if err != nil {
 		return nil, err
 	}

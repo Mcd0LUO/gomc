@@ -1,0 +1,25 @@
+# /fill 的 replace 模式：要替换的方块和它的数据值。
+#
+# 1.12.2 读替换方块的数据值用的是 CommandAbstract.b(Block, String)，
+# 那是**谓词**：数字直接和数据值比，其它是方块的状态串。
+# 所以：
+#   - 状态串是合法的（`variant=granite`）；
+#   - 数据值不在 0..15 的数字合法，但什么也匹配不上；
+#   - 报 'is not a state for block' 时，指的是**要替换的那个方块**。
+
+--- console ---
+say R01
+setblock 2 4 2 stone variant=granite
+say R02
+fill 2 4 2 3 4 3 stone 0 replace stone variant=granite
+say R03
+fill 4 4 4 5 4 5 stone 0 replace wool abc
+say R04
+fill 6 4 6 7 4 7 stone 0 replace stone 16
+say R05
+fill 8 4 8 9 4 9 stone 0 replace stone -2
+say R06
+fill 10 4 10 11 4 11 stone 0 replace stone
+say R07
+testforblock 10 4 10 stone 0
+say R08

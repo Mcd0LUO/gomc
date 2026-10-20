@@ -1,6 +1,7 @@
 package lexer
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -99,17 +100,35 @@ func TestTokenizeUnterminatedQuote(t *testing.T) {
 
 // TestTokenizeUnbalancedGroup covers the brackets that are not NBT.
 //
-// A brace group that never closes is not an error, see
-// TestTokenizeUnbalancedBraceGroup. The brackets of a target selector and
-// the parentheses of a coordinate are a different matter and keep failing
-// here.
+// 1.12.2 does not group brackets and parentheses either: it splits the
+// command on spaces. A bracket that is never closed therefore is ordinary
+// text -- and a selector that is not closed is not a selector either,
+// because `PlayerSelector.isPattern` wants balanced brackets.
+//
+// (Measured on a real 1.12.2 server: `say @e[type=armor_stand` prints the
+// text as it is, and `scoreboard players set @e[type=armor_stand t 1` takes
+// the holder for the name "@e[type=armor_stand".)
 func TestTokenizeUnbalancedGroup(t *testing.T) {
 	for _, in := range []string{
 		"scoreboard players set @e[type=armor_stand t 1",
 		"summon zombie (0 4 0",
+		"say (hello",
+		"say hello)",
+		"say [hello",
 	} {
-		if _, err := Tokenize(in); err == nil {
-			t.Errorf("input %q: expected an error for an unbalanced group", in)
+		toks, err := Tokenize(in)
+		if err != nil {
+			t.Errorf("input %q: %v", in, err)
+			continue
+		}
+		// No character is lost: the tokens carry the whole text, the
+		// bracket and the parenthesis among them.
+		var b strings.Builder
+		for _, tok := range toks {
+			b.WriteString(tok.Text)
+		}
+		if got, want := b.String(), strings.ReplaceAll(in, " ", ""); got != want {
+			t.Errorf("input %q: the tokens carry %q, want %q", in, got, want)
 		}
 	}
 }

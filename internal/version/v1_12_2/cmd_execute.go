@@ -76,7 +76,7 @@ func (c *executeCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 		return nil, err
 	}
 	// The coordinates are relative to the target entity, not the source.
-	pos, err := p.Coord(ast.Coord{})
+	pos, err := p.CoordWith(ast.Coord{}, parser.Loose)
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +89,7 @@ func (c *executeCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 		//
 		// Parsing them against the execute coordinates would apply the
 		// execution offset twice.
-		dp, err := p.Coord(ast.Coord{})
+		dp, err := p.CoordWith(ast.Coord{}, parser.Loose)
 		if err != nil {
 			return nil, err
 		}

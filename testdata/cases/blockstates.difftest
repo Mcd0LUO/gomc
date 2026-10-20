@@ -1,0 +1,66 @@
+# 1.12.2 的方块状态串、数据值的翻译，以及省略数据值时放的是什么。
+#
+# 1.12.2 的 CommandAbstract.a(Block, String) 先把参数读成整数，读不成就走
+# 状态串分支：按 ',' 拆，再按 '=' 拆（最多两段），名字要是该方块的属性
+# 名，取值要是该属性的取值。参数整个没写的时候放的是该方块的默认状态，
+# 而默认状态的数据值不是总是 0（chest 是 2，torch 是 5）。
+#
+# 命令里写的是数据值，1.12.2 存的是方块的完整状态：数据值要交给
+# fromLegacyData，放下去的状态的数据值是另一个数。箱子写 0 放下去的是
+# 朝北的箱子（数据值 2），没有属性的方块写 5 放下去的也是数据值 0，
+# 小麦只有数据值 0..7，写 9 会被拒绝。
+#
+# testforblock 用来反查放下去的数据值，和真服的探针用例一一对应。
+#
+# 小麦下面是耕地：1.12.2 的方块更新会把长在草地上的小麦打掉，那是世界
+# 模拟，gomc 不做，所以这里铺上耕地让两边可比。
+name: block states
+
+setup:
+  setblock 18 3 18 farmland
+  setblock 40 3 40 farmland
+
+run:
+  fill 2 4 2 3 4 3 stone variant=granite
+  testforblock 2 4 2 stone 1
+  fill 4 4 4 5 4 5 stone variant=smooth_granite
+  testforblock 4 4 4 stone 2
+  fill 6 4 6 7 4 7 wool color=red
+  testforblock 6 4 6 wool 14
+  fill 8 4 8 9 4 9 wool color=light_blue
+  testforblock 8 4 8 wool 3
+  setblock 10 4 10 chest
+  testforblock 10 4 10 chest 2
+  setblock 12 4 12 chest 0
+  testforblock 12 4 12 chest 0
+  setblock 14 4 14 torch
+  testforblock 14 4 14 torch 5
+  setblock 16 4 16 oak_stairs
+  testforblock 16 4 16 oak_stairs 3
+  fill 18 4 18 19 4 19 wheat age=3
+  testforblock 18 4 18 wheat 3
+  setblock 20 4 20 stone variant=granite
+  testforblock 20 4 20 stone 1
+  fill 22 4 22 23 4 23 stone variant=bogus
+  fill 24 4 24 25 4 25 stone variant=GRANITE
+  fill 26 4 26 27 4 27 stone variant=granite=1
+  fill 28 4 28 29 4 29 cobblestone variant=granite
+  fill 30 4 30 31 4 31 cobblestone default
+  testforblock 30 4 30 cobblestone 0
+  fill 32 4 32 33 4 33 stone variant=granite,variant=diorite
+  testforblock 32 4 32 stone 3
+  fill 34 4 34 35 4 35 stone default
+  testforblock 34 4 34 stone 0
+  fill 36 4 36 37 4 37 stone default,default
+  fill 38 4 38 39 4 39 wheat age=9
+  fill 40 4 40 41 4 41 wheat age=07
+  testforblock 40 4 40 wheat 7
+  fill 42 4 42 43 4 43 stone VARIANT=granite
+  fill 44 4 44 45 4 45 stone -1
+  fill 46 4 46 47 4 47 stone 16
+  setblock 48 4 48 cobblestone 5
+  testforblock 48 4 48 cobblestone 0
+  setblock 50 4 50 wheat 9
+  fill 52 4 52 53 4 53 stone 9
+  setblock 54 4 54 stone 3
+  testforblock 54 4 54 stone 3

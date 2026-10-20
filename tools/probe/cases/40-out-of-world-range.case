@@ -1,0 +1,61 @@
+# 「世界之外」的判定从哪儿开始。
+#
+# 真服报 "Cannot place block outside of the world" 的条件是
+# `World.isLoaded(pos)`：那个位置的**区块**得是加载着的。真服只加载出生点
+# 周围的区块，所以离得远了就放不下。
+#
+# 这里量的是边界：出生点在 (0,4,0) 附近，x 和 z 两个方向都量。
+#
+# 区块是 16 格一个，所以每 16 格测一次就能看出是「几个区块」。
+
+--- console ---
+say E01
+setblock 112 4 0 stone
+say E02
+setblock 128 4 0 stone
+say E03
+setblock 144 4 0 stone
+say E04
+setblock 160 4 0 stone
+say E05
+setblock 176 4 0 stone
+say E06
+setblock 192 4 0 stone
+say E07
+setblock 208 4 0 stone
+say E08
+setblock 240 4 0 stone
+say E09
+setblock 256 4 0 stone
+say E10
+setblock 272 4 0 stone
+say E11
+setblock 288 4 0 stone
+say E12
+setblock -112 4 0 stone
+say E13
+setblock -128 4 0 stone
+say E14
+setblock -144 4 0 stone
+say E15
+setblock -160 4 0 stone
+say E16
+setblock -176 4 0 stone
+say E17
+setblock -192 4 0 stone
+say E18
+setblock 0 4 112 stone
+say E19
+setblock 0 4 128 stone
+say E20
+setblock 0 4 144 stone
+say E21
+setblock 0 4 160 stone
+say E22
+setblock 0 4 176 stone
+say E23
+setblock 0 4 192 stone
+say E24
+setblock 0 4 208 stone
+say E25
+say E26

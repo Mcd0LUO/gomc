@@ -1,0 +1,45 @@
+# 坐标的边界：真服把 X/Z 限制在 ±30000000、Y 限制在 [0, 256]。
+#
+# 1.12.2 读坐标用 `CommandAbstract.b(base, text, min, max, flag)`：
+#   - X/Z 的范围是 [-30000000, 30000000]，Y 的范围是 [0, 256]；
+#   - 超范围的**不是钳制，是报错**（commands.generic.num.tooBig / tooSmall），
+#     而且是在**解析期**报的；
+#   - 相对坐标（~）查的是**偏移量**，不是算完的坐标。
+#
+# 覆盖：两个方向的边界、边界外的那个数、带小数的、相对坐标、Y 的上下界、
+# summon 和 fill 用的坐标、特别大的数（1e20）。
+#
+# 放在后面的是会真的在很远的地方放方块的（30000000），起服慢一点。
+
+--- console ---
+say B01
+setblock 30000001 4 0 stone
+say B02
+setblock -30000001 4 0 stone
+say B03
+setblock 30000000.5 4 0 stone
+say B04
+setblock 29999999.5 4 0 stone
+say B05
+setblock ~30000001 4 0 stone
+say B06
+setblock ~30000000 4 0 stone
+say B07
+setblock 0 257 0 stone
+say B08
+setblock 0 -1 0 stone
+say B09
+setblock 0 256 0 stone
+say B10
+setblock 1e20 4 0 stone
+say B11
+summon zombie 30000001 4 0
+say B12
+fill 0 4 0 30000000 4 0 stone
+say B13
+fill 0 4 0 100 4 0 stone
+say B14
+setblock 30000000 4 0 stone
+say B15
+setblock -30000000 4 0 stone
+say B16

@@ -1,0 +1,16 @@
+# case: summon position and world height
+step 1: setblock 0 4 0 stone
+  count: 1
+  feedback: Block placed
+step 2: summon zombie 0 4 0
+  count: 1
+  feedback: Object successfully summoned
+step 3: execute @e[type=zombie] ~ ~ ~ detect ~0.5 ~ ~ stone 0 say hit
+  error: Failed to execute 'detect' as Zombie
+step 4: setblock 0 256 0 stone
+  error: The block couldn't be placed
+step 5: fill 0 256 0 1 256 1 stone
+  error: Cannot place blocks outside of the world
+step 6: fill 0 255 0 1 255 1 stone
+  count: 4
+  feedback: 4 blocks filled

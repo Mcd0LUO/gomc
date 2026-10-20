@@ -729,9 +729,6 @@ fill <x1> <y1> <z1> <x2> <y2> <z2> <方块> [<数据值>] [<模式> [<替换方�
 （`fill … stone 0 replace stone abc` → `'abc' is not a state for block
 minecraft:stone`），不是放置的那个方块。
 
-**`-1` / `*`（"任意数据值"）只对第 11 位的替换数据值有效**，
-放置方块自己的数据值（第 8 位）只接受 0..15。
-
 ### 6.3 `/effect`、`/trigger`、`/particle` 的参数 [读]
 
 ```
@@ -778,16 +775,54 @@ particle <名称> <x> <y> <z> <dx> <dy> <dz> <速度> [<数量>] [<模式>] [<�
 | 写法 | 是什么 |
 |---|---|
 | 十进制数字，0..15 | 旧式数据值 |
-| `default` | 方块的默认状态（数据值 0） |
+| `default` | 方块的默认状态 |
 | 其它 | **方块状态字符串**（`name=value` 的列表） |
 
-**已知偏差**：gomc **没有方块状态**，所以第三种写法一律拒绝
-（`'<原文>' is not a state for block <方块名>`）。真服接受它——`variant=granite`
-就是 1.12 放花岗岩的常用写法。gomc 里可以用旧式数字代替（`stone 1` 就是
-花岗岩）。要补齐这张表，得给 254 个方块各记一份"变种名 → 数据值"的列表。
+**状态字符串**（`CommandBase.c(Block, String)`）：
+
+- `default` 只能**整个**参数就是它，`default,default` 是非法的；
+- 否则按 `,` 拆，每一段再按 `=` 拆成**最多两段**（`Splitter.on('=').limit(2)`），
+  所以 `variant=granite=1` 的值是 `granite=1`，不是 `granite`；
+- 名字要是该方块的**属性名**，取值要是该属性的取值，两边都**大小写敏感**
+  （`variant=GRANITE`、`VARIANT=granite`、`DEFAULT` 都不行）；
+- 整数属性按 Java 的 `Integer.valueOf` 读，所以 `age=07` 是 7；
+- 没写到的属性保持**默认状态**里的值；
+- 多个属性写同一个名字，**后面的赢**（`variant=granite,variant=diorite` 是 3）。
+
+真服实测（2026-10-21，探针用例 `34-blockstates`）：
+
+| 命令 | 真服输出 |
+|---|---|
+| `fill … stone variant=granite` | 正常填充（花岗岩，数据值 1） |
+| `fill … stone variant=bogus` | `'variant=bogus' is not a state for block minecraft:stone` |
+| `fill … stone variant=GRANITE` | `'variant=GRANITE' is not a state for block minecraft:stone` |
+| `fill … stone variant=granite=1` | `'variant=granite=1' is not a state for block minecraft:stone` |
+| `fill … stone default,default` | `'default,default' is not a state for block minecraft:stone` |
+| `fill … cobblestone variant=granite` | `'variant=granite' is not a state for block minecraft:cobblestone` |
+| `fill … wheat age=9` | `'age=9' is not a state for block minecraft:wheat` |
+
+**命令里的数据值和存下来的数据值不是一回事**。1.12.2 存的是方块的**完整
+状态**，命令里写的却是老的数据值：`CommandBase.a(Block, String)` 把数字交给
+`Block.fromLegacyData(n)`，放下去的那个状态的**数据值**是
+`toLegacyData(fromLegacyData(n))`。对多数方块两者相同，但不是全部：
+
+| 方块 | 命令里写 | 放下去的数据值 |
+|---|---|---|
+| `chest` | `0` | **2**（朝北，数据值 2..5） |
+| `cobblestone` | `5` | **0**（没有属性的方块只有数据值 0） |
+| `stone` | `9` | **0**（石头只有 7 个变种，多出来的落回默认状态） |
+| `wheat` | `9` | **拒绝**（小麦只有数据值 0..7，`fromLegacyData` 抛异常） |
+
+**数字被拒绝时，措辞是状态那句**：`'9' is not a state for block minecraft:wheat`。
+
+**省略数据值时放的是方块的默认状态**，而默认状态的数据值**不是**总是 0：
+`chest` 是 2，`torch` 是 5，`oak_stairs` 是 3。
 
 **措辞里的方块名**是注册表里的键（`minecraft:stone`），不是写出来的原文
 （`stone`、`STONE`、`minecraft:stone` 都显示成 `minecraft:stone`）。
+
+**gomc 的做法**：这两张表（属性 → 取值 → 数据值、数据值 → 数据值）都是从
+**真服务端 jar 的方块注册表**里跑出来的，见 `tools/blockstates`。
 
 ### 6.5 `/setblock` 的数据值 [验][读]
 
@@ -810,6 +845,151 @@ particle <名称> <x> <y> <z> <dx> <dy> <dz> <速度> [<数量>] [<模式>] [<�
 
 **gomc 之前把第 5 个参数"是数字就当数据值、否则当模式"**，所以
 `setblock x y z dirt keep` 在 gomc 上能跑、在真服上跑不了。现在改成一致。
+
+`/setblock` 的数据值规则和 `/fill` **完全一样**（都走
+`CommandBase.a(Block, String)`），见 6.4：状态字符串、`default`、省略，
+以及数据值的翻译（`setblock x y z chest 0` 放下去的数据值是 2）。
+
+**已知边界**：gomc **不模拟方块更新**。真服上把小麦放在草地上会被立刻打掉
+（`BlockCrops` 的 `canSurvive`），gomc 放完就一直是小麦。这是世界模拟，
+不是命令解释器的范围。
+
+### 6.6 坐标和括号的措辞 [验][读]
+
+**坐标不是数字时**，真服说 `commands.generic.num.invalid`，也就是
+`'a' is not a valid number`（真服实测：`setblock a 4 0 stone`）。
+
+**小数坐标真服是接受的**（`setblock 0.5 4 0 stone` 不报错，它取整数部分）。
+
+**坐标有边界，而且边界分三种**。1.12.2 读坐标用
+`CommandAbstract.b(base, text, min, max, flag)`，越界就报错
+（`commands.generic.num.tooBig` / `tooSmall`），数字按 `"%.2f"` 印：
+
+| 读法 | X / Z | Y | 谁用它 |
+|---|---|---|---|
+| 方块位置 | ±30000000 | **[0, 256]** | `/setblock` `/fill` `/clone` `/testforblock(s)` `/spawnpoint` `/setworldspawn` |
+| 普通数字 | ±30000000 | ±30000000 | `/execute` `/particle` `/playsound` `/worldborder` |
+| `/tp` | ±30000000 | **±4096** | `/tp` |
+
+真服实测（2026-10-21，探针用例 `37-coordinate-bounds`）：
+
+| 命令 | 真服输出 |
+|---|---|
+| `setblock 30000001 4 0 stone` | `The number you have entered (30000001.00) is too big, it must be at most 30000000` |
+| `setblock -30000001 4 0 stone` | `The number you have entered (-30000001.00) is too small, it must be at least -30000000` |
+| `setblock 0 257 0 stone` | `The number you have entered (257.00) is too big, it must be at most 256` |
+| `setblock 0 -1 0 stone` | `The number you have entered (-1.00) is too small, it must be at least 0` |
+| `setblock 1e20 4 0 stone` | `The number you have entered (100000000000000000000.00) is too big, it must be at most 30000000` |
+| `summon zombie 30000001 4 0` | `The number you have entered (30000001.50) is too big, it must be at most 30000000` |
+
+最后一条的 **`30000001.50`** 是「中心模式」：读坐标时 `flag` 为真时，**整数**
+坐标指方块的**中心**，所以要加 0.5——消息里印的就是加过 0.5 的数。
+`/tp` `/particle` `/playsound` `/spawnpoint` 和 `/summon` 的 X、Z 都是这个模式
+（`/summon` 的 Y 不是）。
+
+**世界高度之外**（探针用例 `39-summon-position`）：
+
+| 命令 | 真服输出 |
+|---|---|
+| `setblock 0 256 0 stone` | `The block couldn't be placed` |
+| `fill 0 256 0 1 256 1 stone` | `Cannot place blocks outside of the world` |
+| `fill 0 255 0 1 255 1 stone` | `4 blocks filled` |
+
+`/fill` 在**动手之前**就拒绝整个区域（`CommandFill` 的
+`commands.fill.outOfWorld`），而 `/setblock` 是放的时候才失败
+（`World.setTypeAndData` 返回 false → `commands.setblock.noChange`）。
+
+**`/summon` 把实体放在方块中心**：`CommandSummon.b(x, text, true)` 用的是
+中心模式，所以 `summon zombie 0 4 0` 落在 **(0.5, 4, 0.5)**，Y 不加 0.5。
+
+**不配平的方括号和圆括号是普通文字**。1.12.2 根本不做分组，它按空格切参数：
+
+| 命令 | 真服输出 |
+|---|---|
+| `say @e[type=armor_stand` | `[Server] @e[type=armor_stand`（原文） |
+| `scoreboard players set @e[type=armor_stand t 1` | `Set score of t for player @e[type=armor_stand to 1`（持有者是那个**名字**） |
+| `testfor @e[type=armor_stand {Tags:` | `Entity '@e[type=armor_stand' cannot be found` |
+| `say (hello` | `[Server] (hello` |
+| `say hello)` | `[Server] hello)` |
+| `say [hello` | `[Server] [hello` |
+
+选择器**要求括号配平**（`PlayerSelector.isPattern` 的正则是
+`^@([pares])(?:\[([^\]]*)\])?$`），所以不配平的 `@e[...]` **不是选择器**，
+只是一个名字。
+
+gomc 之前在词法阶段就报 `unbalanced [`（或者 `unbalanced (`），现在改成和
+真服一样。
+
+**'Cannot place block outside of the world'**：真服还有一道检查——
+`World.isLoaded(pos)`：那个位置的**区块**得是加载着的。真服只加载两块地方：
+
+- **出生点周围**：启动时那一步 "Preparing start region" 会加载出生点所在
+  区块 **±8 个区块**（±128 格）；
+- **玩家周围**：视距之内（1.12.2 的默认视距是 10 个区块）。
+
+真服实测（2026-10-21，探针用例 `38-coordinate-range` 与
+`40-out-of-world-range`）：`setblock 100 4 0 stone` 放得下，
+`setblock 200 4 0 stone` 报 "Cannot place block outside of the world"；
+边界正好在出生点所在区块的 ±8 个区块上。
+
+gomc 的世界是一张**稀疏的表**，没有区块，也没有"加载着"这回事，所以
+gomc **照着真服的样子建模**：出生点所在区块 ±8 个区块，加上每个玩家周围
+±10 个区块，之外的坐标就报那句 "outside of the world"。各命令的措辞
+不一样：
+
+| 命令 | 措辞 |
+|---|---|
+| `/setblock` | `Cannot place block outside of the world` |
+| `/fill` | `Cannot place blocks outside of the world` |
+| `/testforblock` | `Cannot test for block outside of the world` |
+| `/blockdata` | `Cannot change block outside of the world` |
+| `/summon` | `Cannot summon the object out of the world` |
+
+**已知偏差**：这条边界是以**出生点**为心的，而 gomc 的世界是空的、出生点
+固定在 (0, 0, 0)，真服的出生点来自世界存档。所以边界差一两个区块
+（探针用例 `40-out-of-world-range` 量到的就是这一格）。另外真服的区块会
+**卸载**（没人看的区块过一会儿就没了），gomc 不会。
+
+**`-1` / `*`（"任意数据值"）只对第 11 位的替换数据值有效**，
+放置方块自己的数据值（第 8 位）只接受 0..15。
+
+### 6.7 问「方块是不是这一个」的命令 [验][读]
+
+`/testforblock` 的第 5 个参数，和 `/fill` 的 `replace` 模式里
+「要替换的方块」后面那个数据值，走的是**另一个**函数：
+`CommandBase.b(Block, String)`。它不是数据值，是**谓词**：
+
+| 写法 | 是什么 |
+|---|---|
+| `*` 或 `-1` | 任何数据值都算匹配 |
+| 十进制数字 | 和方块的数据值比（**不翻译**） |
+| 其它 | 方块的状态串（和 6.4 一样读） |
+
+两处和「放方块」不一样的地方：
+
+- **数字不翻译**。谓词比的是命令里写的那个数字和方块的数据值，
+  所以 `testforblock x y z chest 0` 永远不匹配（箱子的数据值是 2..5），
+  而 `setblock x y z chest 0` 放下去的是数据值 2 的箱子。
+- **状态串对不上时，消息里给的是方块的状态**，不是数字：
+  ```
+  The block at 2, 4, 2 had the data value of minecraft:stone[variant=granite] (expected: variant=diorite)
+  ```
+  那是 `IBlockData.toString()` 的格式：注册名 + `[属性=取值,…]`。
+  数字对不上时才是老样子：`The block at 2, 4, 2 had the data value of 1 (expected: 0)`。
+
+**`/fill` 的替换数据值是在循环里读的**，而且**只对「是该方块」的位置读**
+（`CommandFill.execute` 里的 `||` 短路）。所以区域里没有匹配方块时，
+一个坏的数据值**根本不报错**：
+
+| 命令 | 真服输出 |
+|---|---|
+| `fill 4 4 4 5 4 5 stone 0 replace wool abc` | `No blocks filled`（区域里是空气，没有羊毛） |
+| `fill 2 4 2 3 4 3 stone 0 replace stone variant=granite` | `1 blocks filled`（状态串当谓词用） |
+
+**已知边界**：gomc 只存方块的**数据值**，不存完整状态，所以谓词是拿
+「数据值对应的那个状态」去比的。一个有多个属性的方块（门、栅栏门…）有
+好几个状态共用同一个数据值，这时真服比的是真实状态、gomc 比的是
+默认状态，可能不一样。单个属性的方块（`stone`、`wool`、`wheat`…）是准的。
 
 ---
 
@@ -1011,6 +1191,11 @@ Stone Slab`）——它给的是**配方**不是物品。
   相对坐标两边会差一格。
   这是有意为之：重力属于实体模拟，而 gomc 的定位是**确定性的命令解释器**，
   不模拟实体行为。
+- **不模拟方块更新**。1.12.2 放下方块后会跑一遍邻居更新：长在草地上的小麦会被
+  立刻打掉（`BlockCrops` 的 `canSurvive`），火会烧起来，藤蔓会掉下去。
+  gomc 只做命令解释，放下去的方块就一直在那儿。
+  这也是**有意为之**：方块更新是世界模拟，不是命令解释器的范围。
+  探针用例里凡是会碰到这一条的（比如测小麦的 `age`），都先在地上铺一层耕地。
 
 ---
 

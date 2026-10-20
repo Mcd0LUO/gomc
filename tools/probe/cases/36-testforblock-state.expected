@@ -1,0 +1,25 @@
+[Server] T01
+Block placed
+[Server] T02
+Successfully found the block at 2, 4, 2
+[Server] T03
+The block at 2, 4, 2 had the data value of minecraft:stone[variant=granite] (expected: variant=diorite)
+[Server] T04
+'variant=bogus' is not a state for block minecraft:stone
+[Server] T05
+Successfully found the block at 2, 4, 2
+[Server] T06
+The block at 2, 4, 2 had the data value of 1 (expected: 0)
+[Server] T07
+Block placed
+[Server] T08
+Successfully found the block at 4, 4, 4
+[Server] T09
+The block at 4, 4, 4 had the data value of minecraft:wool[color=red] (expected: color=blue)
+[Server] T10
+Successfully found the block at 4, 4, 4
+[Server] T11
+Successfully found the block at 4, 4, 4
+[Server] T12
+'variant=granite' is not a state for block minecraft:air
+[Server] T13

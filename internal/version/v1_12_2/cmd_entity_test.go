@@ -227,8 +227,14 @@ func TestSummonCreatesTheEntity(t *testing.T) {
 			continue
 		}
 		found = true
-		if ent.Pos.X != 0 || ent.Pos.Y != 4 || ent.Pos.Z != 0 {
-			t.Errorf("the entity is at %v, want (0, 4, 0)", ent.Pos)
+		// 1.12.2 reads the position of a summoned entity in the
+		// "centre" mode, so the entity lands in the middle of the
+		// block: the X and Z grow by 0.5, the Y does not.
+		//
+		// (`CommandSummon.b(x, text, true)` for the X and Z and
+		// `CommandSummon.b(y, text, false)` for the Y.)
+		if ent.Pos.X != 0.5 || ent.Pos.Y != 4 || ent.Pos.Z != 0.5 {
+			t.Errorf("the entity is at %v, want (0.5, 4, 0.5)", ent.Pos)
 		}
 	}
 	if !found {

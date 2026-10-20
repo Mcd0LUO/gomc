@@ -1,0 +1,18 @@
+# /summon 放在哪儿：真服把实体放在**方块中心**（x/z +0.5），不是一个角上。
+#
+# 1.12.2 的 `CommandSummon.b(x, text, true)` 用的是「中心模式」：整数坐标
+# 指方块的中心，所以实体落在 (x+0.5, y, z+0.5)。Y 不加 0.5。
+#
+# 判别办法：先在 (0,4,0) 放一块石头，再让实体在自己的位置上 detect
+# 偏半格的地方——实体的位置差半格，落到哪个方块就差一格。
+#
+# 顺带看世界高度之外会怎么样（Y=256 放不下，Y=255 放得下）。
+name: summon position and world height
+
+run:
+  setblock 0 4 0 stone
+  summon zombie 0 4 0
+  execute @e[type=zombie] ~ ~ ~ detect ~0.5 ~ ~ stone 0 say hit
+  setblock 0 256 0 stone
+  fill 0 256 0 1 256 1 stone
+  fill 0 255 0 1 255 1 stone

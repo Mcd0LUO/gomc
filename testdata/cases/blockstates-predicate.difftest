@@ -1,0 +1,16 @@
+# /fill 的 replace 模式：要替换的方块和它的数据值。
+#
+# 1.12.2 读替换方块的数据值用的是 CommandAbstract.b(Block, String)，
+# 那是**谓词**：数字直接和数据值比，其它是方块的状态串。而且它是在循环
+# **里面**读的，只对"是该方块"的位置读——所以区域里没有匹配方块时，坏的
+# 数据值根本不会报错。
+name: fill replace data
+
+run:
+  setblock 2 4 2 stone variant=granite
+  fill 2 4 2 3 4 3 stone 0 replace stone variant=granite
+  fill 4 4 4 5 4 5 stone 0 replace wool abc
+  fill 6 4 6 7 4 7 stone 0 replace stone 16
+  fill 8 4 8 9 4 9 stone 0 replace stone -2
+  fill 10 4 10 11 4 11 stone 0 replace stone
+  testforblock 10 4 10 stone 0

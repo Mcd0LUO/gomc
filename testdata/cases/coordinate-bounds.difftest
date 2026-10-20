@@ -1,0 +1,27 @@
+# 坐标的边界：真服把 X/Z 限制在 ±30000000、Y 限制在 [0, 256]。
+#
+# 1.12.2 读坐标用 `CommandAbstract.b(base, text, min, max, flag)`：
+#   - X/Z 的范围是 [-30000000, 30000000]，Y 的范围是 [0, 256]；
+#   - 超范围的**不是钳制，是报错**（commands.generic.num.tooBig / tooSmall），
+#     而且是在**解析期**报的；
+#   - 相对坐标（~）查的是**偏移量**，不是算完的坐标。
+#
+# 和探针用例 37-coordinate-bounds 一一对应。
+name: coordinate bounds
+
+run:
+  setblock 30000001 4 0 stone
+  setblock -30000001 4 0 stone
+  setblock 30000000.5 4 0 stone
+  setblock 29999999.5 4 0 stone
+  setblock ~30000001 4 0 stone
+  setblock ~30000000 4 0 stone
+  setblock 0 257 0 stone
+  setblock 0 -1 0 stone
+  setblock 0 256 0 stone
+  setblock 1e20 4 0 stone
+  summon zombie 30000001 4 0
+  fill 0 4 0 30000000 4 0 stone
+  fill 0 4 0 100 4 0 stone
+  setblock 30000000 4 0 stone
+  setblock -30000000 4 0 stone

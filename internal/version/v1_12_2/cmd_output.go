@@ -146,7 +146,7 @@ func (c *playSoundCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	}
 	pos := ast.Coord{}
 	if p.More() {
-		parsed, err := p.Coord(ast.Coord{})
+		parsed, err := p.CoordWith(ast.Coord{}, parser.LooseCentered)
 		if err != nil {
 			return nil, err
 		}
@@ -298,7 +298,7 @@ func (c *particleCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 		return nil, err
 	}
 	// The position is one triple of coordinates.
-	pos, err := p.Coord(ast.Coord{})
+	pos, err := p.CoordWith(ast.Coord{}, parser.LooseCentered)
 	if err != nil {
 		return nil, err
 	}

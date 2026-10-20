@@ -186,6 +186,13 @@ PowerShell 7 里，返回出去的 scriptblock 在别处调用时**看不到**�
 | `04-detect-fail` | 一个实体 `detect` 失败**不影响其余实体**；失败的报错文本 |
 | `05-command-feedback` | 函数内 `say` 是 `[Server]`，命令结果是 `[Server:]`；`time`/`gamerule`/`difficulty` 的回显 |
 | `06-scoreboard-list` | `scoreboard players list` 的输出格式 |
+| `34-blockstates` | 方块状态串（`stone variant=granite`）、数据值的翻译、省略数据值时的默认状态 |
+| `35-fill-replace-data` | `/fill` 的替换数据值是**谓词**，而且是惰性读的（没有匹配方块就不报错） |
+| `36-testforblock-state` | `/testforblock` 的数据值那一格也是谓词；状态串对不上时给的是方块的**状态** |
+| `37-coordinate-bounds` | 坐标的边界：X/Z ±30000000、Y [0, 256]、越界的措辞 |
+| `38-coordinate-range` | 「世界之外」从多远开始（真服只加载出生点周围的区块） |
+| `39-summon-position` | `/summon` 把实体放在**方块中心**；世界高度之外会怎么样 |
+| `40-out-of-world-range` | 「世界之外」的边界正好在出生点所在区块的 ±8 个区块上 |
 
 跑完全部用例并比对：
 

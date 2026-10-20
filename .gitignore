@@ -17,6 +17,9 @@ gomc.exe
 *.out
 coverage.*
 
+# 服务端日志。有些脚本会在仓库根目录起一次服务端，log 就落在 logs/ 下。
+/logs/
+
 # 编辑器
 .idea/
 .vscode/

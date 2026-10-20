@@ -1,0 +1,21 @@
+# 坐标解析的错误措辞。
+#
+# 真服用 `commands.generic.num.invalid`（"'%s' is not a valid number"）
+# 和 `commands.generic.pos.invalid`（小数坐标）。gomc 之前用的是自己的措辞。
+#
+# 2026-10-21 待测（测完回填）：
+#   - ?
+
+--- console ---
+say Y01
+setblock a 4 0 stone
+say Y02
+setblock 0.5 4 0 stone
+say Y03
+setblock 4 b 0 stone
+say Y04
+setblock 4 0 0 stone
+say Y05
+summon zombie a 4 0
+say Y06
+say Y07

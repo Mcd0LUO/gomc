@@ -1,0 +1,32 @@
+# case: testforblock state
+step 1: setblock 2 4 2 stone variant=granite
+  count: 1
+  feedback: Block placed
+step 2: testforblock 2 4 2 stone variant=granite
+  count: 1
+  feedback: Successfully found the block at 2, 4, 2
+step 3: testforblock 2 4 2 stone variant=diorite
+  error: The block at 2, 4, 2 had the data value of minecraft:stone[variant=granite] (expected: variant=diorite)
+step 4: testforblock 2 4 2 stone variant=bogus
+  error: 'variant=bogus' is not a state for block minecraft:stone
+step 5: testforblock 2 4 2 stone 1
+  count: 1
+  feedback: Successfully found the block at 2, 4, 2
+step 6: testforblock 2 4 2 stone 0
+  error: The block at 2, 4, 2 had the data value of 1 (expected: 0)
+step 7: setblock 4 4 4 wool color=red
+  count: 1
+  feedback: Block placed
+step 8: testforblock 4 4 4 wool color=red
+  count: 1
+  feedback: Successfully found the block at 4, 4, 4
+step 9: testforblock 4 4 4 wool color=blue
+  error: The block at 4, 4, 4 had the data value of minecraft:wool[color=red] (expected: color=blue)
+step 10: testforblock 4 4 4 wool 14
+  count: 1
+  feedback: Successfully found the block at 4, 4, 4
+step 11: testforblock 4 4 4 wool color=red
+  count: 1
+  feedback: Successfully found the block at 4, 4, 4
+step 12: testforblock 6 4 6 air variant=granite
+  error: 'variant=granite' is not a state for block minecraft:air

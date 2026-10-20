@@ -1,0 +1,24 @@
+UUID of player Steve is 5627dd98-e6be-3c21-b8a8-e92344183641
+Steve[/127.0.0.1:26655] logged in with entity id 1 at ([probe]-6.5, 4.0, -8.5)
+[Server] N01
+4 blocks filled
+[Server] N02
+The block at 2, 4, 2 had the data value of 1 (expected: 0)
+[Server] N03
+'variant=bogus' is not a state for block minecraft:stone
+[Server] N04
+'DEFAULT' is not a state for block minecraft:stone
+[Server] N05
+4 blocks filled
+[Server] N06
+Successfully found the block at 8, 4, 8
+[Server] N07
+4 blocks filled
+[Server] N08
+'default,default' is not a state for block minecraft:stone
+[Server] N09
+'variant=granite=1' is not a state for block minecraft:stone
+[Server] N10
+[Server] N11
+Steve lost connection: Server closed
+Steve left the game

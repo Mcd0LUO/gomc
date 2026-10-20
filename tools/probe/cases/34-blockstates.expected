@@ -1,0 +1,89 @@
+Block placed
+Block placed
+[Server] S01
+4 blocks filled
+[Server] S02
+Successfully found the block at 2, 4, 2
+[Server] S03
+4 blocks filled
+[Server] S04
+Successfully found the block at 4, 4, 4
+[Server] S05
+4 blocks filled
+[Server] S06
+Successfully found the block at 6, 4, 6
+[Server] S07
+4 blocks filled
+[Server] S08
+Successfully found the block at 8, 4, 8
+[Server] S09
+Block placed
+[Server] S10
+Successfully found the block at 10, 4, 10
+[Server] S11
+Block placed
+[Server] S12
+The block at 12, 4, 12 had the data value of 2 (expected: 0)
+[Server] S13
+Block placed
+[Server] S14
+Successfully found the block at 14, 4, 14
+[Server] S15
+Block placed
+[Server] S16
+Successfully found the block at 16, 4, 16
+[Server] S17
+4 blocks filled
+[Server] S18
+Successfully found the block at 18, 4, 18
+[Server] S19
+Block placed
+[Server] S20
+Successfully found the block at 20, 4, 20
+[Server] S21
+'variant=bogus' is not a state for block minecraft:stone
+[Server] S22
+'variant=GRANITE' is not a state for block minecraft:stone
+[Server] S23
+'variant=granite=1' is not a state for block minecraft:stone
+[Server] S24
+'variant=granite' is not a state for block minecraft:cobblestone
+[Server] S25
+4 blocks filled
+[Server] S26
+Successfully found the block at 30, 4, 30
+[Server] S27
+4 blocks filled
+[Server] S28
+Successfully found the block at 32, 4, 32
+[Server] S29
+4 blocks filled
+[Server] S30
+Successfully found the block at 34, 4, 34
+[Server] S31
+'default,default' is not a state for block minecraft:stone
+[Server] S32
+'age=9' is not a state for block minecraft:wheat
+[Server] S33
+4 blocks filled
+[Server] S34
+Successfully found the block at 40, 4, 40
+[Server] S35
+'VARIANT=granite' is not a state for block minecraft:stone
+[Server] S36
+The number you have entered (-1) is too small, it must be at least 0
+[Server] S37
+The number you have entered (16) is too big, it must be at most 15
+[Server] S38
+Block placed
+[Server] S39
+Successfully found the block at 48, 4, 48
+[Server] S40
+'9' is not a state for block minecraft:wheat
+[Server] S41
+4 blocks filled
+[Server] S42
+Block placed
+[Server] S43
+Successfully found the block at 54, 4, 54
+[Server] S44

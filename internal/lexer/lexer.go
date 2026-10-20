@@ -17,6 +17,9 @@
 //     remaining argument to its NBT parser, which reports a broken compound
 //     in the wording of the server. Such a group therefore runs to the end
 //     of the line and is passed on as it is.
+//   - A bracket or a parenthesis that never closes is **not** a group
+//     either: 1.12.2 splits the command on spaces, so such a character is
+//     ordinary text and belongs to the argument it is in.
 //   - The raw source of every token is recorded with its byte offset so the
 //     parser can report precise file:line:column positions.
 package lexer
@@ -91,10 +94,9 @@ func (t Token) Unquote() string {
 
 // Tokenize splits src into tokens.
 //
-// It returns an error only for an unterminated quoted string and for an
-// unbalanced group that does not belong to NBT, which are genuine authoring
-// mistakes worth reporting. A brace group that never closes is not one of
-// them: see scanGroup.
+// It returns an error only for an unterminated quoted string, which is a
+// genuine authoring mistake worth reporting. A group that does not close is
+// not one of them: see scanGroup.
 func Tokenize(src string) ([]Token, error) {
 	var toks []Token
 	i := 0
@@ -133,6 +135,19 @@ func Tokenize(src string) ([]Token, error) {
 			if err != nil {
 				return nil, err
 			}
+			if next == start {
+				// The character opens no group: 1.12.2 does not group
+				// brackets and parentheses, it splits the command on
+				// spaces. So the character and the text after it are
+				// one argument.
+				j := i + 1
+				for j < len(src) && !isSpace(src[j]) {
+					j++
+				}
+				toks = append(toks, Token{Kind: KindWord, Text: src[start:j], Offset: start})
+				i = j
+				continue
+			}
 			i = next
 			kind := KindBrace
 			if src[start] == '[' {
@@ -143,20 +158,30 @@ func Tokenize(src string) ([]Token, error) {
 			start := i
 			for i < len(src) {
 				ch := src[i]
-				if ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n' {
+				if isSpace(ch) {
 					break
 				}
 				if ch == '{' || ch == '[' || ch == '(' || ch == '"' || ch == '\'' {
-					// A selector such as `@e[type=zombie]` is a single
-					// argument, so a bracket group directly following
-					// an `@`-prefixed word belongs to that word.
-					if ch == '[' && len(src[start:i]) > 0 && src[start] == '@' {
+					if ch == '[' || ch == '(' {
+						// A bracket or a parenthesis that is never closed
+						// is ordinary text: 1.12.2 does not group them.
+						// So the character belongs to this word.
 						next, err := scanGroup(src, i)
 						if err != nil {
 							return nil, err
 						}
-						i = next
-						continue
+						if next == i {
+							i++
+							continue
+						}
+						if ch == '[' && len(src[start:i]) > 0 && src[start] == '@' {
+							// A selector such as `@e[type=zombie]` is a
+							// single argument, so a bracket group
+							// directly following an `@`-prefixed word
+							// belongs to that word.
+							i = next
+							continue
+						}
 					}
 					break
 				}
@@ -166,6 +191,11 @@ func Tokenize(src string) ([]Token, error) {
 		}
 	}
 	return toks, nil
+}
+
+// isSpace reports whether c separates two arguments.
+func isSpace(c byte) bool {
+	return c == ' ' || c == '\t' || c == '\r' || c == '\n'
 }
 
 // scanGroup returns the offset just past the group that starts at start.
@@ -185,10 +215,17 @@ func Tokenize(src string) ([]Token, error) {
 // A quote inside such a group belongs to the NBT, so a quote that is never
 // closed is reported by the NBT parser as well and does not fail here.
 //
-// The brackets of a target selector and the parentheses of a coordinate are
-// a different matter: 1.12.2 does not group those either, but a broken
-// selector or a broken number is reported by the argument that reads it,
-// and this package cannot word that. They keep failing here.
+// A bracket or a parenthesis that never closes is **not** a group: 1.12.2 does
+// not group those either, it splits the command on spaces. A selector that is
+// not closed is not a selector either -- `PlayerSelector.isPattern` wants
+// balanced brackets -- so the text is a plain name.
+//
+// (Measured on a real 1.12.2 server: `say @e[type=armor_stand` prints the
+// text as it is, `scoreboard players set @e[type=armor_stand t 1` takes the
+// holder for the name "@e[type=armor_stand", and `say (hello` prints
+// "(hello".)
+//
+// The caller gets the start back and treats the character as ordinary text.
 func scanGroup(src string, start int) (int, error) {
 	open := src[start]
 	var close byte
@@ -246,7 +283,8 @@ func scanGroup(src string, start int) (int, error) {
 		// to its NBT parser, so the group ends with the line.
 		return len(src), nil
 	}
-	return 0, &Error{Offset: start, Msg: "unbalanced " + string(open)}
+	// The bracket or the parenthesis is never closed: it is ordinary text.
+	return start, nil
 }
 
 // Error reports a lexical failure.

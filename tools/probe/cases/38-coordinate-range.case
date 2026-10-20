@@ -1,0 +1,42 @@
+# 坐标能放到多远？真服在哪儿开始拒绝。
+#
+# 1.12.2 读坐标用 `CommandAbstract.b(base, text, min, max, flag)`：
+#   - X/Z 的范围是 [-30000000, 30000000]，Y 的范围是 [0, 256]；
+#   - 超范围是**报错**（commands.generic.num.tooBig / tooSmall），不是钳制，
+#     而且是在**解析期**报的，数字按 "%.2f" 印；
+#   - 相对坐标（~）查的是算完的坐标。
+#
+# 过了那个数以后还有一道：'Cannot place block outside of the world'。
+# 这一道是"区块没加载"（World.isLoaded），所以要量一下它从多远开始。
+#
+# 这里量的是**距离**：从 100 到 1000000，再到世界边界的默认半径。
+
+--- console ---
+say C01
+setblock 100 4 0 stone
+say C02
+setblock 200 4 0 stone
+say C03
+setblock 300 4 0 stone
+say C04
+setblock 500 4 0 stone
+say C05
+setblock 1000 4 0 stone
+say C06
+setblock 10000 4 0 stone
+say C07
+setblock 100000 4 0 stone
+say C08
+setblock 1000000 4 0 stone
+say C09
+setblock 29999984 4 0 stone
+say C10
+setblock 29999985 4 0 stone
+say C11
+setblock 0 4 100 stone
+say C12
+setblock 0 4 1000 stone
+say C13
+setblock 0 4 29999984 stone
+say C14
+say C15

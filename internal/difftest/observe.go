@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Mcd0LUO/gomc/internal/exec"
+	"github.com/Mcd0LUO/gomc/internal/parser"
 	"github.com/Mcd0LUO/gomc/internal/version/v1_12_2"
 	"github.com/Mcd0LUO/gomc/internal/world"
 )
@@ -75,7 +76,7 @@ func Run(root string, c *Case) (*Observation, error) {
 
 		res := StepResult{Command: cmd, Count: count, Feedback: feedback}
 		if err != nil {
-			res.Err = err.Error()
+			res.Err = errorMessage(err)
 		}
 		// A command that fails inside a function does not stop the
 		// function, so those failures are collected by the engine.
@@ -90,6 +91,19 @@ func Run(root string, c *Case) (*Observation, error) {
 	}
 	obs.State = RenderState(engine.World)
 	return obs, nil
+}
+
+// errorMessage returns the message of an error without the position.
+//
+// The scope of this layer is what a **server** prints, and a server prints
+// the message alone. The position is gomc's own addition: the command line
+// shows it next to the message, so repeating it inside the message would
+// only make the two harder to compare.
+func errorMessage(err error) string {
+	if pe, ok := err.(*parser.Error); ok {
+		return pe.Msg
+	}
+	return err.Error()
 }
 
 // Render returns the canonical text form of an observation.

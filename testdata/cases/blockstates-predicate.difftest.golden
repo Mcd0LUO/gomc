@@ -1,0 +1,17 @@
+# case: fill replace data
+step 1: setblock 2 4 2 stone variant=granite
+  count: 1
+  feedback: Block placed
+step 2: fill 2 4 2 3 4 3 stone 0 replace stone variant=granite
+  count: 1
+  feedback: 1 blocks filled
+step 3: fill 4 4 4 5 4 5 stone 0 replace wool abc
+  error: No blocks filled
+step 4: fill 6 4 6 7 4 7 stone 0 replace stone 16
+  error: No blocks filled
+step 5: fill 8 4 8 9 4 9 stone 0 replace stone -2
+  error: No blocks filled
+step 6: fill 10 4 10 11 4 11 stone 0 replace stone
+  error: No blocks filled
+step 7: testforblock 10 4 10 stone 0
+  error: The block at 10, 4, 10 is Air (expected: Stone)

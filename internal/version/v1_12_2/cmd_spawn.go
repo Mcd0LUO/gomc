@@ -79,7 +79,7 @@ func (c *spawnPointCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	}
 	pos := ast.Coord{}
 	if p.More() {
-		parsed, err := p.Coord(ast.Coord{})
+		parsed, err := p.CoordWith(ast.Coord{}, parser.BlockPosCentered)
 		if err != nil {
 			return nil, err
 		}

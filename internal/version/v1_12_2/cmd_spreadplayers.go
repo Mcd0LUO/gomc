@@ -582,30 +582,10 @@ func parseSpreadTeams(t lexer.Token) (bool, error) {
 
 // parseJavaDouble reads a number the way Java's `Double.parseDouble` does.
 //
-// 1.12.2 reads every number of a command with it, so the accepted shapes
-// are Java's: a trailing `d`, `D`, `f` or `F` is allowed, and the result
-// has to be finite.
-//
-// It reports whether the text is a number at all.
+// The parser package holds the one implementation, so that a coordinate
+// and a distance are read the same way.
 func parseJavaDouble(text string) (float64, bool) {
-	s := text
-	if len(s) > 0 {
-		switch s[len(s)-1] {
-		case 'd', 'D', 'f', 'F':
-			// Java allows the suffix, but only after a number.
-			if _, err := strconv.ParseFloat(s[:len(s)-1], 64); err == nil {
-				s = s[:len(s)-1]
-			}
-		}
-	}
-	v, err := strconv.ParseFloat(s, 64)
-	if err != nil {
-		return 0, false
-	}
-	if math.IsInf(v, 0) || math.IsNaN(v) {
-		return 0, false
-	}
-	return v, true
+	return parser.JavaDouble(text)
 }
 
 // spreadRand is the random source the spreading uses.

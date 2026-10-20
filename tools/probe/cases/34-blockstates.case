@@ -1,0 +1,111 @@
+# 状态串（blockstate）、数据值的翻译，以及「省略数据值」时真服到底放什么。
+#
+# 1.12.2 的 CommandAbstract.a(Block, String)：
+#   - 读不成整数 -> 走状态串分支：按 ',' 拆，再按 '=' 拆（最多两段），
+#     名字要是该方块的属性名，取值要是该属性的取值；
+#   - "default" -> 该方块的默认状态；
+#   - 参数整个没写 -> 也是该方块的默认状态。
+#
+# 命令里写的是数据值，1.12.2 存的是方块的完整状态，两者不是一回事：
+# 数据值要交给 fromLegacyData，放下去的状态的数据值是另一个数。
+#   - 箱子：写 0 放下去的是朝北的箱子，数据值是 2；
+#   - 没有属性的方块：写 5 放下去的也是数据值 0；
+#   - 小麦只有数据值 0..7，写 9 会被拒绝。
+# 默认状态的数据值**不是**总是 0：chest 是 2，torch 是 5，oak_stairs 是 3。
+#
+# testforblock 用来反查放下去的数据值：对不上时服务端会报
+# "The block at X, Y, Z had the data value of N (expected: M)"。
+#
+# 小麦下面是耕地：1.12.2 的方块更新会把长在草地上的小麦打掉，
+# 那是世界模拟，gomc 不做，所以这里铺上耕地让两边可比。
+
+--- console ---
+setblock 18 3 18 farmland
+setblock 40 3 40 farmland
+say S01
+fill 2 4 2 3 4 3 stone variant=granite
+say S02
+testforblock 2 4 2 stone 1
+say S03
+fill 4 4 4 5 4 5 stone variant=smooth_granite
+say S04
+testforblock 4 4 4 stone 2
+say S05
+fill 6 4 6 7 4 7 wool color=red
+say S06
+testforblock 6 4 6 wool 14
+say S07
+fill 8 4 8 9 4 9 wool color=light_blue
+say S08
+testforblock 8 4 8 wool 3
+say S09
+setblock 10 4 10 chest
+say S10
+testforblock 10 4 10 chest 2
+say S11
+setblock 12 4 12 chest 0
+say S12
+testforblock 12 4 12 chest 0
+say S13
+setblock 14 4 14 torch
+say S14
+testforblock 14 4 14 torch 5
+say S15
+setblock 16 4 16 oak_stairs
+say S16
+testforblock 16 4 16 oak_stairs 3
+say S17
+fill 18 4 18 19 4 19 wheat age=3
+say S18
+testforblock 18 4 18 wheat 3
+say S19
+setblock 20 4 20 stone variant=granite
+say S20
+testforblock 20 4 20 stone 1
+say S21
+fill 22 4 22 23 4 23 stone variant=bogus
+say S22
+fill 24 4 24 25 4 25 stone variant=GRANITE
+say S23
+fill 26 4 26 27 4 27 stone variant=granite=1
+say S24
+fill 28 4 28 29 4 29 cobblestone variant=granite
+say S25
+fill 30 4 30 31 4 31 cobblestone default
+say S26
+testforblock 30 4 30 cobblestone 0
+say S27
+fill 32 4 32 33 4 33 stone variant=granite,variant=diorite
+say S28
+testforblock 32 4 32 stone 3
+say S29
+fill 34 4 34 35 4 35 stone default
+say S30
+testforblock 34 4 34 stone 0
+say S31
+fill 36 4 36 37 4 37 stone default,default
+say S32
+fill 38 4 38 39 4 39 wheat age=9
+say S33
+fill 40 4 40 41 4 41 wheat age=07
+say S34
+testforblock 40 4 40 wheat 7
+say S35
+fill 42 4 42 43 4 43 stone VARIANT=granite
+say S36
+fill 44 4 44 45 4 45 stone -1
+say S37
+fill 46 4 46 47 4 47 stone 16
+say S38
+setblock 48 4 48 cobblestone 5
+say S39
+testforblock 48 4 48 cobblestone 0
+say S40
+setblock 50 4 50 wheat 9
+say S41
+fill 52 4 52 53 4 53 stone 9
+say S42
+setblock 54 4 54 stone 3
+say S43
+testforblock 54 4 54 stone 3
+say S44

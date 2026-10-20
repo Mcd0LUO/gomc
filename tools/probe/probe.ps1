@@ -137,10 +137,26 @@ function Write-Step($msg) {
 # fresh for every probe, so the same command names a different UUID every
 # time. The expectation file keeps the real UUID (it is easier to read),
 # but the comparison is made on the placeholder.
+#
+# The UUID shows up in two shapes: the dashed one (the scoreboard holder)
+# and the **long** one (the two halves of the UUID, which is what the NBT
+# of an entity carries: "UUIDMost:762428828841692834L").
+#
+# The login line of the protocol robot is normalized too: the port changes
+# from run to run, and so does the place the robot is put in (the server
+# picks a spot around the world spawn).
 function Normalize-Uuid([string[]]$lines) {
 	if (-not $lines) { return $lines }
 	return $lines | ForEach-Object {
-		$_ -replace '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}', '<uuid>'
+		$x = $_ -replace '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}', '<uuid>'
+		$x = $x -replace '([A-Za-z]*UUID(?:Least|Most)):(-?\d+)L', '${1}:<n>L'
+		$x = $x -replace '\[/127\.0\.0\.1:\d+\]', '[/127.0.0.1:<port>]'
+		$x = $x -replace 'logged in with entity id \d+ at \([^)]*\)', 'logged in with entity id <id> at (<pos>)'
+		# 实体活了多少刻取决于服务端起了多久，每次都不一样。
+		$x = $x -replace 'Spigot\.ticksLived:\d+', 'Spigot.ticksLived:<n>'
+		# 最后一行必须是**表达式**：PowerShell 里赋值语句不写进管道，
+		# 写成赋值的话这个函数会返回 null。
+		$x
 	}
 }
 

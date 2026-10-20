@@ -1,0 +1,23 @@
+# /testforblock 的数据值那一格。
+#
+# 1.12.2 用 CommandAbstract.b(Block, String) 读它，那是**谓词**：数字直接和
+# 数据值比，其它是方块的状态串。状态串不合法时报的是状态那句，而且是在
+# 看过方块之后才报。
+#
+# 状态串对不上时，消息里给的是**方块的状态**（IBlockData.toString），
+# 不是数字。
+name: testforblock state
+
+run:
+  setblock 2 4 2 stone variant=granite
+  testforblock 2 4 2 stone variant=granite
+  testforblock 2 4 2 stone variant=diorite
+  testforblock 2 4 2 stone variant=bogus
+  testforblock 2 4 2 stone 1
+  testforblock 2 4 2 stone 0
+  setblock 4 4 4 wool color=red
+  testforblock 4 4 4 wool color=red
+  testforblock 4 4 4 wool color=blue
+  testforblock 4 4 4 wool 14
+  testforblock 4 4 4 wool color=red
+  testforblock 6 4 6 air variant=granite

@@ -125,10 +125,9 @@ func (c *cloneCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	filter := args[5].(*ast.BlockRef)
 	filterData := args[6].(*ast.IntArg).Value
 
-	sizeX := srcMax.X - srcMin.X + 1
-	sizeY := srcMax.Y - srcMin.Y + 1
-	sizeZ := srcMax.Z - srcMin.Z + 1
-	volume := sizeX * sizeY * sizeZ
+	sizeX, sizeY, sizeZ := regionSizes(srcMin, srcMax)
+
+	volume := regionVolume(srcMin, srcMax)
 	if volume > 32768 {
 		return 0, exec.Errorf("Too many blocks in the specified area (%d > 32768)", volume)
 	}
@@ -267,10 +266,9 @@ func (c *testForBlocksCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	dst := resolveRelative(*args[2].(*ast.Coord), ctx.Source.Pos).BlockPos()
 	mode := args[3].(*ast.StringArg).Value
 
-	sizeX := srcMax.X - srcMin.X + 1
-	sizeY := srcMax.Y - srcMin.Y + 1
-	sizeZ := srcMax.Z - srcMin.Z + 1
-	volume := sizeX * sizeY * sizeZ
+	sizeX, sizeY, sizeZ := regionSizes(srcMin, srcMax)
+
+	volume := regionVolume(srcMin, srcMax)
 	// The limit of the comparison is much higher than the one of a fill.
 	if volume > 524288 {
 		return 0, exec.Errorf("Too many blocks in the specified area (%d > 524288)", volume)

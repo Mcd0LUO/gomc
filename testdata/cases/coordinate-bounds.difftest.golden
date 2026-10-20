@@ -1,0 +1,32 @@
+# case: coordinate bounds
+step 1: setblock 30000001 4 0 stone
+  error: The number you have entered (30000001.00) is too big, it must be at most 30000000
+step 2: setblock -30000001 4 0 stone
+  error: The number you have entered (-30000001.00) is too small, it must be at least -30000000
+step 3: setblock 30000000.5 4 0 stone
+  error: The number you have entered (30000000.50) is too big, it must be at most 30000000
+step 4: setblock 29999999.5 4 0 stone
+  error: Cannot place block outside of the world
+step 5: setblock ~30000001 4 0 stone
+  error: The number you have entered (30000001.00) is too big, it must be at most 30000000
+step 6: setblock ~30000000 4 0 stone
+  error: Cannot place block outside of the world
+step 7: setblock 0 257 0 stone
+  error: The number you have entered (257.00) is too big, it must be at most 256
+step 8: setblock 0 -1 0 stone
+  error: The number you have entered (-1.00) is too small, it must be at least 0
+step 9: setblock 0 256 0 stone
+  error: The block couldn't be placed
+step 10: setblock 1e20 4 0 stone
+  error: The number you have entered (100000000000000000000.00) is too big, it must be at most 30000000
+step 11: summon zombie 30000001 4 0
+  error: The number you have entered (30000001.50) is too big, it must be at most 30000000
+step 12: fill 0 4 0 30000000 4 0 stone
+  error: Too many blocks in the specified area (30000001 > 32768)
+step 13: fill 0 4 0 100 4 0 stone
+  count: 101
+  feedback: 101 blocks filled
+step 14: setblock 30000000 4 0 stone
+  error: Cannot place block outside of the world
+step 15: setblock -30000000 4 0 stone
+  error: Cannot place block outside of the world

@@ -11,6 +11,20 @@
 
 ### 新增
 
+- **1.12.2 的方块状态表**——`/fill` 和 `/setblock` 的数据值那一格现在认
+  **状态字符串**了：
+  ```
+  /fill 2 4 2 3 4 3 stone variant=granite
+  /setblock 8 4 8 wool color=red
+  ```
+  1.12.2 的方块有属性（`variant`、`color`、`age`、`facing`…），命令可以要
+  某个状态而不是数据值。表是从**真服务端 jar 的方块注册表**里跑出来的
+  （`tools/blockstates`）：254 个方块，每个方块有哪些属性、每个属性有哪些
+  取值、每个取值组合对应哪个数据值，外加每个方块的数据值翻译表。
+  解析规则照抄 `CommandAbstract.c(Block, String)`：按 `,` 拆，每段按 `=`
+  拆成**最多两段**（所以 `variant=granite=1` 的值是 `granite=1`）、名字和
+  取值都**大小写敏感**、`default` 只能整个参数就是它、没写到的属性保持
+  默认状态里的值、同一个属性写多次**后面的赢**。
 - **`/gomcplayer`——把玩家带进世界的 gomc 扩展命令**（1.12.2 没有这条命令）：
   ```
   /gomcplayer <名字> [x] [y] [z]
@@ -92,6 +106,63 @@
 
 一批按 1.12.2 真实行为对齐的修正（都来自反编译源码 + 真服实测）：
 
+- **命令里的数据值和存下来的数据值不是一回事**。1.12.2 存的是方块的**完整
+  状态**，命令里写的却是老的数据值：数字要交给 `fromLegacyData`，放下去的
+  那个状态的**数据值**是 `toLegacyData(fromLegacyData(n))`。对多数方块两者
+  相同，但不是全部——`setblock x y z chest 0` 放下去的是朝北的箱子，数据值
+  是 **2**；`setblock x y z cobblestone 5` 放下去的数据值是 **0**（没有属性
+  的方块只有数据值 0）。gomc 之前**原样存用户写的数字**，254 个方块里有
+  **214 个**会因此存错。现在按真服的表翻译。
+- **数据值被拒绝时的措辞**：不是"数字太大/太小"，而是状态那句。`fromLegacyData`
+  抛异常时（小麦只有数据值 0..7）1.12.2 会落到状态串分支，报
+  `'9' is not a state for block minecraft:wheat`。
+- **省略数据值时放的是方块的默认状态**，而默认状态的数据值**不是**总是 0：
+  `chest` 是 2、`torch` 是 5、`oak_stairs` 是 3、`dispenser` 是 2。
+  gomc 之前一律放数据值 0。
+- **坐标有边界，越界就报错**。1.12.2 读坐标用
+  `CommandAbstract.b(base, text, min, max, flag)`，越界报
+  `commands.generic.num.tooBig` / `tooSmall`，数字按 `"%.2f"` 印。边界分三种：
+  - **方块位置**（`/setblock` `/fill` `/clone` `/testforblock(s)` `/spawnpoint`…）：
+    X/Z 是 ±30000000，**Y 是 [0, 256]**；
+  - **普通数字**（`/execute` `/particle` `/playsound` `/worldborder`）：三个都是
+    ±30000000；
+  - **`/tp`**：X/Z 是 ±30000000，**Y 是 ±4096**。
+
+  gomc 之前**一个坐标都不查**，`setblock 1e20 4 0 stone` 会把坐标算成垃圾值。
+  现在和真服逐字一致：
+  ```
+  setblock 30000001 4 0 stone
+  → The number you have entered (30000001.00) is too big, it must be at most 30000000
+  setblock 0 -1 0 stone
+  → The number you have entered (-1.00) is too small, it must be at least 0
+  ```
+  顺带把**「中心模式」**也搬过来了：`flag` 为真时整数坐标指方块的**中心**，
+  要加 0.5（消息里印的就是加过 0.5 的数）。`/tp` `/particle` `/playsound`
+  `/spawnpoint` 和 `/summon` 的 X、Z 都是这个模式（`/summon` 的 Y 不是）。
+- **`/summon` 把实体放在方块中心**，不是角上。`CommandSummon.b(x, text, true)`
+  用的是中心模式，所以 `summon zombie 0 4 0` 落在 **(0.5, 4, 0.5)**（Y 不加
+  0.5）。gomc 之前放在 (0, 4, 0)。
+- **世界高度之外**：真服的 `/setblock 0 256 0 stone` 说
+  `The block couldn't be placed`（放的时候才失败），
+  `/fill 0 256 0 1 256 1 stone` 说 `Cannot place blocks outside of the world`
+  （动手之前就拒绝整个区域）。gomc 之前只有后者。
+- **「世界之外」也搬过来了**。真服除了坐标的数值边界，还有一道
+  `World.isLoaded(pos)`：那个位置的**区块**得是加载着的。真服只加载出生点
+  所在区块 **±8 个区块**（启动时 "Preparing start region" 那一步）和每个
+  玩家周围（视距，默认 10 个区块）。
+  gomc 的世界是稀疏表、没有区块，所以**照着真服的样子建模**：出生点区块
+  ±8、玩家周围 ±10，之外就报 "outside of the world"（各命令的措辞不一样，
+  见 SPEC 6.6）。之前 gomc 坐标多远都放得下。
+- **问「方块是不是这一个」的命令走的是谓词，不是数据值**。`/testforblock`
+  的第 5 个参数和 `/fill` 的 `replace` 模式里「要替换的方块」后面那个数据值，
+  1.12.2 用的是 `CommandBase.b(Block, String)`：数字**不翻译**（直接和数据值
+  比），其它是方块的状态串。gomc 之前把 `/testforblock` 的状态串**默默丢掉**了
+  ——`testforblock x y z stone variant=bogus` 在 gomc 上说"找到了"，真服报
+  `'variant=bogus' is not a state for block minecraft:stone`。
+  状态串对不上时，真服的消息里给的是方块的**状态**
+  （`minecraft:stone[variant=granite]`），不是数字。
+  `/fill` 的替换数据值还是**惰性**的：1.12.2 在循环里读它，而且只对
+  「是该方块」的位置读，所以区域里没有匹配方块时，坏的数据值根本不报错。
 - **选择器**：`@a`/`@p` 忽略 `type` 参数、体积盒差一格、`r`/`rm` 是整数解析、
   负半径取消该约束、`score_x` 与 `score_x_min` 可以并存、计分板持有者用玩家名
   （选择器与命令写侧现在一致）。
@@ -249,6 +320,14 @@
   （`Given stone * 1 to Steve`）。
   跟着数据值变的不只是染料和旗帜：**床、头骷髅、毛**也算。
   数据值没给、或者超出 0..15，都用数据值 0 的名字。
+- **不配平的方括号和圆括号是普通文字**了。1.12.2 根本不做分组，它按空格切参数——
+  所以 `say @e[type=armor_stand` 打印的是原文，`scoreboard players set
+  @e[type=armor_stand t 1` 把持有者当成名字 `@e[type=armor_stand`（选择器的正则要求
+  括号配平，不配平就不是选择器），`say (hello` 打印 `(hello`。
+  gomc 之前在词法阶段就报 `unbalanced [`。
+- **坐标的报错措辞对齐真服**了：不是数字时真服说 `'a' is not a valid number`
+  （`commands.generic.num.invalid`），gomc 之前说 `expected a coordinate, got "a"`。
+  而**小数坐标真服是接受的**（`0.5` 不报错，它取整数部分），gomc 也一样。
 - **探针的协议机器人修好了一个 bug**：`tools/probe/mcbot.py` 原来把 clientbound 的
   `0x00` 当成断线，但 1.12.2 的 `0x00` 是**生成实体**，真正的断线是 `0x1A`、
   keep alive 是 `0x1F`（回 `0x0B`）。所以机器人登录后会**自己走掉**，之后所有命令
