@@ -77,6 +77,9 @@ go test ./internal/exec/... -bench . -benchmem -run '^$' -timeout 300s -p 1
 
 ### 微基准
 
+选择器那几组是 2026-10-21 重测的（`-count=3` 取最小值，`-benchtime 300x`，
+空载机器）；其余是早先测的，没有重跑。
+
 ```
 BenchmarkBaselineSay/ExecuteLine       3534692 ns/op   4745987 B/op   90018 allocs/op
 BenchmarkBaselineSay/RunFunction      7493582 ns/op   7400217 B/op   90038 allocs/op
@@ -86,16 +89,37 @@ BenchmarkSetblock/ExecuteLine        18062886 ns/op  13138929 B/op  130099 alloc
 BenchmarkSummon/ExecuteLine          12036768 ns/op   7166032 B/op   84835 allocs/op
 BenchmarkSelectorScan/Resolver      193618883 ns/op  32824149 B/op    4001 allocs/op
 BenchmarkSelectorScan/Command      1153764500 ns/op 328581432 B/op  6037088 allocs/op
-BenchmarkSelectorScanScaling/Entities100    11698 ns/op     1848 B/op      4 allocs/op
-BenchmarkSelectorScanScaling/Entities500    33152 ns/op     8249 B/op      4 allocs/op
-BenchmarkSelectorScanScaling/Entities2000  123397 ns/op    32824 B/op      4 allocs/op
-BenchmarkSelectorScanScaling/Entities8000  785841 ns/op   131143 B/op      4 allocs/op
+BenchmarkSelectorScanScaling/Entities100    3901 ns/op     2200 B/op      8 allocs/op
+BenchmarkSelectorScanScaling/Entities500   13305 ns/op     9371 B/op     10 allocs/op
+BenchmarkSelectorScanScaling/Entities2000  40322 ns/op    37273 B/op     12 allocs/op
+BenchmarkSelectorScanScaling/Entities8000 151970 ns/op   135576 B/op     14 allocs/op
+BenchmarkSelectorScanFewHits/Entities100    2867 ns/op       56 B/op      2 allocs/op
+BenchmarkSelectorScanFewHits/Entities500    7209 ns/op       56 B/op      2 allocs/op
+BenchmarkSelectorScanFewHits/Entities2000  24437 ns/op       56 B/op      2 allocs/op
+BenchmarkSelectorScanFewHits/Entities8000 103093 ns/op       57 B/op      2 allocs/op
+BenchmarkSelectorScanOneHit/Entities100     2801 ns/op       40 B/op      2 allocs/op
+BenchmarkSelectorScanOneHit/Entities500     7295 ns/op       40 B/op      2 allocs/op
+BenchmarkSelectorScanOneHit/Entities2000   24301 ns/op       40 B/op      2 allocs/op
+BenchmarkSelectorScanOneHit/Entities8000  101571 ns/op       40 B/op      2 allocs/op
+BenchmarkSelectorScanOneHitMany/Entities500  24997 ns/op     9325 B/op      9 allocs/op
+BenchmarkSelectorScanOneHitMany/Entities2000 80046 ns/op    37226 B/op     11 allocs/op
+BenchmarkSelectorScanOneHitMany/Entities8000 271731 ns/op  135528 B/op     13 allocs/op
+BenchmarkSortThenFirst/Entities100        1075 ns/op       952 B/op      3 allocs/op
+BenchmarkSortThenFirst/Entities1000      13283 ns/op      8248 B/op      3 allocs/op
+BenchmarkSortThenFirst/Entities8000     161249 ns/op     65592 B/op      3 allocs/op
+BenchmarkClosestOnly/Entities100           245 ns/op         0 B/op      0 allocs/op
+BenchmarkClosestOnly/Entities1000         2492 ns/op         0 B/op      0 allocs/op
+BenchmarkClosestOnly/Entities8000        19858 ns/op         0 B/op      0 allocs/op
 BenchmarkScoreboardWrite/ExecuteLine 22724584 ns/op  12609612 B/op  170137 allocs/op
 BenchmarkScoreboardList/SelectorHolders/Objectives1  16631377 ns/op   6455678 B/op  100052 allocs/op
 BenchmarkScoreboardList/SelectorHolders/Objectives3  36073634 ns/op  12343544 B/op  220061 allocs/op
 BenchmarkScoreboardList/SelectorHolders/Objectives8  87628067 ns/op  27706796 B/op  560072 allocs/op
 BenchmarkScoreboardList/AllHolders                  11493200 ns/op   2585906 B/op      164 allocs/op
 ```
+
+最后两组（`SortThenFirst` 和 `ClosestOnly`）是**同一批实体、同一个进程里**的
+对比：实体只建一次，所以数字不受垃圾回收干扰。它们量的是选择器的最后一步
+——"排完再取第一个"和"只找最近的"——见 2.2。
 
 ## 三个瓶颈
 
@@ -191,6 +215,49 @@ BenchmarkScoreboardList/AllHolders                  11493200 ns/op   2585906 B/o
 下一步该做的是**部分选择**（`c` 很小时用 quickselect 取前 k 个），
 但必须保持"距离相同时按出生顺序"的稳定性语义——这正是选择器最微妙的地方，
 值得单独做、单独测。
+
+### 2.2 只要一个实体时不用把整个列表排一遍（`a301a60`）
+
+上一步说的"部分选择"只做了一半：只做了 `c=1` 的情形。
+
+真服**确实**是先排后截，所以这个做法**不是模仿真服，而是等价但更快**：
+排序是稳定的（距离一样的保持匹配时的先后），所以"最近的那个"就是列表里
+第一个不比其它远的实体——找它不用把整个列表排一遍。
+
+同样一批实体、同一个进程里测（实体只建一次，所以数字不受垃圾回收干扰）：
+
+| 匹配到的实体数 | 排完再取第一个 | 只找最近的 | 倍数 | 排序的分配 |
+|---|---|---|---|---|
+| 100 | 1 075 ns | **245 ns** | 4.4× | 952 B |
+| 1 000 | 13 283 ns | **2 492 ns** | 5.3× | 8 248 B |
+| 8 000 | 161 249 ns | **19 858 ns** | 8.1× | 65 592 B |
+
+**零分配**，而且规模越大越划算：排序是 n log n 次比较（每次比较算两遍平方
+距离），扫一遍是 n 次。
+
+等价的证明在 `internal/exec/selector_test.go` 里：两个实现对同一批实体给出的
+实体**总是同一个**，包括距离相同时取先匹配到的那个。
+
+端到端那组基准（`BenchmarkSelectorScanOneHitMany`）每次迭代都要重建 8000 个
+实体，垃圾回收的时机是随机的，数字抖得厉害（同一组基准三次测出 271~314 µs），
+所以**上面这张表才是可信的**。
+
+### 2.3 一个字段的代价：size class
+
+给 `Entity` 加 `UUID string`（16 字节）让结构体从 136 字节涨到 152 字节，
+**跨过了 Go 的分配档位**（144 → 160）。选择器要遍历整张实体表，于是：
+
+| | 8000 个实体遍历一遍 |
+|---|---|
+| 加 UUID 之前 | 58 899 ns |
+| 加了 `UUID string` | 72 123 ns（**+22%**） |
+| 改成 `UUID *string` 并挪到结构体末尾 | **61 490 ns** |
+
+`UUID` 现在是**指针**（8 字节），实体回到 144 字节那一档；挪到末尾是为了让
+选择器要读的字段（`Type`、`Pos`）留在结构体的前面。
+
+**教训**：在这个代码库里，给 `Entity` 加字段不是免费的——它是被成千上万次
+遍历的。
 
 
 ### 3. `scoreboard players list` 是 O(持有者 × 目标)

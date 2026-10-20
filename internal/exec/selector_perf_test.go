@@ -147,6 +147,41 @@ func BenchmarkSelectorScanOneHit(b *testing.B) {
 	}
 }
 
+// BenchmarkSelectorScanOneHitMany measures a selector that asks for exactly
+// one entity out of a world full of matching ones.
+//
+// This is the case the shortcut for `c=1` is really for: 1.12.2 sorts the
+// matching entities by their distance and then takes the first one, so a
+// world with many matches pays for a sort that only its first result is
+// used for.
+func BenchmarkSelectorScanOneHitMany(b *testing.B) {
+	sel, err := parser.ParseSelector("@e[type=armor_stand,c=1]")
+	if err != nil {
+		b.Fatalf("ParseSelector: %v", err)
+	}
+
+	for _, n := range []int{500, 2000, perfEntities} {
+		b.Run(fmt.Sprintf("Entities%d", n), func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				b.StopTimer()
+				eng := newBenchEngine(b)
+				src := benchSource()
+				addEntitiesOfType(eng.World, "armor_stand", n)
+				resolver := &exec.SelectorResolver{World: eng.World}
+				b.StartTimer()
+				matched, err := resolver.Resolve(src, sel)
+				if err != nil {
+					b.Fatalf("Resolve: %v", err)
+				}
+				if len(matched) != 1 {
+					b.Fatalf("matched %d entities, want 1", len(matched))
+				}
+			}
+		})
+	}
+}
+
 // BenchmarkSelectorScanRepeated measures many selections over a world
 // that does not change.
 //

@@ -19,12 +19,6 @@ import (
 type Entity struct {
 	// ID is the entity's unique identifier.
 	ID string
-	// UUID is the entity's 1.12.2 unique id, the one the scoreboard
-	// tracks a non-player entity under.
-	//
-	// It is derived from the entity's internal id when it is not set, so
-	// that it stays the same from run to run. See EnsureUUID.
-	UUID string
 	// Type is the entity type, e.g. "zombie".
 	Type string
 	// Pos is the entity's position.
@@ -35,6 +29,17 @@ type Entity struct {
 	World string
 	// NBT holds the entity's data tags.
 	NBT *nbt.Compound
+	// UUID is the entity's 1.12.2 unique id, the one the scoreboard
+	// tracks a non-player entity under.
+	//
+	// It is derived from the entity's internal id when it is not set, so
+	// that it stays the same from run to run. See EnsureUUID.
+	//
+	// It is a pointer, and it sits at the end of the struct, so that the
+	// entity keeps the size class it had before: the runtime walks long
+	// lists of entities, and a bigger struct means more cache misses
+	// there. The fields a selector reads are the ones in front.
+	UUID *string
 	// IsPlayer marks player entities.
 	IsPlayer bool
 	// PlayerName is set for player entities.
@@ -151,10 +156,14 @@ func (e *Entity) Clone() *Entity {
 // (version 4) UUID has them. The text therefore has exactly the shape the
 // real server prints, and it is stable for the same entity.
 func (e *Entity) EnsureUUID() string {
-	if e.UUID == "" && e.ID != "" {
-		e.UUID = DeriveEntityUUID(e.ID)
+	if e.UUID == nil {
+		if e.ID == "" {
+			return ""
+		}
+		uuid := DeriveEntityUUID(e.ID)
+		e.UUID = &uuid
 	}
-	return e.UUID
+	return *e.UUID
 }
 
 // DeriveEntityUUID derives the UUID of an entity from its internal id.
