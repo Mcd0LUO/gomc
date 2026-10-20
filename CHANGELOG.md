@@ -11,6 +11,20 @@
 
 ### 新增
 
+- **`/gomcplayer`——把玩家带进世界的 gomc 扩展命令**（1.12.2 没有这条命令）：
+  ```
+  /gomcplayer <名字> [x] [y] [z]
+  ```
+  1.12.2 **造不出玩家**（`/summon player` 报 `Unable to summon object`），所以一个
+  需要玩家才能测的函数在真服上根本没法测。而 `/advancement` 和 `/recipe` 都要
+  在线玩家——没有这条命令，它们能测的就只有错误消息了。
+  造出来的玩家是**世界里的普通玩家**：按名字能找到、`@a`/`@p` 能选中它、
+  计分板用它的**玩家名**当持有者（不是 UUID）、`/advancement` 和 `/recipe`
+  的成功路径都能对它跑。
+  它被标记成**扩展命令**（`exec.Registry.SetExtension`），所以 `gomc check`
+  会明确说：这个函数在真服上**加载就会失败**（1.12.2 拒绝含未知命令的函数），
+  而不是让这个差异悄悄过去。
+
 - **四条命令**（命令数 46 → 50）：`/advancement`、`/recipe`、`/spreadplayers`、`/stats`。
   每一条都对着真实 1.12.2 服务端逐条实测过，规格记在
   [`docs/SPEC-1.12.2.md`](docs/SPEC-1.12.2.md) 第 13 节。

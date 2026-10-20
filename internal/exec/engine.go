@@ -30,6 +30,21 @@ func isUsageMessage(msg string) bool {
 	return strings.HasPrefix(msg, "/") && strings.Contains(msg, "<")
 }
 
+// ExtensionUse records a command of a function that gomc knows but 1.12.2
+// does not.
+type ExtensionUse struct {
+	// Function is the id of the function that uses the command.
+	Function string
+	// Path is the file the function was loaded from.
+	Path string
+	// Line is the line the command is on.
+	Line int
+	// Command is the name of the command.
+	Command string
+	// Note says what the command is for.
+	Note string
+}
+
 // Function is a loaded mcfunction.
 type Function struct {
 	// ID is the function's namespaced identifier, e.g. "ns:name".
@@ -157,6 +172,13 @@ type Engine struct {
 	Logs []string
 	// Root is the world's data directory, used to load functions.
 	Root string
+	// ExtensionUses holds the commands of the loaded functions that gomc
+	// knows but 1.12.2 does not.
+	//
+	// 1.12.2 refuses a function whose command it does not know, so a
+	// function that uses one of these loads on gomc but not on a real
+	// server. The check reports them, so the difference is never silent.
+	ExtensionUses []ExtensionUse
 	// queue holds the pending entries of the running function call chain.
 	//
 	// 1.12.2 keeps a single deque in `CustomFunctionData.g` and shares it
@@ -210,6 +232,7 @@ func (e *Engine) LoadFunctions() []error {
 		return nil
 	}
 	e.Functions.Clear()
+	e.ExtensionUses = nil
 	base := filepath.Join(e.Root, "data", "functions")
 	var errs []error
 	err := filepath.WalkDir(base, func(path string, d os.DirEntry, err error) error {
@@ -298,6 +321,14 @@ func (e *Engine) loadFunctionFile(id, path string) (*Function, error) {
 		name := fields[0]
 		if _, ok := e.Registry.Get(name); !ok {
 			return nil, e.functionLoadError(id, path, lineNo, name, line)
+		}
+		if note, ok := e.Registry.Extension(name); ok {
+			// The command is one gomc adds on top of the 1.12.2 set.
+			// 1.12.2 would refuse the whole function, so the use is
+			// recorded and reported by the check.
+			e.ExtensionUses = append(e.ExtensionUses, ExtensionUse{
+				Function: id, Path: path, Line: lineNo, Command: name, Note: note,
+			})
 		}
 		fn.Lines = append(fn.Lines, line)
 		fn.LineNumbers = append(fn.LineNumbers, lineNo)

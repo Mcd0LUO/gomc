@@ -124,7 +124,8 @@ func runCheck(args []string, stdout, stderr io.Writer, opts options) int {
 	}
 	errs := engine.LoadFunctions()
 	lint := engine.LintFunctions()
-	if len(errs) == 0 && len(lint) == 0 {
+	uses := engine.ExtensionUses
+	if len(errs) == 0 && len(lint) == 0 && len(uses) == 0 {
 		fmt.Fprintf(stdout, "ok: %d function(s) loaded\n", len(engine.Functions.IDs()))
 		return 0
 	}
@@ -134,8 +135,30 @@ func runCheck(args []string, stdout, stderr io.Writer, opts options) int {
 	for _, e := range lint {
 		reportError(stderr, e, opts)
 	}
-	fmt.Fprintf(stderr, "%d error(s)\n", len(errs)+len(lint))
-	return 1
+	for _, u := range uses {
+		reportExtensionUse(stderr, u, opts)
+	}
+	if len(errs)+len(lint) > 0 {
+		fmt.Fprintf(stderr, "%d error(s)\n", len(errs)+len(lint))
+		return 1
+	}
+	return 0
+}
+
+// reportExtensionUse reports a command of a function that gomc knows but
+// 1.12.2 does not.
+//
+// The command works on gomc, but 1.12.2 refuses the whole function when it
+// loads it, so the difference has to be visible: a function that only runs
+// on gomc is not a function that can be tested on a real server.
+func reportExtensionUse(w io.Writer, u exec.ExtensionUse, opts options) {
+	if opts.plainErrors {
+		fmt.Fprintf(w, "warning: %s:%d: gomc-only command %q\n", u.Path, u.Line, u.Command)
+		return
+	}
+	fmt.Fprintf(w, "warning: %s:%d\n", u.Path, u.Line)
+	fmt.Fprintf(w, "  %q is a gomc-only command: %s\n", u.Command, u.Note)
+	fmt.Fprintf(w, "  a real 1.12.2 server does not know it and refuses the function\n")
 }
 
 // runRun executes a function in a world.

@@ -7,6 +7,7 @@ package exec
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/Mcd0LUO/gomc/internal/ast"
 	"github.com/Mcd0LUO/gomc/internal/nbt"
@@ -157,6 +158,9 @@ type Registry struct {
 	order    []string
 	// permissions holds the minimum permission level a command needs.
 	permissions map[string]int
+	// extensions holds the commands gomc adds on top of the 1.12.2 set,
+	// with the note that says what each of them is for.
+	extensions map[string]string
 }
 
 // NewRegistry returns an empty registry.
@@ -164,6 +168,7 @@ func NewRegistry() *Registry {
 	return &Registry{
 		handlers:    map[string]Handler{},
 		permissions: map[string]int{},
+		extensions:  map[string]string{},
 	}
 }
 
@@ -173,6 +178,34 @@ func (r *Registry) Register(h Handler) {
 		r.order = append(r.order, h.Name())
 	}
 	r.handlers[h.Name()] = h
+}
+
+// SetExtension marks a command as one gomc adds on top of the 1.12.2 set.
+//
+// 1.12.2 refuses a function that uses a command it does not know, so a
+// function that uses one of these loads on gomc but not on a real server.
+// The check reports the difference, so that it is never silent.
+func (r *Registry) SetExtension(name, note string) {
+	if r.extensions == nil {
+		r.extensions = map[string]string{}
+	}
+	r.extensions[name] = note
+}
+
+// Extension returns the note of an extension command.
+func (r *Registry) Extension(name string) (string, bool) {
+	note, ok := r.extensions[name]
+	return note, ok
+}
+
+// ExtensionNames returns the names of the extension commands, sorted.
+func (r *Registry) ExtensionNames() []string {
+	out := make([]string, 0, len(r.extensions))
+	for name := range r.extensions {
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // SetRequiredPermission declares the minimum permission level a command

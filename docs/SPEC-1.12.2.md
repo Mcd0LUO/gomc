@@ -1135,3 +1135,60 @@ SuccessCount  AffectedBlocks  AffectedEntities  AffectedItems  QueryResult
 
 探针用例：`tools/probe/cases/08-stats-params.case` 到 `12-stats-names.case`，
 每条命令都夹一条 `say` 标记，好把输出对齐到命令。
+
+---
+
+## 14. gomc 的扩展命令
+
+这一节讲**不属于 1.12.2** 的命令。它们是 gomc 为了能测试某些函数而加的，
+所以**必须**和 1.12.2 的命令分开说。
+
+### 14.1 为什么要加
+
+1.12.2 **造不出玩家**：`/summon player` 报 `Unable to summon object`（原版
+`EntityTypes` 不注册玩家）。所以一个需要玩家才能测的函数，在真服上没法测。
+
+而下面这些命令都要**在线玩家**：
+
+| 命令 | 需要玩家做什么 |
+|---|---|
+| `/advancement` | 授予/撤销/查询进度——进度是**玩家**的状态 |
+| `/recipe` | 配方书是**玩家**的东西 |
+
+没有玩家，`/advancement` 和 `/recipe` 能测的就只有它们的**错误消息**了
+（`Player 'X' cannot be found`）。成功路径一条都测不到。
+
+### 14.2 `/gomcplayer`
+
+```
+/gomcplayer <名字> [x] [y] [z]
+```
+
+- **名字**必填，**位置**可省：省了就把玩家放在命令执行的位置。
+- 造出来的玩家是世界里的**普通玩家**：
+  - `World.FindPlayer(名字)` 能找到它；
+  - `@a` / `@p` 能选中它（`@s` 选的是执行者，不是它）；
+  - 计分板用它的**玩家名**当持有者，**不是** UUID（真服对玩家也是用玩家名）；
+  - `/advancement`、`/recipe`、`/gamemode` 等命令的成功路径都能对它跑。
+- **同名不能重复**：世界里是按名字找玩家的，名字必须唯一。重复时报
+  `A player called '<名字>' already exists`。
+- 回显是 `Successfully created the player <名字>`。
+
+### 14.3 扩展命令必须让 `check` 说出来
+
+1.12.2 加载函数时**只检查命令名**：命令不认识，整个函数加载失败（`Unknown or
+invalid command 'x'`）。所以一个用了扩展命令的函数：
+
+- 在 gomc 上跑得好好的；
+- 在真服上**整个函数加载不了**。
+
+`gomc check` 的职责之一就是查这种"真服会拒绝"的函数，所以扩展命令**不能**
+混进 1.12.2 的命令表里蒙混过关。`exec.Registry.SetExtension(name, note)`
+把命令标成扩展，加载函数时引擎把用到它的行记下来，`check` 单独报成**警告**
+（不是错误——gomc 自己支持它，警告是提醒真服上的差别）：
+
+```
+warning: <路径>:<行>
+  "gomcplayer" is a gomc-only command: it brings a player into the world, which 1.12.2 itself cannot do
+  a real 1.12.2 server does not know it and refuses the function
+```
