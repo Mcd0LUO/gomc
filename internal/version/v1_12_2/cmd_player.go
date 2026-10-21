@@ -229,6 +229,11 @@ func (c *giveCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		ctx.Engine.Feedback = append(ctx.Engine.Feedback,
 			fmt.Sprintf("Given %s * %d to %s", shown, count, name))
 	}
+	// The items go into the `AffectedItems` channel.
+	//
+	// (`CommandGive` reports
+	// `EnumCommandResult.AFFECTED_ITEMS`.)
+	ctx.AffectedItems = count * len(entities)
 	return len(entities), nil
 }
 

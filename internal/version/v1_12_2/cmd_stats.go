@@ -192,17 +192,40 @@ func runStatsEntity(ctx *exec.Context, spec *statsArgs) (int, error) {
 		return 0, exec.Errorf("Invalid parameters")
 	}
 	// The statistic name was one of the command result names, so 1.12.2
-	// goes on and stores the statistic. The holder and the objective are
-	// only written into the message -- 1.12.2 does not look at either of
-	// them.
+	// goes on and stores the statistic.
+	//
+	// The holder and the objective are **not** looked at: the server
+	// writes them into the message and into the channel of the entity,
+	// and it does not check that the holder is a player or that the
+	// objective exists.
 	//
 	// (Measured on a real 1.12.2 server: `stats entity @e[type=armor_stand]
 	// set QueryResult Steve obj` says "Storing QueryResult stats in obj on
 	// Steve", even though there is no player called Steve.)
+	//
+	// The channel belongs to the **target** of the command, and it is
+	// what makes the result of the commands the entity runs end up in
+	// the scoreboard.
 	if mode == "set" {
+		// The holder is kept as it was written: 1.12.2 stores the text
+		// of the argument, and the message repeats it as it is.
+		//
+		// (Measured on a real 1.12.2 server, probe case 61-stats-channel:
+		// `stats entity @e[type=armor_stand] set QueryResult
+		// @e[type=armor_stand] return` says "Storing QueryResult stats
+		// in return on @e[type=armor_stand]", with the selector as it
+		// was written.)
+		holder := spec.rest[2]
+		objective := spec.rest[3]
+		for _, e := range entities {
+			setStatsChannel(e, stat, resolveStatsHolder(ctx, holder), objective)
+		}
 		ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-			fmt.Sprintf("Storing %s stats in %s on %s", stat, spec.rest[3], spec.rest[2]))
+			fmt.Sprintf("Storing %s stats in %s on %s", stat, objective, holder))
 		return 1, nil
+	}
+	for _, e := range entities {
+		clearStatsChannel(e, stat)
 	}
 	ctx.Engine.Feedback = append(ctx.Engine.Feedback,
 		fmt.Sprintf("Cleared %s stats", stat))
@@ -308,10 +331,19 @@ func resolveStatsTarget(ctx *exec.Context, arg ast.Arg) ([]*world.Entity, error)
 		}
 		return entities, nil
 	case *ast.StringArg:
-		if ctx.World.FindPlayer(t.Value) == nil && entityByUUID(ctx, t.Value) == nil {
-			return nil, usageErrorf("stats entity")
+		// 1.12.2 resolves the target as an **entity**
+		// (`CommandStats.c` -> `CommandAbstract.c`), so a name that
+		// is not an entity is reported as one that is not found -- and
+		// not as the usage of the entity form.
+		//
+		// (Measured on a real 1.12.2 server, probe case
+		// 61-stats-channel: `stats entity Steve` says "Entity 'Steve'
+		// cannot be found", even though Steve is a player that is
+		// online.)
+		if e := entityByUUID(ctx, t.Value); e != nil {
+			return []*world.Entity{e}, nil
 		}
-		return resolveEntityTargets(ctx, arg)
+		return nil, entityNotFoundError(t.Value)
 	}
 	return nil, usageErrorf("stats entity")
 }
@@ -360,4 +392,10 @@ func statsCoord(parts []string, base world.Vec) (world.Vec, error) {
 // registerStats adds the `/stats` command to the registry.
 func registerStats(reg *exec.Registry) {
 	reg.Register(&statsCmd{})
+}
+
+// registerStatsReporter adds the reporter that feeds the result of a
+// command into the channels of 1.12.2.
+func registerStatsReporter(reg *exec.Registry) {
+	reg.SetResultReporter(&statsReporter{})
 }

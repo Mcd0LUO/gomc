@@ -157,6 +157,11 @@ func (c *setBlockCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		ctx.World.Blocks.SetTileEntity(pos, existing)
 	}
 	ctx.Engine.Feedback = append(ctx.Engine.Feedback, "Block placed")
+	// The block goes into the `AffectedBlocks` channel.
+	//
+	// (`CommandSetBlock` reports
+	// `EnumCommandResult.AFFECTED_BLOCKS`.)
+	ctx.AffectedBlocks = 1
 	return 1, nil
 }
 
@@ -473,6 +478,11 @@ func (c *fillCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	}
 	ctx.Engine.Feedback = append(ctx.Engine.Feedback,
 		fmt.Sprintf("%d blocks filled", count))
+	// The blocks go into the `AffectedBlocks` channel.
+	//
+	// (`CommandFill` reports
+	// `EnumCommandResult.AFFECTED_BLOCKS`.)
+	ctx.AffectedBlocks = count
 	return count, nil
 }
 

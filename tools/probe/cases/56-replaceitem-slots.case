@@ -1,0 +1,60 @@
+# `/replaceitem entity` 的**槽位表**和**各实体的容器**。
+#
+# 1.12.2 的 `CommandReplaceItem` 静态块里有整张槽位表：
+#   slot.container.0..53   -> 0..53
+#   slot.hotbar.0..8       -> 0..8
+#   slot.inventory.0..26   -> 9..35
+#   slot.enderchest.0..26  -> 200..226
+#   slot.villager.0..7     -> 300..307
+#   slot.horse.0..14       -> 500..514
+#   slot.weapon             -> 98
+#   slot.weapon.mainhand    -> 98
+#   slot.weapon.offhand     -> 99
+#   slot.armor.head         -> 100 + EnumItemSlot.HEAD.b()  = 103
+#   slot.armor.chest        -> 100 + EnumItemSlot.CHEST.b() = 102
+#   slot.armor.legs         -> 100 + EnumItemSlot.LEGS.b()  = 101
+#   slot.armor.feet         -> 100 + EnumItemSlot.FEET.b()  = 100
+#   slot.horse.saddle       -> 400
+#   slot.horse.armor        -> 401
+#   slot.horse.chest        -> 499
+#
+# `EnumItemSlot.b()` 是枚举内序号（HEAD=3, CHEST=2, LEGS=1, FEET=0）。
+#
+# 这一轮问的是：**实体类型不同，容器不同**，所以同一个槽位在不同实体上
+# 能不能放东西是不一样的。真服对放不进去的槽位报
+# "Could not replace slot <slot> with <n> * [<item>]"。
+#
+# bot: Steve
+
+--- console ---
+say Z01
+summon armor_stand 0 4 0 {CustomName:"SLOT_AS"}
+say Z02
+replaceitem entity @e[type=armor_stand] slot.inventory.18 stone
+say Z03
+replaceitem entity @e[type=armor_stand] slot.enderchest.0 stone
+say Z04
+replaceitem entity @e[type=armor_stand] slot.armor.head stone
+say Z05
+replaceitem entity @e[type=armor_stand] slot.weapon.offhand stone
+say Z06
+replaceitem entity @e[type=armor_stand] slot.container.40 stone
+say Z07
+replaceitem entity @e[type=armor_stand] slot.hotbar.3 stone
+say Z08
+replaceitem entity @e[type=armor_stand] slot.inventory.26 stone
+say Z09
+replaceitem entity @e[type=armor_stand] slot.horse.saddle stone
+say Z10
+replaceitem entity Steve slot.inventory.18 stone
+say Z11
+replaceitem entity Steve slot.armor.head stone
+say Z12
+replaceitem entity Steve slot.armor.chest stone
+say Z13
+replaceitem entity Steve slot.weapon.offhand stone
+say Z14
+replaceitem entity Steve slot.inventory.26 stone
+say Z15
+replaceitem entity Steve slot.enderchest.0 stone
+say Z16

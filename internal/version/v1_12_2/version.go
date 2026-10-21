@@ -44,4 +44,7 @@ func Register(reg *exec.Registry) {
 	// extensions, so `gomc check` says that a function using one of them
 	// would not load on a real server.
 	registerGomcPlayer(reg)
+	// The reporter that feeds the result of a command into the channels
+	// of `/stats`.
+	registerStatsReporter(reg)
 }

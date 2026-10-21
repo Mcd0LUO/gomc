@@ -16,7 +16,7 @@
   `末法`、`旧末法`、`ZX2-3 8.23`）里蒸馏出来的做法：在只有 1.12.2 语法的
   情况下，那些作者怎么实现全局变量、条件分支、函数参数、随机数、三角函数、
   坐标读取、物品存储、HUD 和菜单——每条都带**包 + 文件 + 行号**。
-  文档最后是**照着这些包列出的 gomc 缺口清单**（九件事，按价值排序）。
+  文档最后是**照着这些包列出的 gomc 缺口清单**（按价值排序）。
 
 - **1.12.2 的方块状态表**——`/fill` 和 `/setblock` 的数据值那一格现在认
   **状态字符串**了：
@@ -32,10 +32,16 @@
   拆成**最多两段**（所以 `variant=granite=1` 的值是 `granite=1`）、名字和
   取值都**大小写敏感**、`default` 只能整个参数就是它、没写到的属性保持
   默认状态里的值、同一个属性写多次**后面的赢**。
-- **`/locate`**：1.12.2 的结构注册表和生物群系注册表都实现了，`/locate` 认
-  `biome` 和 `structure` 两类，规格记在
+- **`/locate`**：1.12.2 的结构注册表和生物群系注册表都实现了，规格记在
   [`docs/SPEC-1.12.2.md`](docs/SPEC-1.12.2.md) 第 17 节。找不到时真服说
   `Unable to locate any <x> feature`。
+  > **这一条原来写错了**：它说 `/locate` 认 `biome` 和 `structure` 两类。
+  > **不对**——1.12.2 的 `/locate` **只有一个参数**（`/locate <feature>`），
+  > 而且**完全不知道生物群系**：`<biome|structure> <名字>` 是 1.13 的语法。
+  > 真服上 `locate biome plains` 报的是用法行。
+  > （反编译 `CommandLocate` + 真服实测，探针用例 `10-locate`：
+  > `locate biome plains` 和 `locate structure village` 都是
+  > `Usage: /locate <feature>`。）
 - **`/gomcplayer`——把玩家带进世界的 gomc 扩展命令**（1.12.2 没有这条命令）：
   ```
   /gomcplayer <名字> [x] [y] [z]
@@ -116,6 +122,82 @@
 ### 修复
 
 一批按 1.12.2 真实行为对齐的修正（都来自反编译源码 + 真服实测）：
+
+- **`/stats` 的命令结果通道**（PATTERNS 缺口 ①）。1.12.2 的
+  `stats entity <目标> set <结果名> <持有者> <objective>` **不是**回显，
+  它是**注册一条通道**：统计量变化时值被写进那个 objective。
+
+  通道**绑在实体上**（`Entity.bA()`），写进实体的 `CommandStats` NBT。
+  **上报看的是执行命令的那个实体**的通道——所以
+  `execute @e[...] time query daytime` 会写进盔甲架的通道，
+  而控制台自己跑 `time query` 什么都不写。
+
+  写入有两个前提：**objective 存在**，且**持有者在该 objective 里已经
+  有条目**（`Scoreboard.b`）——所以要先
+  `scoreboard players set <持有者> <目标> 0` 建好条目。持有者按
+  `CommandAbstract.f` 解析：先当玩家→玩家名，再当实体→UUID，都不是就原样。
+
+  真服实测（探针用例 `62-stats-channel-write`）：通道建立后，
+  `execute @e[type=armor_stand] ~ ~ ~ time query daytime` 把 541 写进
+  `return`；`clear` 之后就不再写了。
+
+  顺带修了 `/stats entity` 的目标变体：真服用**实体**变体，所以
+  `stats entity Steve` 报 `Entity 'Steve' cannot be found`，
+  gomc 之前报的是用法错。
+
+- **`/tp` 的 `[<yaw> <pitch>]`**（PATTERNS 缺口 ②）。1.12.2 有这个参数
+  （**1.13+ 反而没有**），gomc 之前把多出来的参数丢掉、也不改朝向。
+
+  现在朝向**落到实体上**——所以 `@e[ry=...]` / `@e[rx=...]` 能选中它，
+  悟空那 74526 行依赖旋转的选择器不再落空。
+
+  规则照 `CommandTp`：绝对角度直接用，`~N` 是当前 + N，`~` 保持不变；
+  **yaw 折到 [-180, 180)**，**pitch 先折返再夹紧**到 [-90, 90]——
+  所以 **pitch 200 落在 -90**，不是 90。
+
+  真服实测（探针用例 `59-tp-rotation`、`60-tp-rotation-bounds`）。
+
+- **`replaceitem` 的完整槽位表**（PATTERNS 缺口 ③）。整张表照
+  `CommandReplaceItem` 的静态块建：`slot.container.0..53` /
+  `slot.hotbar.0..8` / `slot.inventory.0..26` / `slot.enderchest.0..26` /
+  `slot.villager.0..7` / `slot.horse.0..14` / `slot.weapon` /
+  `slot.armor.*` / `slot.horse.saddle|armor|chest`。
+  真实工程用到的 `slot.inventory.18`、`slot.enderchest.0..26`、
+  `slot.armor.*` 现在都能用了。
+
+  而且槽位号是**实体自己容器里的索引**，所以**放不进去的槽位要报错**：
+  盔甲架只有手部和部分护甲槽（`slot.armor.chest` 报错），僵尸只有主手和
+  头盔，玩家有全套。报错是 `Could not replace slot <槽位> with <数量> *
+  [<物品>]`。
+
+  **名字不在表里**报的是另一句：`'<名字>' is not a valid parameter`
+  （`commands.generic.parameter.invalid`）——比如 `slot.inventory.27`。
+
+  真服实测（探针用例 `56-replaceitem-slots`、`57-replaceitem-containers`、
+  `58-replaceitem-player`）。
+
+- **`/particle` 的观察者是**玩家**变体，不是实体变体**。1.12.2 的
+  `CommandParticle` 用 `CommandParticle.b(minecraftServer, listener,
+  stringArray[10])` 解析它——那是 `CommandAbstract.b`，只找玩家。
+  gomc 之前用通用解析，**非玩家实体也收**。
+
+  真服实测（探针用例 `55-particle-viewer`）：世界里有一个盔甲架时，
+  `particle flame 0 4 0 0 0 0 0 1 normal @e[type=armor_stand]` 报的是
+  `Player '<那个盔甲架的 UUID>' cannot be found`，而且**粒子不播**——
+  和玩家专属命令（`give` / `title` / `playsound`…）一条路。
+  SPEC 第 15 节原来把观察者列在实体变体那一栏，**也一起改对了**。
+
+- **`/particle` 的尾部参数按 32 位有符号整数读**。1.12.2 用
+  `Integer.parseInt` 读它们，超出 `int` 范围的值**不是数字**：报
+  `Invalid param given (<值>)`。gomc 之前用 `strconv.Atoi`（64 位），
+  `particle blockcrack ... 9999999999` 被静默放过了。
+
+  真服实测（同上用例）：`... Steve 9999999999` 和 `... Steve 2147483648`
+  都报 `Invalid param given`，而 `... Steve 5 99`（多一个参数）照常播粒子。
+
+- **`/particle` 的观察者列表匹配 0 个时什么都不说**。空匹配在命令层
+  的规则（SPEC 3.10）同样适用于玩家变体：命令跑 0 次、不回显。
+  gomc 之前照样播粒子并回显 `Playing effect …`。
 
 - **命令行是按**空格**切的，引号和花括号都不是分组符**。1.12.2 用
   `String.split(" ")` 切命令（`CommandHandler.a`），所以：
@@ -542,6 +624,34 @@
 
 - **difftest 的错误一行一条**：一个步骤里的多条错误以前用 `;` 连在一起，
   现在一行一条——真服也是一行一条。
+
+### 探针
+
+- **协议机器人换成 `minecraft-protocol`**（`tools/probe/mcbot.js`）。
+  原来那份是自己实现协议的（`mcbot.py`，已删），握手、登录、压缩帧、心跳
+  全要自己对。
+
+  对错就错在**包号**上：客户端的 keep-alive 被猜成了 `0x1F`，实际不是那个。
+  机器人登录成功之后**不回心跳**，服务端 30 秒后把它踢掉
+  （"Timed out"），于是凡是**需要在线玩家**的用例（`/advancement`、
+  `/recipe`，以及这一轮新加的 56 到 62 号）都测不成——而且症状看起来
+  像用例本身有问题，很难往机器人身上想。
+
+  现在用的是 [minecraft-protocol](https://github.com/PrismarineJS/minecraft-protocol)
+  （node-minecraft-protocol）：它知道每一版的包号、压缩和心跳，机器人不用
+  自己实现协议。依赖记在 `tools/probe/package.json` 里。
+
+- **探针录基线时也做归一化**。之前只有比较的时候归一化，录进去的是原值——
+  而机器人的端口和位置、实体的 UUID 每次都不一样，于是录一次就再也比不过。
+  现在录进去的就是归一化后的文本。
+
+- **探针不再假装机器人登录上了**。以前它等 30 秒，**不管有没有登录成功**
+  都打印「机器人已登录」，于是用例在**没有玩家**的情况下跑完，测出来的
+  东西全是错的。现在以**服务端的日志**为准（里面有 "logged in with entity
+  id"），等不到就是失败。
+
+  > 顺带记一笔：机器人用 `minecraft-protocol` 之后，包号、压缩和心跳
+  > 都不用自己管了。
 
 ### 体验
 

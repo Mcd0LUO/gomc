@@ -104,12 +104,20 @@ func TestStatsEntityFormNeedsATargetThatResolves(t *testing.T) {
 	for _, line := range []string{
 		"stats entity @p",
 		"stats entity @s",
-		"stats entity Steve",
 	} {
 		want := "Usage: /stats entity <selector> <mode> ..."
 		if got := statsError(t, e, line); got != want {
 			t.Errorf("%q said %q, want %q", line, got, want)
 		}
+	}
+
+	// A name is resolved as an **entity**, so a player that is online
+	// is still not an entity the command can use.
+	//
+	// (Measured on a real 1.12.2 server, probe case 61-stats-channel:
+	// "stats entity Steve" says "Entity 'Steve' cannot be found".)
+	if got := statsError(t, e, "stats entity Steve"); got != "Entity 'Steve' cannot be found" {
+		t.Errorf("%q said %q, want the entity wording", "stats entity Steve", got)
 	}
 }
 

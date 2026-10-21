@@ -1,0 +1,43 @@
+# `/stats` 的**命令结果通道**。
+#
+# 1.12.2 的 `/stats entity <目标> set <结果> <持有者> <目标>` **不是**回显，
+# 它是**注册一条通道**：统计量变化时，值被写进那个 objective。
+#
+# 通道绑在**实体**上（`Entity.bA()`），绑定写进实体的 `CommandStats` NBT。
+#
+# 写入的两个前提（`CommandObjectiveExecutor.a`）：
+#   1. objective 必须存在
+#   2. **持有者在该 objective 里必须已经有条目**（`Scoreboard.b`）
+#      ——所以要先 `scoreboard players set` 建好条目
+#
+# 持有者的解析（`CommandAbstract.f`）：先当玩家→玩家名，再当实体→UUID，
+# 都不是就原样。
+#
+# **上报看的是执行命令的那个实体**的通道——所以
+# `execute @e[...] <命令>` 才会写进盔甲架的通道，控制台自己跑什么都不写。
+#
+# 这一轮用 **`gamerule`** 做查询（它也报 QUERY_RESULT），而不用
+# `time query`——时间每 tick 都走，基线就不可复现了。
+#
+# bot: Steve
+
+--- console ---
+say T01
+scoreboard objectives add return dummy
+say T02
+summon armor_stand 0 4 0 {CustomName:"STATS_AS"}
+say T03
+scoreboard players set @e[type=armor_stand] return 0
+say T04
+stats entity @e[type=armor_stand] set QueryResult @e[type=armor_stand] return
+say T05
+execute @e[type=armor_stand] ~ ~ ~ gamerule randomTickSpeed
+say T06
+scoreboard players list @e[type=armor_stand]
+say T07
+stats entity @e[type=armor_stand] clear QueryResult
+say T08
+execute @e[type=armor_stand] ~ ~ ~ gamerule randomTickSpeed
+say T09
+scoreboard players list @e[type=armor_stand]
+say T10

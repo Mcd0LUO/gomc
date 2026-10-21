@@ -1,0 +1,63 @@
+# `/replaceitem entity` 的**玩家**槽位。
+#
+# 1.12.2 的槽位号是**容器内的索引**：
+#   slot.hotbar.0..8      -> 0..8
+#   slot.inventory.0..26  -> 9..35
+#   slot.weapon.mainhand  -> 98
+#   slot.weapon.offhand   -> 99
+#   slot.armor.feet/legs/chest/head -> 100/101/102/103
+#   slot.enderchest.0..26 -> 200..226
+#
+# 玩家有自己的容器（主物品栏 36 格 + 护甲 4 格 + 副手 + 末影箱 27 格），
+# 所以别的实体放不进去的槽位，玩家可以。
+#
+# 这一轮只测玩家，因为玩家要靠协议机器人在线，跑得慢。
+#
+# bot: Steve
+
+--- console ---
+say P01
+replaceitem entity Steve slot.weapon.mainhand stone
+say P02
+replaceitem entity Steve slot.weapon.offhand stone
+say P03
+replaceitem entity Steve slot.armor.head stone
+say P04
+replaceitem entity Steve slot.armor.chest stone
+say P05
+replaceitem entity Steve slot.armor.legs stone
+say P06
+replaceitem entity Steve slot.armor.feet stone
+say P07
+replaceitem entity Steve slot.hotbar.0 stone
+say P08
+replaceitem entity Steve slot.hotbar.8 stone
+say P09
+replaceitem entity Steve slot.inventory.0 stone
+say P10
+replaceitem entity Steve slot.inventory.26 stone
+say P11
+replaceitem entity Steve slot.enderchest.0 stone
+say P12
+replaceitem entity Steve slot.enderchest.26 stone
+say P13
+replaceitem entity Steve slot.container.0 stone
+say P14
+replaceitem entity Steve slot.container.53 stone
+say P15
+replaceitem entity Steve slot.villager.0 stone
+say P16
+replaceitem entity Steve slot.horse.saddle stone
+say P17
+replaceitem entity Steve slot.horse.0 stone
+say P18
+replaceitem entity Steve slot.inventory.27 stone
+say P19
+replaceitem entity Steve slot.enderchest.27 stone
+say P20
+replaceitem entity Steve slot.container.54 stone
+say P21
+replaceitem entity Steve slot.armor.hand stone
+say P22
+replaceitem entity Steve slot.weapon stone
+say P23

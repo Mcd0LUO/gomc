@@ -1,0 +1,35 @@
+UUID of player Steve is <uuid>
+Steve[/127.0.0.1:<port>] logged in with entity id <id> at (<pos>)
+[Server] Z01
+Object successfully summoned
+[Server] Z02
+Could not replace slot slot.inventory.18 with 1 * [Stone]
+[Server] Z03
+Could not replace slot slot.enderchest.0 with 1 * [Stone]
+[Server] Z04
+Replaced slot slot.armor.head with 1 * [Stone]
+[Server] Z05
+Replaced slot slot.weapon.offhand with 1 * [Stone]
+[Server] Z06
+Could not replace slot slot.container.40 with 1 * [Stone]
+[Server] Z07
+Could not replace slot slot.hotbar.3 with 1 * [Stone]
+[Server] Z08
+Could not replace slot slot.inventory.26 with 1 * [Stone]
+[Server] Z09
+Could not replace slot slot.horse.saddle with 1 * [Stone]
+[Server] Z10
+Replaced slot slot.inventory.18 with 1 * [Stone]
+[Server] Z11
+Replaced slot slot.armor.head with 1 * [Stone]
+[Server] Z12
+Could not replace slot slot.armor.chest with 1 * [Stone]
+[Server] Z13
+Replaced slot slot.weapon.offhand with 1 * [Stone]
+[Server] Z14
+Replaced slot slot.inventory.26 with 1 * [Stone]
+[Server] Z15
+Replaced slot slot.enderchest.0 with 1 * [Stone]
+[Server] Z16
+Steve lost connection: Server closed
+Steve left the game

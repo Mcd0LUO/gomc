@@ -2,7 +2,6 @@ package v1_12_2
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/Mcd0LUO/gomc/internal/ast"
@@ -463,17 +462,48 @@ func (c *particleCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		return 0, exec.Errorf("The number you have entered (%d) is too small, it must be at least 0", count)
 	}
 	// The viewer, when there is one, has to exist.
+	//
+	// 1.12.2 resolves the viewer as a **player**:
+	// `CommandParticle.b(minecraftServer, listener, stringArray[10])` is
+	// `CommandAbstract.b`, which ends in
+	// `PlayerSelector.getPlayer` and yields an `EntityPlayer`.
+	//
+	// (Measured on a real 1.12.2 server: with an armour stand in the world,
+	// `particle flame 0 4 0 0 0 0 0 1 normal @e[type=armor_stand]` is
+	// answered with "Player '<the uuid of the armour stand>' cannot be
+	// found", and the particle is not played.)
 	if viewer := particleViewer(args[8]); viewer != nil {
-		if _, err := resolveEntityTargets(ctx, viewer); err != nil {
+		players, err := resolvePlayerTargets(ctx, viewer)
+		if err != nil {
 			return 0, err
+		}
+		if len(players) == 0 {
+			// A target list that matches nothing makes the command run
+			// zero times, and the server says nothing at all
+			// (SPEC section 3.10).
+			//
+			// (Measured on a real 1.12.2 server, probe case
+			// 55-particle-viewer: `particle flame 0 4 0 0 0 0 0 1 normal
+			// @e[type=zombie]` prints nothing when there is no zombie in
+			// the world.)
+			return 0, nil
 		}
 	}
 	// Only as many parameters as the particle takes are read, and they
 	// have to be numbers.
+	//
+	// 1.12.2 reads them with `Integer.parseInt`, so a value outside the
+	// signed 32-bit range is not a number at all. The parameters the
+	// particle does not take are **ignored**, not refused.
+	//
+	// (Measured on a real 1.12.2 server: `particle blockcrack ... Steve
+	// 9999999999` is answered with "Invalid param given (9999999999)",
+	// and the same command with an extra parameter behind the first one
+	// plays the particle without a complaint.)
 	list := args[9].(*ast.ListArg)
 	for i := 0; i < params && i < len(list.Items); i++ {
 		raw := list.Items[i].(*ast.StringArg).Value
-		if _, err := strconv.Atoi(raw); err != nil {
+		if _, ok := parser.JavaInt(raw); !ok {
 			return 0, exec.Errorf("Invalid param given (%s)", raw)
 		}
 	}

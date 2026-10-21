@@ -45,15 +45,34 @@ gomc 的行为基准来自两处：**反编译服务端 jar**（"读"）和**跑
 有些命令**只对在线玩家**有用：`/advancement` 和 `/recipe` 就是两条——进度和
 配方书都是**玩家**的状态。控制台上没有玩家，所以只测得到它们的错误消息。
 
-`mcbot.py` 是一个最小的 1.12.2 协议机器人：握手 + 离线登录 + 回 Keep Alive，
-进去之后就一直挂着。探针的 `-Bot` 开关会先让它登录，再喂命令：
+`mcbot.js` 是一个 1.12.2 协议机器人：握手 + 离线登录，进去之后就一直挂着。
+
+它用的是 **[minecraft-protocol](https://github.com/PrismarineJS/minecraft-protocol)**
+（node-minecraft-protocol）——那个包知道每个版本的包号、压缩和心跳，所以机器人
+不用自己实现协议。
+
+> **为什么换掉手搓的那份。** 原来那份是自己实现协议的：握手、登录、压缩帧、
+> 心跳都要自己对。数包号就数错过一次（心跳的包号猜成了 0x1F，实际是别的），
+> 结果是机器人**登录成功之后过 30 秒就被服务端踢掉**（"Timed out"），
+> 凡是**需要在线玩家**的用例都测不成——而且症状看起来像用例本身的问题。
+> 协议这种地方**不该手搓**：库知道每一版的细节。
+
+探针的 `-Bot` 开关会先让它登录，再喂命令：
 
 ```powershell
 .\probe.ps1 -Case .\cases\24-advancement-bot.case -Port 25599 -Bot Steve
 ```
 
 服务端必须用 `online-mode=false`（探针已经是这样），所以登录不需要加密。
-机器人需要 `python` 在 PATH 上。
+
+机器人需要 **node** 在 PATH 上，还要装它的依赖（在 `tools\probe` 下）：
+
+```powershell
+cd tools\probe
+npm install
+```
+
+（`package.json` 入库，`node_modules` 不入库。）
 
 ---
 
@@ -193,6 +212,14 @@ PowerShell 7 里，返回出去的 scriptblock 在别处调用时**看不到**�
 | `38-coordinate-range` | 「世界之外」从多远开始（真服只加载出生点周围的区块） |
 | `39-summon-position` | `/summon` 把实体放在**方块中心**；世界高度之外会怎么样 |
 | `40-out-of-world-range` | 「世界之外」的边界正好在出生点所在区块的 ±8 个区块上 |
+| `55-particle-viewer` | `/particle` 的**观察者是玩家变体**（非玩家实体报 `Player '<UUID>' cannot be found`）；尾部参数按 32 位有符号整数读，多余的忽略 |
+| `56-replaceitem-slots` | `/replaceitem entity` 的槽位表和**各实体的容器**（盔甲架/僵尸/玩家放得进去的槽位不一样） |
+| `57-replaceitem-containers` | 各实体的容器有多大：盔甲架、僵尸、猪、村民、马、末影人 |
+| `58-replaceitem-player` | 玩家的槽位；**槽位名不存在**的措辞（`is not a valid parameter`） |
+| `59-tp-rotation` | `/tp` 的 `[<yaw> <pitch>]`：绝对角度、`~N` 相对、yaw 折返 |
+| `60-tp-rotation-bounds` | pitch 的**先折返再夹紧**（200 落在 -90）、yaw 折返（400 → 40） |
+| `61-stats-channel` | `/stats` 的通道绑定和**持有者/目标的变体** |
+| `62-stats-channel-write` | 通道**写入**的那一刻：`execute` 让实体执行时写进它的通道 |
 
 跑完全部用例并比对：
 

@@ -1,0 +1,30 @@
+UUID of player Steve is <uuid>
+Steve[/127.0.0.1:<port>] logged in with entity id <id> at (<pos>)
+[Server] W01
+Object successfully summoned
+[Server] W02
+Player '<uuid>' cannot be found
+[Server] W03
+[Server] W04
+Player 'NoSuchPlayer' cannot be found
+[Server] W05
+Playing effect flame for 1 times
+[Server] W06
+Playing effect blockcrack for 1 times
+[Server] W07
+Playing effect blockcrack for 1 times
+[Server] W08
+Invalid param given (notanumber)
+[Server] W09
+Invalid param given (9999999999)
+[Server] W10
+Invalid param given (2147483648)
+[Server] W11
+Playing effect flame for 1 times
+[Server] W12
+Playing effect iconcrack for 1 times
+[Server] W13
+Playing effect iconcrack for 1 times
+[Server] W14
+Steve lost connection: Server closed
+Steve left the game

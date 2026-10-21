@@ -1,0 +1,40 @@
+UUID of player Steve is <uuid>
+Steve[/127.0.0.1:<port>] logged in with entity id <id> at (<pos>)
+[Server] U01
+Added new objective 'return' successfully
+[Server] U02
+Added new objective 'cnt' successfully
+[Server] U03
+Object successfully summoned
+[Server] U04
+Set score of return for player <uuid> to 0
+[Server] U05
+Set score of cnt for player <uuid> to 0
+[Server] U06
+Storing QueryResult stats in return on @e[type=armor_stand]
+[Server] U07
+Storing SuccessCount stats in cnt on @e[type=armor_stand]
+[Server] U08
+randomTickSpeed = 3
+[Server] U09
+Showing 2 tracked objective(s) for <uuid>:
+- return: 3 (return)
+- cnt: 1 (cnt)
+[Server] U10
+[CH_AS: Block placed]
+Block placed
+[Server] U11
+Showing 2 tracked objective(s) for <uuid>:
+- return: 3 (return)
+- cnt: 1 (cnt)
+[Server] U12
+Cleared QueryResult stats
+[Server] U13
+randomTickSpeed = 3
+[Server] U14
+Showing 2 tracked objective(s) for <uuid>:
+- return: 3 (return)
+- cnt: 1 (cnt)
+[Server] U15
+Steve lost connection: Server closed
+Steve left the game

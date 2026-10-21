@@ -509,6 +509,12 @@ func (e *Engine) Execute(cmd *ast.Command, src *Source) (int, error) {
 		Engine:  e,
 		Command: cmd,
 		Args:    cmd.Args,
+		// A command that does not report a count reports nothing, and
+		// -1 is what says so.
+		AffectedBlocks:   -1,
+		AffectedEntities: -1,
+		AffectedItems:    -1,
+		QueryResult:      -1,
 	}
 	count, err := handler.Run(ctx, cmd.Args)
 	if err != nil {
@@ -518,6 +524,15 @@ func (e *Engine) Execute(cmd *ast.Command, src *Source) (int, error) {
 			ee.Usage = handler.Usage()
 		}
 		return 0, err
+	}
+	// The outcome of the command is reported, so that a version that has
+	// a way of putting the result of a command somewhere can do it.
+	//
+	// 1.12.2 counts the commands that ran in the `SuccessCount` channel
+	// of `/stats`, and the dispatcher reports the count of the
+	// entities a command affected there as well.
+	if reporter := e.Registry.ResultReporter(); reporter != nil {
+		reporter.Report(ctx, count, ctx.AffectedBlocks, ctx.AffectedEntities, ctx.AffectedItems, ctx.QueryResult)
 	}
 	return count, nil
 }

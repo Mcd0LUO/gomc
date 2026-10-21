@@ -195,6 +195,12 @@ func (c *gameruleCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	}
 	if len(args) == 1 {
 		ctx.Engine.Feedback = append(ctx.Engine.Feedback, fmt.Sprintf("%s = %s", rule, r.Display()))
+		// The value of the rule goes into the `QueryResult` channel.
+		//
+		// (`CommandGamerule` reports
+		// `EnumCommandResult.QUERY_RESULT` with the value of the rule,
+		// and a boolean rule is 0 or 1.)
+		ctx.QueryResult = rules.Int(rule)
 		return 1, nil
 	}
 	value := args[1].(*ast.StringArg).Value

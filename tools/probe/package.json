@@ -1,0 +1,8 @@
+{
+  "name": "gomc-probe",
+  "private": true,
+  "description": "The protocol robot of the probe: a Minecraft 1.12.2 player that stays online.",
+  "dependencies": {
+    "minecraft-protocol": "1.68.0"
+  }
+}

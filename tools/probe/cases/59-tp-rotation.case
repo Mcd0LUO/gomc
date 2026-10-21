@@ -1,0 +1,47 @@
+# `/tp` 的**朝向**（`[<yaw> <pitch>]`）。
+#
+# 1.12.2 的 `/tp` 有这个参数（1.13+ 反而没有）。源码 `CommandTp`：
+#   - yaw   = a(entity.yaw,   text 或 "~", false)
+#   - pitch = a(entity.pitch, text 或 "~", false)
+#   - 绝对角度直接用；`~N` 是**当前角度 + N**；`~` 是**保持不变**
+#   - yaw 过 `MathHelper.g`（折到 [-180,180)）
+#   - pitch 过 `MathHelper.a(v, -90, 90)`（夹紧）
+#
+# 观察朝向的办法：`/tp` 之后用选择器的 `ry`/`rx` 过滤查。
+# 1.12.2 的 `execute` 要三个坐标，所以是 `execute <实体> ~ ~ ~ say ...`。
+#
+# 这一轮测：
+#   - 绝对 yaw / pitch
+#   - `~N` 相对
+#   - pitch 夹紧（给 200 应该夹到 90）
+#   - yaw 折返（给 270 应该折到 -90）
+#   - 只给 yaw 不给 pitch
+
+--- console ---
+say R01
+summon armor_stand 0 4 0 {CustomName:"TP_AS"}
+say R02
+tp @e[type=armor_stand] 1 4 1 90 45
+say R03
+execute @e[type=armor_stand,ry=90] ~ ~ ~ say YAW90_HIT
+say R04
+execute @e[type=armor_stand,rx=45] ~ ~ ~ say PITCH45_HIT
+say R05
+tp @e[type=armor_stand] 1 4 1 ~90 0
+say R06
+execute @e[type=armor_stand,ry=180] ~ ~ ~ say YAW180_HIT
+say R07
+tp @e[type=armor_stand] 1 4 1 270 0
+say R08
+execute @e[type=armor_stand,ry=-90] ~ ~ ~ say YAW_NEG90_HIT
+say R09
+tp @e[type=armor_stand] 1 4 1 0 200
+say R10
+execute @e[type=armor_stand,rx=90] ~ ~ ~ say PITCH90_HIT
+say R11
+tp @e[type=armor_stand] 1 4 1 45
+say R12
+execute @e[type=armor_stand,ry=45] ~ ~ ~ say YAW45_HIT
+say R13
+execute @e[type=armor_stand,rx=90] ~ ~ ~ say PITCH_STILL90_HIT
+say R14

@@ -1,0 +1,42 @@
+# `/tp` 的**朝向**：边界情形。
+#
+# 上一轮（59 号用例）测出来的：
+#   - 绝对 yaw/pitch 生效
+#   - `~N` 相对生效（90 -> 180）
+#   - yaw 270 折到 -90
+#   - **pitch 200 之后 `rx=90` 没有匹配上**
+#   - `tp 1 4 1 45`（4 个参数）报的是「要指定玩家」——4 个参数时
+#     第一个参数是**目标**，不是坐标
+#
+# 这一轮问清楚：
+#   - pitch 200 之后到底是多少（查 rx=90 / rx=-90 / rx=0）
+#   - yaw 400 折到多少
+#   - 6 个参数的完整形式
+#
+# 参数布局：`/tp <目标> <x> <y> <z> [<yaw> <pitch>]`——**要 6 个参数**
+# 才是带朝向的形式。
+
+--- console ---
+say Q01
+summon armor_stand 0 4 0 {CustomName:"TP_AS"}
+say Q02
+tp @e[type=armor_stand] 1 4 1 0 200
+say Q03
+execute @e[type=armor_stand,rx=90] ~ ~ ~ say PITCH_90_HIT
+say Q04
+execute @e[type=armor_stand,rx=-90] ~ ~ ~ say PITCH_NEG90_HIT
+say Q05
+execute @e[type=armor_stand,rx=0] ~ ~ ~ say PITCH_0_HIT
+say Q06
+tp @e[type=armor_stand] 1 4 1 400 0
+say Q07
+execute @e[type=armor_stand,ry=40] ~ ~ ~ say YAW_40_HIT
+say Q08
+execute @e[type=armor_stand,ry=-40] ~ ~ ~ say YAW_NEG40_HIT
+say Q09
+tp @e[type=armor_stand] 1 4 1 0 -200
+say Q10
+execute @e[type=armor_stand,rx=-90] ~ ~ ~ say PITCH_NEG90B_HIT
+say Q11
+execute @e[type=armor_stand,rx=90] ~ ~ ~ say PITCH_90B_HIT
+say Q12

@@ -2,7 +2,14 @@
 #
 # 15 号用例把 title / playsound 这类改成了玩家变体，stopsound 还没测过。
 # 顺便看看 replaceitem entity 和 particle 的观察者是不是也该是玩家变体
-# （1.12.2 的 replaceitem entity 是实体变体，particle 的观察者也是）。
+# （1.12.2 的 replaceitem entity 是**实体**变体——`CommandReplaceItem` 用
+# `CommandAbstract.c`；particle 的观察者是**玩家**变体——
+# `CommandParticle` 用 `CommandAbstract.b`）。
+#
+# 注意：这一轮里 particle 那两条的参数**少了一个**，所以观察者落在了
+# 数量那一格上（真服把 "flame" 当数量读，把 "@e[type=armor_stand]" 当
+# 模式读，@e[type=zombie] 又被当成了观察者）。观察者的变体由 55 号用例
+# 单独验，参数布局照那里。
 #
 # 2026-10-21 待测（测完回填）：
 #   - ?

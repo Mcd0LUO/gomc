@@ -48,10 +48,10 @@ gomc 目前实现了 **51 条**（以专用服务器的 64 条为基准），另
 | `list` | `/list` | |
 | `locate` | `/locate <feature>` | **1.12.2 只有这一个参数**，而且它**完全不知道生物群系**——`<biome\|structure> <name>` 是 1.13 的语法。它只认 8 个结构的名字 |
 | `me` | `/me <动作>` | 消息里的选择器会被解析 |
-| `particle` | `/particle <名称> <x> <y> <z> <dx> <dy> <dz> <速度> [<数量>] [<模式>] [<观察者>]` | **速度是必填的**（源码要求至少 8 段）；模式**不校验**（只有字面量 `force` 特殊，其余当 normal）。⚠️ 尾部还可以跟**粒子自带的 int 参数**（如 `blockcrack` 的方块数据值），个数由粒子决定，gomc 目前不校验——见 [`PATTERNS-1.12.2.md`](PATTERNS-1.12.2.md) 的缺口 ⑤ |
+| `particle` | `/particle <名称> <x> <y> <z> <dx> <dy> <dz> <速度> [<数量>] [<模式>] [<观察者>]` | **速度是必填的**（源码要求至少 8 段）；模式**不校验**（只有字面量 `force` 特殊，其余当 normal）。**观察者是玩家变体**（只找玩家，非玩家实体报 `Player '<UUID>' cannot be found`）。尾部还可以跟**粒子自带的 int 参数**（如 `blockcrack` 的方块数据值），个数由粒子决定：**只读粒子自己那么多位，多余的忽略**，读到的位按 32 位有符号整数判定，超范围报 `Invalid param given (<值>)` |
 | `playsound` | `/playsound <音效> <声音源> <目标> [<x> <y> <z>] [<音量>] [<音调>] [<最小音量>]` | **目标在声音源之后**。声音源要认名字：十个源（master/music/record/weather/block/hostile/neutral/player/ambient/voice），**是查表，所以大小写敏感**，认不出报 `Source %s is unknown` |
 | `reload` | `/reload` | 清空注册表后重载，坏函数只记日志 |
-| `replaceitem` | `/replaceitem <entity\|block> ...` | 实体形式：`entity <目标> <槽位> <物品> [<数量>]`。⚠️ 槽位模型**还不全**（真实工程里用到的 `slot.inventory.18`、`slot.enderchest.0..26`、`slot.armor.*` 会报 unknown slot）——见 [`PATTERNS-1.12.2.md`](PATTERNS-1.12.2.md) 的缺口 ③ |
+| `replaceitem` | `/replaceitem <entity\|block> ...` | 实体形式：`entity <目标> <槽位> <物品> [<数量>]`。**槽位表是全的**（`slot.container.0..53` / `slot.hotbar.0..8` / `slot.inventory.0..26` / `slot.enderchest.0..26` / `slot.villager.0..7` / `slot.horse.0..14` / `slot.weapon` / `slot.armor.*` / `slot.horse.saddle\|armor\|chest`）。槽位号是**实体自己容器里的索引**，**放不进去的槽位**报 `Could not replace slot <槽位> with <数量> * [<物品>]`；**名字不在表里**报 `'<名字>' is not a valid parameter` |
 | `recipe` | `/recipe <give\|take> [player] <name\|*>` | 1.12.2 的第二个参数**总是**玩家，缺第三个参数会崩成"unknown error" |
 | `say` | `/say <消息>` | 消息里的选择器会被解析 |
 | `scoreboard` | `/scoreboard <objectives\|players\|teams> ...` | 三棵子树。`objectives add` / `teams add` 会查四件事：类型、**是否已经存在**、名字（≤16 字符）、显示名（≤32 字符）——**查完才建** |
@@ -61,7 +61,7 @@ gomc 目前实现了 **51 条**（以专用服务器的 64 条为基准），另
 | `setworldspawn` | `/setworldspawn [<x> <y> <z>]` | |
 | `spawnpoint` | `/spawnpoint [<目标>] [<x> <y> <z>]` | |
 | `spreadplayers` | `/spreadplayers <x> <z> <spreadDistance> <maxRange> <respectTeams true\|false> <player ...>` | 散布算法照搬 1.12.2 的松弛迭代，随机数用自实现的 splitmix64 保持确定性 |
-| `stats` | `/stats <entity\|block> ...` | **1.12.2 上这条命令是坏的**，gomc 复现的就是它的坏法。⚠️ 但 `stats entity <目标> set <结果名> <持有者> <objective>` 在真服上是**注册一条通道**（统计量变化时写进那个 objective），gomc 目前只回显、**没建模**——见 [`PATTERNS-1.12.2.md`](PATTERNS-1.12.2.md) 的缺口 ① |
+| `stats` | `/stats <entity\|block> ...` | **1.12.2 上这条命令是坏的**，gomc 复现的就是它的坏法（统计项的名字被当成「命令结果类型」映射，映射不到就是 `Invalid parameters`）。但 `stats entity <目标> set <结果名> <持有者> <objective>` 在真服上是**注册一条通道**（统计量变化时写进那个 objective）——**这一轮建模了**：通道绑在实体上，写入的前提是 objective 存在**且**持有者已有条目，持有者按玩家名/UUID 解析 |
 | `stopsound` | `/stopsound <目标> [<声音源>] [<音效>]` | **目标在最前** |
 | `summon` | `/summon <实体> [<x> <y> <z>] [<nbt>]` | |
 | `teleport` | `/teleport <目标> <x> <y> <z>` | |
@@ -73,7 +73,7 @@ gomc 目前实现了 **51 条**（以专用服务器的 64 条为基准），另
 | `time` | `/time <set\|add\|query> <值>` | `set` 认 `day`(1000)/`night`(13000)，`query` 认 `daytime`/`day`/`gametime` |
 | `title` | `/title <目标> <title\|subtitle\|actionbar\|clear\|reset\|times> [<参数>]` | **动作不按名单校验**：1.12.2 把动作映射到枚举（不区分大小写），**对不上的动作当 `title` 处理**（`EnumTitleAction.a` 的最后一行是 `return TITLE`）。JSON 是**整行剩下的部分** |
 | `toggledownfall` | `/toggledownfall` | |
-| `tp` | `/tp <目标> <x> <y> <z>` | ⚠️ 1.12.2 还有 `[<yaw> <pitch>]`（**1.13+ 反而没有**），gomc 目前把多出来的参数**丢掉**、传送时也不改朝向——见 [`PATTERNS-1.12.2.md`](PATTERNS-1.12.2.md) 的缺口 ② |
+| `tp` | `/tp <目标> <x> <y> <z> [<yaw> <pitch>]` | **1.12.2 有 `[<yaw> <pitch>]`（1.13+ 反而没有）**：绝对角度直接用，`~N` 是当前 + N，`~` 保持不变。yaw 折到 [-180, 180)，pitch **先折返再夹紧**到 [-90, 90]。朝向**落到实体上**，`@e[ry=...]` 能选中它。⚠️ 形式是**按参数个数**分的：4 个或 6 个参数时第一个是**目标** |
 | `trigger` | `/trigger <目标> <add\|set> <值>` | **模式必填**（`add` / `set`），不能省；`set` 是**赋值**不是累加 |
 | `weather` | `/weather <clear\|rain\|thunder> [<时长>]` | 时长单位是秒 |
 | `worldborder` | `/worldborder <set\|add\|center\|damage\|warning\|get> [...]` | |
@@ -124,11 +124,13 @@ gomc 目前实现了 **51 条**（以专用服务器的 64 条为基准），另
 
 对拍时这些差异会体现在 golden 里，属于**已知且可解释**的偏差。
 
-**还有几处是 gomc 还没做到的**（不是有意偏离，是缺口）：`/stats` 的结果
-捕获语义、`/tp` 的 `[<yaw> <pitch>]`、`replaceitem` 的完整槽位表、
-`summon` 的 `Pose`/`Rotation`、`/particle` 的尾部 int 参数、trigger 的锁
-标志、tellraw/title 的 JSON 组件。每一处都附了**真实工程里的用例**，清单和
-优先级见 [`PATTERNS-1.12.2.md`](PATTERNS-1.12.2.md)。
+**还有几处是 gomc 还没做到的**（不是有意偏离，是缺口）：`summon` 的
+`Pose`/`Rotation`、trigger 的锁标志、tellraw/title 的 JSON 组件。
+每一处都附了**真实工程里的用例**，清单和优先级见
+[`PATTERNS-1.12.2.md`](PATTERNS-1.12.2.md)。
+
+（这一轮补完了三项：`/stats` 的结果捕获语义、`/tp` 的 `[<yaw> <pitch>]`、
+`replaceitem` 的完整槽位表。）
 
 ## 权威清单在哪
 

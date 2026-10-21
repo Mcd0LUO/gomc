@@ -1,0 +1,47 @@
+# `/stats` 的**命令结果通道**：写入的那一刻。
+#
+# 通道挂在**实体**上，而上报用的是**执行命令的那个实体**的通道。
+# 所以：
+#   - 控制台执行命令 → 控制台没有通道 → 不写
+#   - `execute @e[...] <命令>` → 盔甲架执行 → 写进盔甲架的通道
+#
+# 这一轮测：
+#   - `execute` 让盔甲架执行查询，看分数变不变
+#   - SuccessCount
+#   - `clear` 之后不写
+#
+# 查询用 **`gamerule`**（也报 QUERY_RESULT），不用 `time query`——
+# 时间每 tick 都走，基线不可复现。
+#
+# bot: Steve
+
+--- console ---
+say U01
+scoreboard objectives add return dummy
+say U02
+scoreboard objectives add cnt dummy
+say U03
+summon armor_stand 0 4 0 {CustomName:"CH_AS"}
+say U04
+scoreboard players set @e[type=armor_stand] return 0
+say U05
+scoreboard players set @e[type=armor_stand] cnt 0
+say U06
+stats entity @e[type=armor_stand] set QueryResult @e[type=armor_stand] return
+say U07
+stats entity @e[type=armor_stand] set SuccessCount @e[type=armor_stand] cnt
+say U08
+execute @e[type=armor_stand] ~ ~ ~ gamerule randomTickSpeed
+say U09
+scoreboard players list @e[type=armor_stand]
+say U10
+execute @e[type=armor_stand] ~ ~ ~ setblock 5 4 5 stone
+say U11
+scoreboard players list @e[type=armor_stand]
+say U12
+stats entity @e[type=armor_stand] clear QueryResult
+say U13
+execute @e[type=armor_stand] ~ ~ ~ gamerule randomTickSpeed
+say U14
+scoreboard players list @e[type=armor_stand]
+say U15

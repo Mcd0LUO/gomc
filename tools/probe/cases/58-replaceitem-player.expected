@@ -1,0 +1,49 @@
+UUID of player Steve is <uuid>
+Steve[/127.0.0.1:<port>] logged in with entity id <id> at (<pos>)
+[Server] P01
+Replaced slot slot.weapon.mainhand with 1 * [Stone]
+[Server] P02
+Replaced slot slot.weapon.offhand with 1 * [Stone]
+[Server] P03
+Replaced slot slot.armor.head with 1 * [Stone]
+[Server] P04
+Could not replace slot slot.armor.chest with 1 * [Stone]
+[Server] P05
+Could not replace slot slot.armor.legs with 1 * [Stone]
+[Server] P06
+Could not replace slot slot.armor.feet with 1 * [Stone]
+[Server] P07
+Replaced slot slot.hotbar.0 with 1 * [Stone]
+[Server] P08
+Replaced slot slot.hotbar.8 with 1 * [Stone]
+[Server] P09
+Replaced slot slot.inventory.0 with 1 * [Stone]
+[Server] P10
+Replaced slot slot.inventory.26 with 1 * [Stone]
+[Server] P11
+Replaced slot slot.enderchest.0 with 1 * [Stone]
+[Server] P12
+Replaced slot slot.enderchest.26 with 1 * [Stone]
+[Server] P13
+Replaced slot slot.container.0 with 1 * [Stone]
+[Server] P14
+Could not replace slot slot.container.53 with 1 * [Stone]
+[Server] P15
+Could not replace slot slot.villager.0 with 1 * [Stone]
+[Server] P16
+Could not replace slot slot.horse.saddle with 1 * [Stone]
+[Server] P17
+Could not replace slot slot.horse.0 with 1 * [Stone]
+[Server] P18
+'slot.inventory.27' is not a valid parameter
+[Server] P19
+'slot.enderchest.27' is not a valid parameter
+[Server] P20
+'slot.container.54' is not a valid parameter
+[Server] P21
+'slot.armor.hand' is not a valid parameter
+[Server] P22
+Replaced slot slot.weapon with 1 * [Stone]
+[Server] P23
+Steve lost connection: Server closed
+Steve left the game

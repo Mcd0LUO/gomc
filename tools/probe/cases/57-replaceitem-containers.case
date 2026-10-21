@@ -1,0 +1,74 @@
+# `/replaceitem entity` 的**各实体容器大小**。
+#
+# 1.12.2 的槽位号是**容器内的索引**，超出容器大小就放不进去，报
+# "Could not replace slot <slot> with <n> * [<item>]"。
+#
+# 而**槽位名本身不存在**时报的是另一句："'<名字>' is not a valid parameter"。
+# 这两件事要分开：前者是槽位放不进去，后者是名字没注册。
+#
+# 这一轮问的是每个实体的容器有多大。
+#
+# bot: Steve
+
+--- console ---
+say Y01
+summon armor_stand 0 4 0 {CustomName:"AS"}
+say Y02
+summon zombie 8 4 0 {CustomName:"ZB"}
+say Y03
+summon pig 12 4 0 {CustomName:"PG"}
+say Y04
+summon villager 16 4 0 {CustomName:"VL"}
+say Y05
+summon horse 20 4 0 {CustomName:"HS"}
+say Y06
+summon enderman 24 4 0 {CustomName:"EM"}
+say Y07
+replaceitem entity @e[type=armor_stand] slot.weapon.mainhand stone
+say Y08
+replaceitem entity @e[type=armor_stand] slot.weapon.offhand stone
+say Y09
+replaceitem entity @e[type=armor_stand] slot.armor.head stone
+say Y10
+replaceitem entity @e[type=armor_stand] slot.armor.chest stone
+say Y11
+replaceitem entity @e[type=zombie] slot.weapon.mainhand stone
+say Y12
+replaceitem entity @e[type=zombie] slot.weapon.offhand stone
+say Y13
+replaceitem entity @e[type=zombie] slot.armor.head stone
+say Y14
+replaceitem entity @e[type=zombie] slot.armor.chest stone
+say Y15
+replaceitem entity @e[type=pig] slot.weapon.mainhand stone
+say Y16
+replaceitem entity @e[type=pig] slot.armor.head stone
+say Y17
+replaceitem entity @e[type=villager] slot.weapon.mainhand stone
+say Y18
+replaceitem entity @e[type=villager] slot.armor.head stone
+say Y19
+replaceitem entity @e[type=horse] slot.horse.saddle stone
+say Y20
+replaceitem entity @e[type=horse] slot.horse.0 stone
+say Y21
+replaceitem entity @e[type=enderman] slot.weapon.mainhand stone
+say Y22
+replaceitem entity @e[type=enderman] slot.armor.head stone
+say Y23
+replaceitem entity Steve slot.weapon.mainhand stone
+say Y24
+replaceitem entity Steve slot.weapon.offhand stone
+say Y25
+replaceitem entity Steve slot.armor.head stone
+say Y26
+replaceitem entity Steve slot.armor.chest stone
+say Y27
+replaceitem entity Steve slot.armor.legs stone
+say Y28
+replaceitem entity Steve slot.armor.feet stone
+say Y29
+replaceitem entity Steve slot.inventory.35 stone
+say Y30
+replaceitem entity Steve slot.enderchest.26 stone
+say Y31

@@ -19,6 +19,11 @@ gomc.exe
 *.out
 coverage.*
 
+# 探针的协议机器人依赖（node-minecraft-protocol）。
+# package.json 入库，node_modules 不入库：在 tools\probe 下跑
+# `npm install` 就能装回来。
+node_modules/
+
 # 服务端日志。有些脚本会在仓库根目录起一次服务端，log 就落在 logs/ 下。
 /logs/
 

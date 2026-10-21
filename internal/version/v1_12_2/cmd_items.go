@@ -118,6 +118,11 @@ func (c *clearCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	ctx.Engine.Feedback = append(ctx.Engine.Feedback,
 		fmt.Sprintf("Cleared the inventory of %s, removing %d items",
 			holders[0].DisplayName(), removed))
+	// The items go into the `AffectedItems` channel.
+	//
+	// (`CommandClear` reports
+	// `EnumCommandResult.AFFECTED_ITEMS`.)
+	ctx.AffectedItems = removed
 	return removed, nil
 }
 
@@ -275,68 +280,36 @@ func (c *replaceItemCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	if len(holders) == 0 {
 		return 0, nil
 	}
-	index, ok := slotIndex(slot)
+	index, ok := lookupReplaceItemSlot(slot)
 	if !ok {
-		return 0, exec.Errorf("unknown slot %q", slot)
+		// The name is not in the table of 1.12.2, so the command never
+		// gets as far as the entity.
+		//
+		// (Measured on a real 1.12.2 server, probe case
+		// 58-replaceitem-player: "replaceitem entity Steve
+		// slot.inventory.27" says "'slot.inventory.27' is not a valid
+		// parameter".)
+		return 0, exec.Errorf("'%s' is not a valid parameter", slot)
 	}
+	stack := astItem{name: item.Name, count: item.Count, data: item.Data}
+	display := replaceItemDisplayName(stack)
 	for _, e := range holders {
-		stack := nbt.NewCompound()
-		stack.Set("id", nbt.String(item.Name))
-		stack.Set("Count", nbt.Byte(byte(item.Count)))
-		list, _ := e.NBTValue("Inventory").(*nbt.List)
-		if list == nil {
-			list = nbt.NewList(nbt.TypeCompound)
+		// The slot has to be one the entity has. 1.12.2 asks the
+		// entity, and the entity refuses the slot when it has no such
+		// container.
+		//
+		// (Measured on a real 1.12.2 server, probe cases 56 and 57: an
+		// armour stand refuses slot.armor.chest and slot.inventory.18,
+		// a zombie refuses slot.inventory.0, and a player takes them
+		// all.)
+		if !containerOf(e).has(index) {
+			return 0, replaceItemError(slot, stack, display)
 		}
-		values := list.Items()
-		if index < len(values) {
-			stack = values[index].(*nbt.Compound)
-			stack.Set("id", nbt.String(item.Name))
-			stack.Set("Count", nbt.Byte(byte(item.Count)))
-		} else {
-			for len(values) <= index {
-				list.Append(nbt.NewCompound())
-				values = list.Items()
-			}
-			values[index].(*nbt.Compound).Set("id", nbt.String(item.Name))
-			values[index].(*nbt.Compound).Set("Count", nbt.Byte(byte(item.Count)))
-		}
-		e.NBT.Set("Inventory", list)
+		replaceItemInSlot(e, index, &stack)
 	}
 	ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-		fmt.Sprintf("Replaced the item in slot %s", slot))
+		fmt.Sprintf("Replaced slot %s with %d * [%s]", slot, stack.count, display))
 	return len(holders), nil
-}
-
-// slotIndex maps a slot name to an inventory index.
-//
-// 1.12.2 accepts the `slot.*` names as well as a plain index.
-func slotIndex(slot string) (int, bool) {
-	switch slot {
-	case "slot.weapon.mainhand", "slot.weapon.offhand":
-		return 0, true
-	case "slot.hotbar.0", "slot.inventory.0":
-		return 0, true
-	case "slot.hotbar.1", "slot.inventory.1":
-		return 1, true
-	case "slot.hotbar.2", "slot.inventory.2":
-		return 2, true
-	case "slot.hotbar.3", "slot.inventory.3":
-		return 3, true
-	case "slot.hotbar.4", "slot.inventory.4":
-		return 4, true
-	case "slot.hotbar.5", "slot.inventory.5":
-		return 5, true
-	case "slot.hotbar.6", "slot.inventory.6":
-		return 6, true
-	case "slot.hotbar.7", "slot.inventory.7":
-		return 7, true
-	case "slot.hotbar.8", "slot.inventory.8":
-		return 8, true
-	}
-	if n, err := strconv.Atoi(slot); err == nil && n >= 0 {
-		return n, true
-	}
-	return 0, false
 }
 
 // enchantCmd implements `/enchant`.

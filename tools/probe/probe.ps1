@@ -482,27 +482,52 @@ try {
 	if ($Bot) {
 		# 有些命令**只对在线玩家**有用：/advancement 和 /recipe 就是两条。
 		# 控制台上没有玩家，所以要靠一个协议机器人登录进去。
-		$BotScript = Join-Path $PSScriptRoot 'mcbot.py'
+		# 机器人用 minecraft-protocol（node-minecraft-protocol）：它知道
+		# 每个版本的包号、压缩和心跳，自己手搓协议的那份已经不用了。
+		$BotScript = Join-Path $PSScriptRoot 'mcbot.js'
 		if (-not (Test-Path $BotScript)) { Fail "找不到 $BotScript" }
+		if (-not (Test-Path (Join-Path $PSScriptRoot 'node_modules\minecraft-protocol'))) {
+			Fail "没装 minecraft-protocol（在 tools\probe 下跑 npm install minecraft-protocol）"
+		}
 		Write-Step "让机器人 $Bot 登录"
 		$botLog = Join-Path $Work 'bot.log'
-		$botProc = Start-Process -FilePath 'python' `
-			-ArgumentList @($BotScript, '127.0.0.1', $Port, $Bot, '300') `
-			-NoNewWindow -PassThru `
-			-RedirectStandardOutput $botLog -RedirectStandardError "$botLog.err"
+		# 机器人**自己**写日志文件（行缓冲），而不是靠 PowerShell 的
+		# 重定向：后者要等进程结束才落盘，而机器人是被强杀的，日志
+		# 会是空的——探针等的那句 "logged in as" 就等不到。
+		$botProc = Start-Process -FilePath 'node' `
+			-ArgumentList @($BotScript, '127.0.0.1', $Port, $Bot, '300', $botLog) `
+			-NoNewWindow -PassThru
 		# 机器人也要在收尾时收掉——探针被中断时它会留下来。
 		$script:StartedProcs += $botProc
 		# 等它登录完：登录之后服务端才认这个玩家。
-		$deadline = (Get-Date).AddSeconds(30)
+		#
+		# **以服务端的日志为准**：机器人连上了、服务端也记了"logged in"，
+		# 才算登录上了。服务端的日志是权威的——机器人自己那份只用来
+		# 报告它出了什么事（比如登录被拒）。
+		#
+		# 机器人和服务端是**同时**起来的，服务端要十几秒才监听端口，
+		# 所以机器人一开始连不上，会自己重试。等的时限要够长，
+		# 而且**没登录上就不能当登录上了**——否则用例会在没有玩家的情况
+		# 下跑完，测出来的东西全是错的。
+		$readyLog = Join-Path $Work 'logs\latest.log'
+		$deadline = (Get-Date).AddSeconds(90)
+		$loggedIn = $false
 		while ((Get-Date) -lt $deadline) {
+			if (Test-Path $readyLog) {
+				$txt = Get-Content $readyLog -Raw -ErrorAction SilentlyContinue
+				if ($txt -match "logged in with entity id") { $loggedIn = $true; break }
+			}
 			if (Test-Path $botLog) {
 				$seen = Get-Content $botLog -ErrorAction SilentlyContinue
-				if ($seen -match 'logged in as') { break }
-				if ($seen -match 'login refused|never logged in') {
+				if ($seen -match 'login refused|never logged in|cannot open the log') {
 					Fail "机器人登录被拒绝：$($seen -join ' ')"
 				}
 			}
 			Start-Sleep -Milliseconds 300
+		}
+		if (-not $loggedIn) {
+			$diag = (Get-Content $botLog -ErrorAction SilentlyContinue) -join ' | '
+			Fail "机器人没有登录上（等了 90 秒）。日志：$diag"
 		}
 		Write-Step "机器人已登录"
 	}
@@ -522,7 +547,9 @@ try {
 
 	$code = 0
 	if ($Record) {
-		Set-Content -Path $expectedPath -Value $observed -Encoding utf8
+		# 录进基线的也是**归一化后**的文本：机器人的端口和位置、实体的
+		# UUID 每次都不一样，存原值就永远比不过。
+		Set-Content -Path $expectedPath -Value (Normalize-Uuid $observed) -Encoding utf8
 		Write-Host ""
 		Write-Host "已写入 $expectedPath —— 请人工核对一遍" -ForegroundColor Green
 	}

@@ -344,6 +344,10 @@ type tpArgs struct {
 	pos *ast.Coord
 	// dest is the entity that is teleported to.
 	dest ast.Arg
+	// rot is the rotation the entity is turned to. It is the zero
+	// value when the command did not name a rotation, and then the
+	// entity keeps the rotation it has.
+	rot tpRotation
 }
 
 // tpArg is the AST wrapper carrying the parsed arguments.
@@ -397,6 +401,18 @@ func (c *tpCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	}
 	a.pos = &ast.Coord{X: pos.X, Y: pos.Y, Z: pos.Z,
 		RelativeX: pos.RelativeX, RelativeY: pos.RelativeY, RelativeZ: pos.RelativeZ}
+	// The yaw and the pitch follow the coordinates, and 1.12.2 reads
+	// them with the same rule as a coordinate: a number is an absolute
+	// angle, a number behind a tilde is measured from the angle the
+	// entity has, and a bare tilde keeps it.
+	//
+	// The command has six arguments then: the target, the three
+	// coordinates, the yaw and the pitch.
+	rot, err := parseTPRotation(p)
+	if err != nil {
+		return nil, err
+	}
+	a.rot = rot
 	return []ast.Arg{&tpArg{Value: a}}, nil
 }
 
@@ -446,6 +462,11 @@ func (c *tpCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 			pos.Z = e.Pos.Z + pos.Z
 		}
 		e.Pos = pos
+		// The yaw and the pitch turn the entity. 1.12.2 puts them on
+		// the entity as well -- and that is the only way an entity ever
+		// gets a rotation, so a selector that filters on the rotation
+		// (`@e[ry=...])` can find it afterwards.
+		applyTPRotation(e, a.rot)
 		ctx.Engine.Feedback = append(ctx.Engine.Feedback,
 			fmt.Sprintf("Teleported %s to %.1f, %.1f, %.1f",
 				e.DisplayName(), pos.X, pos.Y, pos.Z))

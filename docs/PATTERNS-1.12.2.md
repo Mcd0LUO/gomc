@@ -130,7 +130,7 @@ ZX2-3 是唯一**静态检查零问题**的包。它的做法值得抄：
 
 三个子代理**独立地**指向了同一个缺口（互证）：
 
-### ① `/stats` 的结果捕获语义 ★★★★（三个代理都点了）
+### ① `/stats` 的结果捕获语义 ★★★★（三个代理都点了） → **已修**
 
 gomc 的 `/stats entity set` 只回显，**从不写 objective**，`world.Entity`
 也没有统计量字段。后果：上面第 3 节那整类「命令返回值 → 记分板」的函数
@@ -144,28 +144,73 @@ Y 轴、ZX2-3 的整个箱子菜单点击检测、PFS 的 `stats` 通道）。
    上报 AffectedItems / AffectedBlocks / QueryResult / SuccessCount；
 4. 写入前检查计分板条目已存在（真服 `Scoreboard.b` 的行为）。
 
-### ② `/tp` 的 `[<yaw> <pitch>]` ★★★
+> **这一轮补完了**，补法是照着 1.12.2 的源码：
+>
+> - 通道**绑在实体上**（`Entity.bA()`），写进实体的 `CommandStats` NBT；
+> - **上报看的是执行命令的那个实体**的通道——所以
+>   `execute @e[...] time query daytime` 会写进盔甲架的通道，
+>   而控制台跑 `time query` 什么都不写；
+> - 写入的前提是 **objective 存在**且**持有者已有条目**
+>   （`Scoreboard.b`）；
+> - 持有者按 `CommandAbstract.f` 解析：先当玩家→玩家名，再当实体→UUID，
+>   都不是就原样。
+>
+> （真服实测，探针用例 `62-stats-channel-write`。）
+
+### ② `/tp` 的 `[<yaw> <pitch>]` ★★★ → **已修**
 
 用法串承诺了，实现只解析 x/y/z，**多出来的参数被丢弃**，传送时也不改朝向。
 1.12.2 的 `/tp` 有这个参数（1.13+ 反而没有），末法用它做「转向送回」
 （`luo/detect/isTpSafe.mcfunction:5`）。而悟空有 74526 行 `ry/rym` 选择器
 依赖实体的旋转——**旋转不落到实体，这些选择器永远选不中**。
 
-### ③ `replaceitem` 的槽位模型不全 ★★★
+> **这一轮补完了**：yaw/pitch 现在落到实体上，`@e[ry=...]` 能选中它。
+> 规则照 `CommandTp`：绝对角度直接用，`~N` 是当前 + N，`~` 保持不变；
+> yaw 折到 [-180, 180)，pitch **先折返再夹紧**到 [-90, 90]——
+> 所以 pitch 200 落在 **-90** 而不是 90。
+>
+> （真服实测，探针用例 `59-tp-rotation` 和 `60-tp-rotation-bounds`。）
+
+### ③ `replaceitem` 的槽位模型不全 ★★★ → **已修**
 
 只认 `slot.weapon.*`、`slot.hotbar.0-8`、`slot.inventory.0-8`、裸数字，
 其余报 unknown slot。真实工程用的是 `slot.inventory.18/19/20`、
 `slot.enderchest.0..26`、`slot.armor.*`、`slot.container.0..26`。
 
+> **这一轮补完了**：整张表照 `CommandReplaceItem` 的静态块建
+> （`slot.container.0..53` / `slot.hotbar.0..8` / `slot.inventory.0..26` /
+> `slot.enderchest.0..26` / `slot.villager.0..7` / `slot.horse.0..14` /
+> `slot.weapon` / `slot.armor.*` / `slot.horse.saddle|armor|chest`）。
+>
+> 而且槽位号是**实体自己的容器里的索引**，所以**放不进去的槽位要报错**：
+> 盔甲架只有手部和部分护甲槽，僵尸只有主手和头盔，玩家有全套。
+> 名字不在表里的报 `'<名字>' is not a valid parameter`。
+>
+> （真服实测，探针用例 `56-replaceitem-slots`、`57-replaceitem-containers`、
+> `58-replaceitem-player`。）
+
 ### ④ `summon` / `entitydata` 的 `Pose` / `Rotation` 不落到实体旋转 ★★
 
 走路动画、朝向全丢。
 
-### ⑤ `/particle` 的尾部 int 参数不校验 ★★
+### ⑤ `/particle` 的尾部 int 参数不校验 ★★ → **已修**
 
 1.12.2 的尾部整数是**粒子自带的参数**（`blockcrack` 的方块数据值），
-个数由粒子决定，多一个就报 `Invalid parameters`。悟空有 **224 行**在真服上
-必然失败，gomc 静默放过了。
+个数由粒子决定（`EnumParticle.d()`）。
+
+> **这一条原来写错了**：它说"多一个就报 `Invalid parameters`"。**不对**——
+> 真服只读**粒子自己那么多位**，多出来的**被忽略**，不报错。读到的那个位
+> 才是要校验的，而且它按 `Integer.parseInt` 读（**32 位有符号**），所以
+> 超出 `int` 范围的值报 `Invalid param given (<值>)`。
+>
+> （真服实测，探针用例 `55-particle-viewer`：`particle blockcrack ... Steve
+> 5 99` 照常播粒子，而 `particle blockcrack ... Steve 9999999999` 报
+> `Invalid param given (9999999999)`。）
+>
+> gomc 之前用 `strconv.Atoi` 读，按 64 位解析，所以超范围的值被放过了。
+> **这一轮修好了**（见 SPEC 6.3）。
+
+悟空有 **224 行**用尾部参数，其中超范围的那些现在会被正确地报出来。
 
 ### ⑥ trigger 没有锁标志 ★★
 

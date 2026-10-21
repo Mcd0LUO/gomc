@@ -133,6 +133,18 @@ type Context struct {
 	Depth int
 	// Args holds the command's parsed arguments.
 	Args []ast.Arg
+	// AffectedBlocks counts the blocks the command changed, or -1 when
+	// the command does not report it.
+	AffectedBlocks int
+	// AffectedEntities counts the entities the command changed, or -1
+	// when the command does not report it.
+	AffectedEntities int
+	// AffectedItems counts the items the command changed, or -1 when the
+	// command does not report it.
+	AffectedItems int
+	// QueryResult is the value a query command found, or -1 when the
+	// command is not a query.
+	QueryResult int
 }
 
 // Arg returns the argument at index i.
@@ -208,6 +220,8 @@ type Registry struct {
 	// extensions holds the commands gomc adds on top of the 1.12.2 set,
 	// with the note that says what each of them is for.
 	extensions map[string]string
+	// reporter is told the outcome of every command that runs.
+	reporter ResultReporter
 }
 
 // NewRegistry returns an empty registry.
@@ -253,6 +267,41 @@ func (r *Registry) ExtensionNames() []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// ResultReporter is told the outcome of every command that runs.
+//
+// The report is what a version needs to feed the result of a command
+// into whatever the version has for that. 1.12.2 has the five command
+// result channels of `/stats`, and the version package reports through
+// this hook.
+//
+// The reporter is a version-specific concept, so it lives behind this
+// interface: the engine knows nothing about the channels themselves.
+type ResultReporter interface {
+	// Report is told that a command ran.
+	//
+	// ctx is the context the command ran in, and its source says which
+	// entity the command ran as. successCount is the count the command
+	// returned, and it is what 1.12.2 stores in the `SuccessCount`
+	// channel. affectedBlocks, affectedEntities and affectedItems are
+	// the counts of the things the command changed, and they are -1
+	// when the command does not report them. queryResult is the value a
+	// query command found, and it is -1 when the command is not a query.
+	Report(ctx *Context, successCount, affectedBlocks, affectedEntities, affectedItems, queryResult int)
+}
+
+// SetResultReporter sets the reporter that is told the outcome of every
+// command.
+//
+// A registry without a reporter simply does not report.
+func (r *Registry) SetResultReporter(reporter ResultReporter) {
+	r.reporter = reporter
+}
+
+// ResultReporter returns the reporter of the registry, if it has one.
+func (r *Registry) ResultReporter() ResultReporter {
+	return r.reporter
 }
 
 // SetRequiredPermission declares the minimum permission level a command

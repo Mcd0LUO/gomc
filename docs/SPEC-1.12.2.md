@@ -900,6 +900,17 @@ particle <名称> <x> <y> <z> <dx> <dy> <dz> <速度> [<数量>] [<模式>] [<�
 - **`/trigger` 的 `set` 是赋值不是累加**（gomc 之前一律当加法）。
   真服只有**创造模式**才发成功消息，gomc 一律发。
 - **`/particle` 的模式从不校验**：只有字面量 `force` 特殊，其它词当 normal。
+- **`/particle` 的观察者是玩家变体**（见第 15 节）。
+- **`/particle` 的尾部参数按 32 位有符号整数读**。1.12.2 用
+  `Integer.parseInt` 读它们（`CommandParticle`），所以超出 `int` 范围的值
+  **不是数字**：报 `Invalid param given (<值>)`（语言键
+  `commands.particle.invalidParam`）。gomc 之前用 `strconv.Atoi`，它按 64 位
+  解析，于是 `9999999999` 被放过了。
+- **`/particle` 的尾部参数只读粒子自己那么多位**，多出来的**被忽略**，
+  不是错误。粒子要几位由 `EnumParticle.d()` 决定：方块类粒子 1 位
+  （方块数据值），`iconcrack` 2 位（物品 + 数据值），其余 0 位。
+  > 这一点纠正了 PATTERNS 第 6 节缺口 ⑤ 的一半说法——多写一个参数**不会**
+  > 报 `Invalid parameters`，真服只是把它丢掉。
 
 ### 6.4 `/fill` 的数据值 [验][读]
 
@@ -1196,6 +1207,75 @@ pos    = args.length > 3 ? parseBlockPos(args, 1, true) : player.getChunkCoordin
 
 `/spawnpoint` 改的**只有第一个**匹配到的玩家：1.12.2 走的是
 `PlayerSelector.getPlayer`，它给回**一个**玩家，不是整个列表。
+
+### 6.9 `/tp` 的朝向和 `/replaceitem` 的槽位 [读][验]
+
+#### `/tp` 的 `[<yaw> <pitch>]`
+
+1.12.2 的 `/tp` 有这个参数（**1.13+ 反而没有**），而它读的方式和坐标一样：
+
+| 写法 | 意思 |
+|---|---|
+| `90` | 绝对角度 |
+| `~90` | **当前的**角度 + 90 |
+| `~` | 保持不变 |
+
+没写的那个角度也保持不变。角度会被整理：
+
+- **yaw** 折到 **[-180, 180)**（`MathHelper.g`）——所以 180 变成 -180，
+  270 变成 -90，400 变成 40；
+- **pitch 先折返再夹紧**到 **[-90, 90]**（`MathHelper.g` 然后
+  `MathHelper.a(v, -90, 90)`）——所以 **200 落在 -90**，不是 90。
+
+朝向**落到实体上**，所以 `@e[ry=...]` / `@e[rx=...]` 能选中它。
+
+> `/tp` 的形式是**按参数个数**分的：1 个或 2 个参数是「传送到某个实体」，
+> 4 个或 6 个参数里第一个是**目标**。所以 `tp 1 4 1 45`（4 个参数）是
+> 「把名为 `1` 的实体传送到坐标 4 1 45」，**不是**带朝向的传送。
+>
+> （真服实测：`tp 1 4 1 45` 报 "You must specify which player you wish to
+> perform this action on."）
+
+探针用例：`tools/probe/cases/59-tp-rotation.case`、
+`60-tp-rotation-bounds.case`。
+
+#### `/replaceitem entity` 的槽位
+
+1.12.2 的槽位名查一张表（`CommandReplaceItem` 的静态块），表里的数是
+**实体自己容器里的索引**：
+
+| 槽位名 | 编号 |
+|---|---|
+| `slot.container.0..53` | 0..53 |
+| `slot.hotbar.0..8` | 0..8 |
+| `slot.inventory.0..26` | 9..35 |
+| `slot.enderchest.0..26` | 200..226 |
+| `slot.villager.0..7` | 300..307 |
+| `slot.horse.0..14` | 500..514 |
+| `slot.weapon` / `slot.weapon.mainhand` | 98 |
+| `slot.weapon.offhand` | 99 |
+| `slot.armor.feet` / `legs` / `chest` / `head` | 100 / 101 / 102 / 103 |
+| `slot.horse.saddle` / `armor` / `chest` | 400 / 401 / 499 |
+
+（护甲的编号是 `100 + EnumItemSlot.b()`，而 `EnumItemSlot.b()` 是常量在
+枚举里的位置：FEET 是 0，LEGS 是 1，CHEST 是 2，HEAD 是 3。）
+
+**槽位必须在实体的容器里**，否则报
+`Could not replace slot <槽位> with <数量> * [<物品>]`：
+
+| 实体 | 有的槽位 |
+|---|---|
+| 玩家 | 主物品栏 36 格、护甲 4 格、副手、末影箱 27 格 |
+| 盔甲架 | 手部 2 格、头盔/护腿/靴子 |
+| 僵尸等生物 | 主手、头盔 |
+| 马 | 鞍、铠、箱子 |
+
+**名字不在表里**报的是另一句：`'<名字>' is not a valid parameter`
+（`commands.generic.parameter.invalid`）——比如 `slot.inventory.27`、
+`slot.enderchest.27`、`slot.container.54`、`slot.armor.hand`。
+
+探针用例：`tools/probe/cases/56-replaceitem-slots.case`、
+`57-replaceitem-containers.case`、`58-replaceitem-player.case`。
 
 ---
 
@@ -1870,6 +1950,56 @@ SuccessCount  AffectedBlocks  AffectedEntities  AffectedItems  QueryResult
 探针用例：`tools/probe/cases/08-stats-params.case` 到 `12-stats-names.case`，
 每条命令都夹一条 `say` 标记，好把输出对齐到命令。
 
+### 13.5 `/stats` 的命令结果通道 [读][验]
+
+1.12.2 的 `/stats entity <目标> set <结果> <持有者> <目标>` **不是**回显，
+它是**注册一条通道**：统计量变化时，值被写进那个 objective。
+
+**通道绑在实体上**（`Entity.bA()`），绑定写进实体的 `CommandStats` NBT：
+
+```
+CommandStats: { QueryResultName: "<持有者>", QueryResultObjective: "<目标>" }
+```
+
+**上报看的是执行命令的那个实体**的通道——所以
+
+```
+execute @e[type=armor_stand] ~ ~ ~ time query daytime
+```
+
+会写进**盔甲架**的通道，而控制台自己跑 `time query` 什么都不写。
+
+写入有两个前提（`CommandObjectiveExecutor.a`）：
+
+1. **objective 必须存在**；
+2. **持有者在该 objective 里必须已经有条目**（`Scoreboard.b`）——
+   所以要先 `scoreboard players set <持有者> <目标> 0` 建好条目。
+
+持有者按 `CommandAbstract.f` 解析：先当**玩家**→用玩家名，再当**实体**→
+用 UUID，都不是就**原样**。但**回显里是原样的文本**（`CommandStats` 存的是
+参数本身）。
+
+| 命令 | 真服输出 |
+|---|---|
+| `stats entity @e[type=armor_stand] set QueryResult @e[type=armor_stand] return` | `Storing QueryResult stats in return on @e[type=armor_stand]` |
+| `stats entity Steve set QueryResult Steve return` | `Entity 'Steve' cannot be found`（目标是**实体**变体） |
+
+**哪些命令上报哪个通道**，照 1.12.2 的服务端 jar 逐条查出来
+（`EnumCommandResult` 的调用点）：
+
+| 命令 | 上报的通道 |
+|---|---|
+| `/time query` | QueryResult |
+| `/gamerule <规则>` | QueryResult（布尔规则是 0/1） |
+| `/list`、`/worldborder`、`/xp`、`/scoreboard` | QueryResult |
+| `/setblock`、`/fill`、`/clone`、`/blockdata`、`/testforblock(s)` | AffectedBlocks |
+| `/clear`、`/give`、`/enchant`、`/replaceitem` | AffectedItems |
+| `/spreadplayers` | AffectedEntities |
+| **每一条命令** | SuccessCount（分发层统计的） |
+
+探针用例：`tools/probe/cases/61-stats-channel.case`、
+`62-stats-channel-write.case`。
+
 ---
 
 ## 14. gomc 的扩展命令
@@ -1939,12 +2069,20 @@ warning: <路径>:<行>
 | **玩家** | `CommandAbstract.b` → `a(server, listener, s, EntityPlayer.class)` | **只有玩家** |
 
 **实体变体**的命令：`kill` / `testfor` / `tp` / `teleport` / `entitydata` /
-`execute` / `replaceitem entity` / `effect` / `enchant` / `particle` 的观察者 /
-`function` 的条件。
+`execute` / `replaceitem entity` / `effect` / `enchant` / `function` 的条件。
 
 **玩家变体**的命令：`give` / `gamemode` / `title` / `tellraw` / `playsound` /
 `stopsound` / `trigger` / `xp` / `clear` / `spawnpoint` / `advancement` /
-`recipe`。
+`recipe` / **`particle` 的观察者**。
+
+> `particle` 的观察者**曾经**被列在实体变体那一栏，那是错的。
+> 1.12.2 的 `CommandParticle` 用
+> `CommandParticle.b(minecraftServer, listener, stringArray[10])` 解析它——
+> 那是 `CommandAbstract.b`，也就是**玩家变体**。
+>
+> （真服实测，探针用例 `55-particle-viewer`：世界里有一个盔甲架时，
+> `particle flame 0 4 0 0 0 0 0 1 normal @e[type=armor_stand]` 报的是
+> `Player '<那个盔甲架的 UUID>' cannot be found`，而且**粒子不播**。）
 
 （`enchant` 和 `effect` 接受的是**生物**，不是玩家：真服上
 `enchant @e[type=armor_stand] sharpness 1` 报的是 "The target doesn't hold an
