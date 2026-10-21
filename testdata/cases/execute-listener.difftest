@@ -1,0 +1,27 @@
+# `/execute` 的子命令：监听者不是玩家。
+#
+# 1.12.2 里命令**跑在**某个实体上（执行者），但**发给**监听者。
+# `/execute` 的监听者是 execute 的 wrapper，不是目标实体——而 wrapper 不是
+# 玩家，所以：
+#
+#   - `/spawnpoint`（不给参数）要的是「执行的玩家」，这里没有 → 报错；
+#   - `/setworldspawn`（不给参数）一样报错；
+#   - `/summon`（不给坐标）落在监听者的方块位置，也就是 execute 位置的
+#     方块位置，不是原点。
+#
+# 另外 1.12.2 的 `/execute` **坐标是必填的**（`CommandExecute.execute` 先看
+# `astring.length < 5`），所以 `execute @a spawnpoint` 是用法错误。
+#
+# 和探针用例 46-execute-listener 一一对应。召唤盔甲架是**场景的一部分**
+# （不是准备），所以它在 run 段里——探针那边它也是一条命令，两边才对得
+# 上。
+name: execute listener
+
+run:
+  summon armor_stand 7.5 4.6 4.5
+  execute @e[type=armor_stand] spawnpoint
+  execute @e[type=armor_stand] ~ ~ ~ spawnpoint
+  execute @e[type=armor_stand] ~ ~ ~ setworldspawn
+  execute @e[type=armor_stand] ~ ~ ~ summon zombie
+  execute @e[type=zombie] ~ ~ ~ setblock ~ ~ ~ stone
+  testforblock 7 4 4 stone

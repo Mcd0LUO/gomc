@@ -1,0 +1,22 @@
+[Server] X01
+Object successfully summoned
+[Server] X02
+Usage: /execute <entity> <x> <y> <z> <command> OR /execute <entity> <x> <y> <z> detect <x> <y> <z> <block> <dataValue|-1|state|*> <command>
+[Server] X03
+[Armor Stand: You must specify which player you wish to perform this action on.]
+You must specify which player you wish to perform this action on.
+All invocations failed: 'spawnpoint'
+[Server] X04
+[Armor Stand: You must specify which player you wish to perform this action on.]
+You must specify which player you wish to perform this action on.
+All invocations failed: 'setworldspawn'
+[Server] X05
+[Armor Stand: Object successfully summoned]
+Object successfully summoned
+[Server] X06
+[Zombie: Block placed]
+Block placed
+[Server] X07
+Successfully found the block at 7, 4, 4
+[Server] X08
+[Server] X09

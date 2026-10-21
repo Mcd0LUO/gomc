@@ -11,6 +11,8 @@
 gomc.exe
 *.exe
 *.dll
+# go build 换掉正在占用的二进制时留下的临时文件
+*~
 
 # Go 测试与覆盖率
 *.test

@@ -26,13 +26,17 @@ func (c *summonCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	if err != nil {
 		return nil, err
 	}
-	pos := ast.Coord{}
+	// The position is left empty when the command does not give one:
+	// 1.12.2 then puts the entity where the listener is, and that is
+	// only known when the command runs.
+	var pos *ast.Coord
 	if p.More() {
 		parsed, err := p.CoordWith(coordSummon)
 		if err != nil {
 			return nil, err
 		}
-		pos = *parsed
+		pos = &ast.Coord{X: parsed.X, Y: parsed.Y, Z: parsed.Z,
+			RelativeX: parsed.RelativeX, RelativeY: parsed.RelativeY, RelativeZ: parsed.RelativeZ}
 	}
 	text := ""
 	if p.More() {
@@ -45,8 +49,7 @@ func (c *summonCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	}
 	return []ast.Arg{
 		&ast.EntityTypeArg{Name: entityType},
-		&ast.Coord{X: pos.X, Y: pos.Y, Z: pos.Z,
-			RelativeX: pos.RelativeX, RelativeY: pos.RelativeY, RelativeZ: pos.RelativeZ},
+		pos,
 		&ast.StringArg{Value: text},
 	}, nil
 }
@@ -67,16 +70,27 @@ func (c *summonCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		// player is not something `/summon` can bring into the world.
 		return 0, exec.Errorf("Unable to summon object")
 	}
-	posArg := args[1].(*ast.Coord)
-	pos := world.Vec{X: posArg.X, Y: posArg.Y, Z: posArg.Z}
-	if posArg.RelativeX {
-		pos.X = ctx.Source.Pos.X + pos.X
-	}
-	if posArg.RelativeY {
-		pos.Y = ctx.Source.Pos.Y + pos.Y
-	}
-	if posArg.RelativeZ {
-		pos.Z = ctx.Source.Pos.Z + pos.Z
+	posArg, _ := args[1].(*ast.Coord)
+	var pos world.Vec
+	if posArg == nil {
+		// Without coordinates the entity appears where the listener is:
+		// 1.12.2 takes the position from the chunk coordinates of the
+		// listener (`ICommandListener.getChunkCoordinates()`).
+		pos = ctx.Source.RelativeBase()
+	} else {
+		// The coordinates that are given are measured from the **exact**
+		// position of the listener (`ICommandListener.d()`), not from its
+		// block position.
+		pos = world.Vec{X: posArg.X, Y: posArg.Y, Z: posArg.Z}
+		if posArg.RelativeX {
+			pos.X = ctx.Source.Pos.X + pos.X
+		}
+		if posArg.RelativeY {
+			pos.Y = ctx.Source.Pos.Y + pos.Y
+		}
+		if posArg.RelativeZ {
+			pos.Z = ctx.Source.Pos.Z + pos.Z
+		}
 	}
 	e, ok := ctx.World.EntityTypes.NewEntity(canonical, "")
 	if !ok {

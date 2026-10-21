@@ -1,0 +1,21 @@
+# case: execute listener
+step 1: summon armor_stand 7.5 4.6 4.5
+  count: 1
+  feedback: Object successfully summoned
+step 2: execute @e[type=armor_stand] spawnpoint
+  error: Usage: /execute <entity> <x> <y> <z> <command> OR /execute <entity> <x> <y> <z> detect <x> <y> <z> <block> <dataValue|-1|state|*> <command>
+step 3: execute @e[type=armor_stand] ~ ~ ~ spawnpoint
+  error: You must specify which player you wish to perform this action on.
+  error: All invocations failed: 'spawnpoint'
+step 4: execute @e[type=armor_stand] ~ ~ ~ setworldspawn
+  error: You must specify which player you wish to perform this action on.
+  error: All invocations failed: 'setworldspawn'
+step 5: execute @e[type=armor_stand] ~ ~ ~ summon zombie
+  count: 1
+  feedback: Object successfully summoned
+step 6: execute @e[type=zombie] ~ ~ ~ setblock ~ ~ ~ stone
+  count: 1
+  feedback: Block placed
+step 7: testforblock 7 4 4 stone
+  count: 1
+  feedback: Successfully found the block at 7, 4, 4

@@ -51,13 +51,18 @@ func (c *setWorldSpawnCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	var pos world.Pos
 	if posArg == nil {
 		// Without a position the spawn point becomes the block the
-		// command runs at. 1.12.2 takes it from the player who runs the
-		// command (`CommandAbstract.a(listener)`), so a command that has
-		// no player behind it is refused.
-		if ctx.Source.Entity == nil || !ctx.Source.Entity.IsPlayer {
+		// command runs at. 1.12.2 takes it from the **player who runs
+		// the command** (`CommandAbstract.a(listener)`), so a command
+		// that has no player behind it is refused.
+		//
+		// The player has to be the *listener*: the command of an
+		// `/execute` runs as the target entity, but the listener is the
+		// wrapper of the execute, and that is not a player — so the
+		// same command is refused there.
+		if !ctx.Source.ListenerPlayer || ctx.Source.Entity == nil {
 			return 0, exec.Errorf("You must specify which player you wish to perform this action on.")
 		}
-		pos = spawnChunkPos(ctx.Source.Entity)
+		pos = ctx.Source.RelativeBase().BlockPos()
 	} else {
 		pos = resolveRelative(*posArg, ctx.Source.RelativeBase()).BlockPos()
 	}
@@ -142,7 +147,7 @@ func (c *spawnPointCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	if s, ok := target.(*ast.StringArg); ok && s.Value == "" {
 		// Without a target 1.12.2 sets the spawn point of the player
 		// running the command.
-		if ctx.Source.Entity == nil || !ctx.Source.Entity.IsPlayer {
+		if !ctx.Source.ListenerPlayer || ctx.Source.Entity == nil {
 			return 0, exec.Errorf("You must specify which player you wish to perform this action on.")
 		}
 		target = &ast.StringArg{Value: ctx.Source.Entity.PlayerName}

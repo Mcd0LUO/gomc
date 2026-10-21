@@ -1,0 +1,36 @@
+# `/execute` 的子命令：监听者不是玩家。
+#
+# 1.12.2 里命令**跑在**某个实体上（执行者），但**发给**监听者。
+# `/execute` 的监听者是 execute 的 wrapper，不是目标实体——而 wrapper 不是
+# 玩家，所以：
+#
+#   - `/spawnpoint`（不给参数）要的是「执行的玩家」，这里没有 → 报错；
+#   - `/setworldspawn`（不给参数）一样报错；
+#   - `/summon`（不给坐标）落在监听者的方块位置，也就是 execute 位置的
+#     方块位置，不是原点。
+#
+# 另外 1.12.2 的 `/execute` **坐标是必填的**（`CommandExecute.execute` 先看
+# `astring.length < 5`），所以 `execute @a spawnpoint` 是用法错误，不是
+# 「少了一个坐标」。
+#
+# 目标用盔甲架（不用机器人）：机器人掉线时会在日志里留噪声，而这个用例
+# 要的是稳定的基线。盔甲架放在 (7.5, 4.6, 4.5)——**X 和 Z** 带小数，所以
+# 坐标的差别看得出来（Y 不行，真服有重力，盔甲架会落到地面上）。
+
+--- console ---
+say X01
+summon armor_stand 7.5 4.6 4.5
+say X02
+execute @e[type=armor_stand] spawnpoint
+say X03
+execute @e[type=armor_stand] ~ ~ ~ spawnpoint
+say X04
+execute @e[type=armor_stand] ~ ~ ~ setworldspawn
+say X05
+execute @e[type=armor_stand] ~ ~ ~ summon zombie
+say X06
+execute @e[type=zombie] ~ ~ ~ setblock ~ ~ ~ stone
+say X07
+testforblock 7 4 4 stone
+say X08
+say X09

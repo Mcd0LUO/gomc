@@ -27,8 +27,8 @@ type StepResult struct {
 	Command string
 	// Count is the success count the command reported.
 	Count int
-	// Err is the error message, or empty when the command succeeded.
-	Err string
+	// Errs are the error messages, in the order the server prints them.
+	Errs []string
 	// Feedback holds the messages the command produced.
 	Feedback []string
 }
@@ -76,16 +76,15 @@ func Run(root string, c *Case) (*Observation, error) {
 
 		res := StepResult{Command: cmd, Count: count, Feedback: feedback}
 		if err != nil {
-			res.Err = errorMessage(err)
+			res.Errs = append(res.Errs, errorMessage(err))
 		}
 		// A command that fails inside a function does not stop the
 		// function, so those failures are collected by the engine.
+		//
+		// The server prints every message on its own line, so they are
+		// kept apart here too.
 		for _, e := range engine.TakeErrors() {
-			if res.Err == "" {
-				res.Err = errorMessage(e)
-			} else {
-				res.Err += "; " + errorMessage(e)
-			}
+			res.Errs = append(res.Errs, errorMessage(e))
 		}
 		obs.Steps = append(obs.Steps, res)
 	}
@@ -115,8 +114,10 @@ func (o *Observation) Render(scope Scope) string {
 	fmt.Fprintf(&sb, "# case: %s\n", o.Case)
 	for i, step := range o.Steps {
 		fmt.Fprintf(&sb, "step %d: %s\n", i+1, step.Command)
-		if step.Err != "" {
-			fmt.Fprintf(&sb, "  error: %s\n", step.Err)
+		if len(step.Errs) > 0 {
+			for _, msg := range step.Errs {
+				fmt.Fprintf(&sb, "  error: %s\n", msg)
+			}
 		} else {
 			fmt.Fprintf(&sb, "  count: %d\n", step.Count)
 		}

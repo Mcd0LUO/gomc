@@ -69,6 +69,15 @@ func (c *executeCmd) Usage() string { return usageLine("execute") }
 
 // Parse implements exec.Handler.
 func (c *executeCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
+	// 1.12.2 counts the arguments before it looks at any of them: the
+	// entity, the three coordinates and the command are all required
+	// (`CommandExecute.execute` starts with `if (astring.length < 5)`).
+	//
+	// So `execute @a spawnpoint` is a usage mistake and not a missing
+	// coordinate.
+	if p.Count() < 5 {
+		return nil, p.Errorf("Usage: %s", usageLine("execute"))
+	}
 	target, err := parseEntityTarget(p)
 	if err != nil {
 		return nil, err
@@ -161,7 +170,13 @@ func (c *executeCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		if err != nil {
 			// The failure belongs to this entity only; the remaining
 			// entities still run.
+			//
+			// 1.12.2 catches the failure of the sub-command, reports it
+			// and treats the invocation as one that did nothing — so the
+			// summary of the execute follows the message.
 			ctx.Engine.Errors = append(ctx.Engine.Errors, err)
+			ctx.Engine.Errors = append(ctx.Engine.Errors,
+				exec.Errorf("All invocations failed: '%s'", a.Value.sub))
 			continue
 		}
 		if count < 1 {

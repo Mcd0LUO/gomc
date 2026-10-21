@@ -23,10 +23,29 @@ import (
 type Source struct {
 	// Name is the source's display name, e.g. "Server".
 	Name string
-	// Entity is the executing entity, or nil for the console.
+	// Entity is the entity the command runs as, or nil for the console.
+	//
+	// It is the **executor** of the command: `@s` refers to it and the
+	// output of the command is prefixed with its name.
 	Entity *world.Entity
 	// Pos is the position the command runs at.
 	Pos world.Vec
+	// ListenerPlayer reports whether the **listener** of the command is a
+	// player.
+	//
+	// The command runs *as* an entity and *for* a listener. In 1.12.2 the
+	// two are usually the same, but the command of an `/execute` runs as
+	// the target entity while the listener is the wrapper of the
+	// execute. The listener is what decides two things:
+	//
+	//   - the base a relative coordinate is measured from: a player is
+	//     the listener of their own commands, and their chunk
+	//     coordinates are half a block higher than the block they
+	//     stand in;
+	//   - whether the commands that need a player find one.
+	//
+	// It is false for the console and for the command of an `/execute`.
+	ListenerPlayer bool
 	// Rot is the rotation the command runs with.
 	Rot world.Rotation
 	// World is the dimension the command runs in.
@@ -57,20 +76,33 @@ func (s *Source) WithPos(pos world.Vec) *Source {
 //
 // 1.12.2 reads a relative coordinate against
 // `ICommandListener.getChunkCoordinates()`, and that is always a **block
-// position**: the console is at (0, 0, 0), and the command of an
-// `/execute` at the block the execute position points at.
+// position**:
 //
-// The block position of the source is that position, so the base is the
-// block the command runs at.
+//   - the console is at (0, 0, 0);
+//   - a player is at (⌊x⌋, ⌊y+0.5⌋, ⌊z⌋) — the Y is half a block up,
+//     because that is the block the body of the player is in
+//     (`EntityPlayer.getChunkCoordinates`);
+//   - the command of an `/execute` is at the block the execute position
+//     points at (`CommandListenerWrapper`).
 func (s *Source) RelativeBase() world.Vec {
-	p := s.Pos.BlockPos()
-	return world.Vec{X: float64(p.X), Y: float64(p.Y), Z: float64(p.Z)}
+	if s.ListenerPlayer && s.Entity != nil {
+		// The player is the listener: their chunk coordinates are half a
+		// block higher than the block they stand in.
+		p := world.Vec{X: s.Entity.Pos.X, Y: s.Entity.Pos.Y + 0.5, Z: s.Entity.Pos.Z}.BlockPos()
+		return world.Vec{X: float64(p.X), Y: float64(p.Y), Z: float64(p.Z)}
+	}
+	b := s.Pos.BlockPos()
+	return world.Vec{X: float64(b.X), Y: float64(b.Y), Z: float64(b.Z)}
 }
 
 // WithEntity returns a copy of the source executed by entity.
+//
+// The listener is no longer the player: the command of an `/execute` runs
+// as the target entity, but the listener is the wrapper of the execute.
 func (s *Source) WithEntity(e *world.Entity) *Source {
 	cp := s.Clone()
 	cp.Entity = e
+	cp.ListenerPlayer = false
 	return cp
 }
 

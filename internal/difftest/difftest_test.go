@@ -77,8 +77,8 @@ func TestRunRecordsFeedback(t *testing.T) {
 	if len(obs.Steps) != 1 {
 		t.Fatalf("got %d steps, want 1", len(obs.Steps))
 	}
-	if obs.Steps[0].Err != "" {
-		t.Errorf("error = %q, want none", obs.Steps[0].Err)
+	if len(obs.Steps[0].Errs) != 0 {
+		t.Errorf("errors = %v, want none", obs.Steps[0].Errs)
 	}
 	if len(obs.Steps[0].Feedback) == 0 {
 		t.Error("the say command produced no feedback")
@@ -95,11 +95,11 @@ func TestRunRecordsErrors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	if obs.Steps[0].Err == "" {
+	if len(obs.Steps[0].Errs) == 0 {
 		t.Fatal("the unknown command produced no error")
 	}
-	if !strings.Contains(obs.Steps[0].Err, "nosuchcommand") {
-		t.Errorf("error = %q, want it to name the command", obs.Steps[0].Err)
+	if !strings.Contains(obs.Steps[0].Errs[0], "nosuchcommand") {
+		t.Errorf("error = %q, want it to name the command", obs.Steps[0].Errs[0])
 	}
 }
 

@@ -194,6 +194,19 @@ d5 = b(d2, astring[7], false)            // detect 位置 Z
 > 这里此前写的是"其余实体的执行被取消（MC-121727）"，同样是查证来的、没有实测，
 > 源码里也不是 `break`。
 
+**子命令失败时，后面还跟一句 `All invocations failed: '<命令>'`。**
+1.12.2 的 `CommandBlockListenerAbstract.executeCommand` 把子命令的异常**catch
+住**、发给监听者、然后**返回 0**；`CommandExecute` 看到 0 就当成「这次调用什么
+也没做」，于是再抛一句 `commands.execute.failed`。所以两句是**一起**的：
+
+```
+[Armor Stand: You must specify which player you wish to perform this action on.]
+You must specify which player you wish to perform this action on.
+All invocations failed: 'spawnpoint'
+```
+
+（第一行是 Paper 私有的那一份拷贝，见 12.2。）
+
 ### 2.4 执行者 [验]
 
 被选中的实体成为子命令的执行者，因此子命令的输出前缀是**目标实体的名字**，
@@ -1277,11 +1290,14 @@ Stone Slab`）——它给的是**配方**不是物品。
 **边界的检查也是「基准 + 偏移」**：越界的时候报的是**和**，不是光看偏移。
 
 gomc 现在量的就是**方块位置**（`exec.Source.RelativeBase()`，也就是执行位置的
-取整），所以：
+取整），玩家那一档多 0.5（`EntityPlayer.getChunkCoordinates` 是
+`new BlockPosition(locX, locY + 0.5, locZ)`——Y 高半格，因为那是玩家身体所在
+的那一块）。所以：
 
 - 相对坐标带**小数**时不再差一格：x=7.5 时 `~2.6` 落在第 9 格
   （7+2.6 = 9.6），不是第 10 格（7.5+2.6 = 10.1）；
 - `/execute` 里的 `~` 量的是 execute 位置的方块位置 ✓；
+- 玩家在半空（y 不是整数）时，Y 基准是 ⌊y+0.5⌋ ✓；
 - 越界的消息报的是和：`~ ~300 ~` 在基准 y=4 的地方是
   `The number you have entered (304.00) is too big, it must be at most 256`，
   不是 300.00。
@@ -1289,9 +1305,31 @@ gomc 现在量的就是**方块位置**（`exec.Source.RelativeBase()`，也就�
 真服实测（2026-10-21，探针用例 `44-relative-base` 和 `45-relative-bounds`）：
 土落在 **9, 4, 4**，第 10 格是空气；越界那条报的是 **304.00**。
 
-**还差的一点**：玩家的 Y 基准是 `⌊y+0.5⌋`，不是 `⌊y⌋`——玩家跳在半空时差半格。
-gomc 现在没有「玩家直接执行命令」这个情形（函数都是从控制台跑的），所以碰不到；
-哪天有了，得把玩家那一档的基准单独算。
+### 12.1.1 执行者和监听者不是一回事
+
+1.12.2 里命令**跑在**某个实体上（执行者），但**发给**监听者：
+
+| 谁 | 执行者 | 监听者 | 相对坐标的基准 |
+|---|---|---|---|
+| 控制台跑命令 | 无 | 控制台 | (0, 0, 0) |
+| 玩家跑命令 | 玩家 | 玩家 | 玩家的方块位置（Y 多 0.5） |
+| `/execute` 的子命令 | 目标实体 | execute 的 wrapper | execute 位置的方块位置 |
+
+`CommandListenerWrapper.getChunkCoordinates()` 先看它自己的 `BlockPosition`
+（execute 位置的方块位置），**再**看实体——所以 execute 里的 `~` 量的是
+execute 位置，**不是**目标实体的位置。
+
+监听者是不是玩家，还有两处看得见：
+
+- `/spawnpoint` 和 `/setworldspawn`（不给参数）要的是「执行的玩家」
+  （`CommandAbstract.a(listener)`），而 execute 的监听者是 wrapper——**不是
+  玩家**，所以这两条在 execute 里会被拒绝：
+  `You must specify which player you wish to perform this action on.`
+- `/summon`（不给坐标）落在监听者的方块位置，也就是 execute 位置的方块
+  位置，**不是原点**。
+
+真服实测（2026-10-21，探针用例 `46-execute-listener`）：execute 里的
+`/spawnpoint` 被拒绝；execute 里的 `/summon` 把僵尸放在 (7, 4, 4)。
 
 ### 12.2 `/execute` 的输出多打一份（Paper 私有）
 
