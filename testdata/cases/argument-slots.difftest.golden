@@ -1,0 +1,17 @@
+# case: argument slots
+step 1: setblock 4 4 4 stone 0 0
+  count: 1
+  feedback: Block placed
+step 2: setblock 5 4 4 stone 0 keep
+  count: 1
+  feedback: Block placed
+step 3: setblock 4 4 4 stone 0 keep
+  error: The block couldn't be placed
+step 4: title @s time 0 30 0
+  error: Player '@s' cannot be found
+step 5: tellraw ["@s hello"]
+  error: Player '["@s' cannot be found
+step 6: scoreboard players tag @s reset foo
+  error: Usage: /scoreboard players tag <player> <add|remove|list> <tagName> [dataTag]
+step 7: title @s title "e f"
+  error: Player '@s' cannot be found

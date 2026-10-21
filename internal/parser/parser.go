@@ -208,12 +208,15 @@ func (p *Parser) Rest() string {
 }
 
 // String reads the next token as a string.
+//
+// The text is taken as it is: 1.12.2 has no quoting of its own, so a
+// quote is an ordinary character that belongs to the argument.
 func (p *Parser) String() (string, error) {
 	t, ok := p.Next()
 	if !ok {
 		return "", p.Errorf("expected a value but reached end of command")
 	}
-	return t.Unquote(), nil
+	return t.Text, nil
 }
 
 // Literal reads the next token and requires it to equal want.
@@ -412,28 +415,39 @@ func formatCoordBound(v float64) string {
 	return strconv.FormatInt(int64(v), 10)
 }
 
-// NBT reads the next token as an NBT compound.
+// NBT reads the rest of the line as an NBT compound.
+//
+// 1.12.2 hands the arguments from the compound's place on to the NBT
+// parser as **one** string: they are joined with a single space
+// (`CommandAbstract.a(String[], int)`). A compound with spaces in it is
+// therefore one argument, even though the command line was split on
+// spaces in the first place.
 func (p *Parser) NBT() (*ast.NBTArg, error) {
-	t, ok := p.Next()
+	first, ok := p.Peek()
 	if !ok {
 		return nil, p.Errorf("expected NBT data but reached end of command")
 	}
-	c, err := nbt.ParseSNBT(t.Text)
+	text := p.Rest()
+	c, err := nbt.ParseSNBT(text)
 	if err != nil {
-		return nil, p.ErrorAt(t, "invalid NBT: %v", err)
+		return nil, p.ErrorAt(first, "invalid NBT: %v", err)
 	}
 	comp, ok := c.(*nbt.Compound)
 	if !ok {
-		return nil, p.ErrorAt(t, "expected an NBT compound")
+		return nil, p.ErrorAt(first, "expected an NBT compound")
 	}
-	return &ast.NBTArg{Value: comp, Offset: t.Offset}, nil
+	return &ast.NBTArg{Value: comp, Offset: first.Offset}, nil
 }
 
-// JSON reads the next token as raw JSON.
+// JSON reads the rest of the line as raw JSON.
+//
+// Like a compound, a JSON is the rest of the line: the arguments from
+// that place on are joined with a single space and handed to the JSON
+// parser.
 func (p *Parser) JSON() (*ast.JSONArg, error) {
-	t, ok := p.Next()
+	first, ok := p.Peek()
 	if !ok {
 		return nil, p.Errorf("expected JSON but reached end of command")
 	}
-	return &ast.JSONArg{Value: t.Text, Offset: t.Offset}, nil
+	return &ast.JSONArg{Value: p.Rest(), Offset: first.Offset}, nil
 }

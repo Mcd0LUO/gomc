@@ -1,0 +1,19 @@
+# 命令行里的**引号**和**花括号**怎么处理。
+#
+# 1.12.2 把命令按**空格**切开（`CommandHandler.a` 里的 `string.split(" ")`），
+# 引号和花括号都**不是**分组符，只是普通字符。所以：
+#
+#   - `say "a b"` 的参数是 `"a` 和 `b"`，输出里**引号还在**；
+#   - `say 'c d'` 同理；
+#   - `setblock 77 17 -202 {metadata:"",mirror:"NONE"}` 的方块名就是整个
+#     `{metadata:"",mirror:"NONE"}`，而且真服会用 `MinecraftKey` 把它**小写化**；
+#   - `title @s title "e f"` 的 JSON 是整行剩下的部分。
+#
+# 这条和探针用例 50-quotes 一一对应。
+name: quotes and braces
+
+run:
+  say "a b"
+  say 'c d'
+  setblock 77 17 -202 {metadata:"",mirror:"NONE"}
+  title @s title "e f"

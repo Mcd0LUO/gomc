@@ -30,8 +30,18 @@ func parsePlayers(p *parser.Parser) ([]ast.Arg, error) {
 
 // parsePlayersAction parses the action of `scoreboard players`.
 func parsePlayersAction(p *parser.Parser, action string) ([]ast.Arg, error) {
+	// 1.12.2 counts the arguments of the subcommand **before** it looks at
+	// any of them (`CommandScoreboard.execute`), and every subcommand has
+	// its own usage line in the language file.
+	//
+	// The count is the one of the server: the word "players" and the
+	// action are part of it.
+	n := p.Count() + 2
 	switch action {
 	case "set", "add", "remove":
+		if n < 5 {
+			return nil, playersUsageError(p, "scoreboard players "+action)
+		}
 		holder, err := parseScoreHolder(p)
 		if err != nil {
 			return nil, err
@@ -62,6 +72,9 @@ func parsePlayersAction(p *parser.Parser, action string) ([]ast.Arg, error) {
 			&ast.StringArg{Value: dataTag},
 		}, nil
 	case "reset":
+		if n != 3 && n != 4 {
+			return nil, playersUsageError(p, "scoreboard players reset")
+		}
 		holder, err := parseScoreHolder(p)
 		if err != nil {
 			return nil, err
@@ -77,6 +90,9 @@ func parsePlayersAction(p *parser.Parser, action string) ([]ast.Arg, error) {
 			&ast.StringArg{Value: objective},
 		}, nil
 	case "operation":
+		if n != 7 {
+			return nil, playersUsageError(p, "scoreboard players operation")
+		}
 		target, err := parseScoreHolder(p)
 		if err != nil {
 			return nil, err
@@ -107,6 +123,9 @@ func parsePlayersAction(p *parser.Parser, action string) ([]ast.Arg, error) {
 			&ast.StringArg{Value: sourceObj},
 		}, nil
 	case "enable":
+		if n != 4 {
+			return nil, playersUsageError(p, "scoreboard players enable")
+		}
 		holder, err := parseScoreHolder(p)
 		if err != nil {
 			return nil, err
@@ -129,7 +148,7 @@ func parsePlayersAction(p *parser.Parser, action string) ([]ast.Arg, error) {
 			return nil, err
 		}
 		if p.More() {
-			return nil, usageError(p, "scoreboard players list", "expected at most one player name")
+			return nil, playersUsageError(p, "scoreboard players list")
 		}
 		return []ast.Arg{
 			&ast.StringArg{Value: "players"},
@@ -137,6 +156,9 @@ func parsePlayersAction(p *parser.Parser, action string) ([]ast.Arg, error) {
 			holder,
 		}, nil
 	case "test":
+		if n != 5 && n != 6 {
+			return nil, playersUsageError(p, "scoreboard players test")
+		}
 		holder, err := parseScoreHolder(p)
 		if err != nil {
 			return nil, err
@@ -169,6 +191,9 @@ func parsePlayersAction(p *parser.Parser, action string) ([]ast.Arg, error) {
 	case "tag":
 		// `scoreboard players tag <target> <add|remove|list> [tag] [dataTag]`
 		// is how 1.12.2 manages the tags of an entity.
+		if n < 4 {
+			return nil, playersUsageError(p, "scoreboard players tag")
+		}
 		holder, err := parseScoreHolder(p)
 		if err != nil {
 			return nil, err
@@ -186,7 +211,10 @@ func parsePlayersAction(p *parser.Parser, action string) ([]ast.Arg, error) {
 			}
 		case "list":
 		default:
-			return nil, usageError(p, "scoreboard players tag", "expected add, remove or list, got %q", sub)
+			// 1.12.2 resolves the entity first and only then looks at the
+			// mode, so the usage it reports is the one of the whole
+			// subcommand.
+			return nil, playersUsageError(p, "scoreboard players tag")
 		}
 		// The dataTag of a tag action is only read for `add` and
 		// `remove`: 1.12.2 hands the `list` branch the tags of the
@@ -204,7 +232,16 @@ func parsePlayersAction(p *parser.Parser, action string) ([]ast.Arg, error) {
 			&ast.StringArg{Value: dataTag},
 		}, nil
 	}
-	return nil, usageError(p, "scoreboard players", "expected set, add, remove, reset, operation, enable, test, tag or list, got %q", action)
+	return nil, playersUsageError(p, "scoreboard players")
+}
+
+// playersUsageError reports a usage error of a `scoreboard players`
+// subcommand.
+//
+// 1.12.2 counts the arguments of the subcommand before it looks at any of
+// them, and every subcommand has its own usage line in the language file.
+func playersUsageError(p *parser.Parser, key string) error {
+	return usageError(p, key, "Usage: %s", usageLine(key))
 }
 
 // parseScoreHolder parses a score holder, which is a player name or a

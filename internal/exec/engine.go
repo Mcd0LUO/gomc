@@ -430,10 +430,7 @@ func (e *Engine) ParseCommandAt(line string, lineNo int, base parser.CoordBase) 
 			Line: lineNo, Col: 1,
 		}
 	}
-	toks, err := lexer.Tokenize(trimmed)
-	if err != nil {
-		return nil, &parser.Error{Kind: parser.KindSyntax, Msg: err.Error(), Line: lineNo, Col: 1}
-	}
+	toks := lexer.Tokenize(trimmed)
 	if len(toks) == 0 {
 		return nil, &parser.Error{Kind: parser.KindSyntax, Msg: "empty command", Line: lineNo, Col: 1}
 	}
@@ -743,11 +740,28 @@ func (e *Engine) LintFunctions() []error {
 func (e *Engine) lintFunction(fn *Function) []error {
 	var out []error
 	for i, line := range fn.Lines {
-		if _, err := e.ParseCommand(line, fn.LineNumbers[i]); err != nil {
+		cmd, err := e.ParseCommand(line, fn.LineNumbers[i])
+		if err != nil {
 			out = append(out, &FunctionLintError{
 				Path: fn.Path,
 				Line: fn.LineNumbers[i],
 				Err:  err,
+			})
+			continue
+		}
+		// A JSON message that is not JSON is a mistake 1.12.2 only
+		// reveals when the command runs, and it reports it after the
+		// target of the command. So it is not a failure of the parsing,
+		// but it is worth reporting all the same.
+		for _, arg := range cmd.Args {
+			j, ok := arg.(*ast.JSONArg)
+			if !ok || j.Err == nil {
+				continue
+			}
+			out = append(out, &FunctionLintError{
+				Path: fn.Path,
+				Line: fn.LineNumbers[i],
+				Err:  j.Err,
 			})
 		}
 	}

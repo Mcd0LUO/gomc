@@ -15,8 +15,14 @@ func parseObjectives(p *parser.Parser) ([]ast.Arg, error) {
 	if err != nil {
 		return nil, err
 	}
+	// 1.12.2 counts the arguments of the subcommand before it looks at
+	// any of them, and every subcommand has its own usage line.
+	n := p.Count() + 2
 	switch action {
 	case "add":
+		if n < 4 {
+			return nil, objectivesUsageError(p, "scoreboard objectives add")
+		}
 		name, err := p.String()
 		if err != nil {
 			return nil, err
@@ -37,6 +43,9 @@ func parseObjectives(p *parser.Parser) ([]ast.Arg, error) {
 			&ast.StringArg{Value: display},
 		}, nil
 	case "remove":
+		if n != 3 {
+			return nil, objectivesUsageError(p, "scoreboard objectives remove")
+		}
 		name, err := p.String()
 		if err != nil {
 			return nil, err
@@ -52,6 +61,9 @@ func parseObjectives(p *parser.Parser) ([]ast.Arg, error) {
 			&ast.StringArg{Value: action},
 		}, nil
 	case "setdisplay":
+		if n != 3 && n != 4 {
+			return nil, objectivesUsageError(p, "scoreboard objectives setdisplay")
+		}
 		slot, err := p.String()
 		if err != nil {
 			return nil, err
@@ -67,7 +79,16 @@ func parseObjectives(p *parser.Parser) ([]ast.Arg, error) {
 			&ast.StringArg{Value: name},
 		}, nil
 	}
-	return nil, usageError(p, "scoreboard objectives", "expected add, remove, list or setdisplay, got %q", action)
+	return nil, objectivesUsageError(p, "scoreboard objectives")
+}
+
+// objectivesUsageError reports a usage error of a `scoreboard objectives`
+// subcommand.
+//
+// 1.12.2 counts the arguments of the subcommand before it looks at any of
+// them, and every subcommand has its own usage line in the language file.
+func objectivesUsageError(p *parser.Parser, key string) error {
+	return usageError(p, key, "Usage: %s", usageLine(key))
 }
 
 // objectiveDisplayName returns the name 1.12.2 shows for an objective.

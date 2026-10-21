@@ -48,19 +48,18 @@ func (c *setBlockCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 		t, _ := p.Next()
 		dataValue = parseFillDataValue(registryName, t.Text)
 	}
+	// The sixth argument is the oldBlockHandling. 1.12.2 reads it by its
+	// **position**, and only "destroy" and "keep" have a meaning: any
+	// other word behaves like "replace" and is not a mistake.
+	//
+	// (Measured on a real 1.12.2 server: `setblock 4 4 4 stone 0 0` places
+	// the block.)
 	mode := "replace"
 	if p.More() {
-		// The mode is a bare word, the NBT is a brace group.
-		if t, ok := p.Peek(); ok && !strings.HasPrefix(t.Text, "{") {
-			p.Next()
-			mode = t.Text
-		}
+		t, _ := p.Next()
+		mode = t.Text
 	}
-	switch mode {
-	case "replace", "destroy", "keep":
-	default:
-		return nil, p.Errorf("expected replace, destroy or keep, got %q", mode)
-	}
+	// The seventh argument is the dataTag: the rest of the line.
 	text := ""
 	if p.More() {
 		// The dataTag is parsed when the command runs: 1.12.2 places the

@@ -14,6 +14,79 @@
 
 ---
 
+## 0. 命令行是怎么切成参数的 [读][验]
+
+1.12.2 用 `String.split(" ")` 切命令行（`CommandHandler.a`），**只有空格**是
+分隔符：
+
+| 写法 | 参数 |
+|---|---|
+| `say "a b"` | `"a`、`b"` —— 引号是普通字符，**留在参数里** |
+| `say 'c d'` | `'c`、`d'` |
+| `setblock 1 2 3 {a:1}` | `{a:1}` —— 花括号也是普通字符 |
+| `say  hi`（两个空格） | `""`、`hi` —— 中间的空参数**留着** |
+| `say\thi` | `say\thi` —— **制表符不是分隔符** |
+
+函数里的每一行走的是同一条路：`CustomFunction.a` 先 `trim()`，跳过空行和
+`#` 开头的行，然后把**整行**交给运行时的命令处理（`CommandHandler.a`），
+所以函数里的行也是按空格切的。
+
+> 真服实测（2026-10-21，探针用例 `50-quotes`）：
+>
+> ```
+> say "a b"                             -> "a b"（引号还在）
+> say 'c d'                             -> 'c d'
+> setblock 77 17 -202 {metadata:"",mirror:"NONE"}
+>                                      -> There is no such block with name {metadata:"",mirror:"none"}
+> title @s title "e f"                 -> Player '@s' cannot be found
+> ```
+>
+> 最后一条的报错是**目标**的：控制台没有 `@s`，真服先找目标再去看 JSON
+> （见 0.2）。
+
+### 0.1 参数是按位置的 [读][验]
+
+1.12.2 **不看参数长什么样**，只看它在第几个位置：
+
+- **`/setblock` 的第 6 位**是 oldBlockHandling。只有 `destroy` 和 `keep` 有
+  意思，**其它词一律当 `replace`，不是错误**（`CommandSetBlock.execute` 只
+  比较这两个词）。真服实测：`setblock 4 4 4 stone 0 0` 照样放下方块。
+- **`/title` 的第 2 位**是动作，它被映射到一个枚举上
+  （`PacketPlayOutTitle.EnumTitleAction.a`，不区分大小写），而**对不上的
+  动作当 `title` 处理**——那个方法的最后一行是 `return TITLE`。所以动作写错
+  不是错误，而是当成一条标题；`title @s time 0 30 0` 的 JSON 于是是
+  `0 30 0`（整行剩下的部分），不是三个时间。
+- **`/scoreboard players` 的每个子命令**都先数参数个数，个数不对就是那条
+  子命令自己的用法（`CommandScoreboard.execute`）：
+  `set`/`add`/`remove` 至少 5 个、`reset` 3 或 4 个、`enable` 4 个、
+  `test` 5 或 6 个、`operation` **恰好 7 个**、`list` 至多 3 个、`tag` 至少 4 个。
+
+> 有一处**先后顺序**还没对齐：`scoreboard players tag` 的模式（`add`/
+> `remove`/`list`）在真服上是**先找实体、再看模式**，所以实体找不到时报的是
+> `Entity '@s' cannot be found`；gomc 在**解析期**就报那条子命令的用法。
+> 探针用例 `51-argument-slots` 的第 6 步差的就是这一条。
+
+### 0.2 NBT 和 JSON 是「整行剩下的部分」 [读][验]
+
+NBT 和 JSON 这两种参数**不是按位置读的**：从那个位置起的参数被**用单个空格
+拼回去**（`CommandAbstract.a(String[], int)`），再交给 NBT / JSON 解析器。
+
+所以 `{Tags:["a b"]}` 切完还能原样还原——**前提是中间只有单个空格**（两个
+空格拼回去会变成一个）。`/tellraw` 的 JSON（`/title` 的也是）走同一条路。
+
+真服**先找目标、再看 JSON**（`CommandTellRaw.execute`、`CommandTitle.execute`），
+所以目标找不到时报的是目标的错：
+
+```
+title @s title "e f"     -> Player '@s' cannot be found
+```
+
+gomc 也按这个顺序：JSON 在**运行期**、目标之后才被检查。坏掉的 JSON 报
+`Invalid json: <原因>`（语言键 `commands.tellraw.jsonException`）——原因是
+**Gson** 说的，gomc 不逐字复刻它。
+
+---
+
 ## 1. 函数
 
 ### 1.1 文件布局 [读]
@@ -716,6 +789,11 @@ setblock <x> <y> <z> <方块> [<数据值>] [<模式>] [<nbt>]
 - `destroy` —— 先清空位置再放，方块是空气时直接成功返回。
 - `keep` —— 位置非空时报错 `The block couldn't be placed`。
 
+**只有 `destroy` 和 `keep` 特殊，其它词一律当 `replace`——真服不对模式位
+报错**（`CommandSetBlock.execute` 只比较这两个词）。真服实测（探针用例
+`51-argument-slots`）：`setblock 4 4 4 stone 0 0` 照样放下方块，报
+`Block placed`。
+
 ### 6.2 `/fill` 的模式 [读]
 
 ```
@@ -1132,6 +1210,7 @@ say @a（无匹配） → Selector '@a' found nothing
 | 函数的 if/unless 条件不满足 | `Skipped execution of function 'probe:mcns'` | `commands.function.skipped` |
 | `execute` 的 detect 没过 | `Failed to execute 'detect' as <实体名>` | `commands.execute.failed` |
 | 子命令一次都没成功 | `All invocations failed: '<命令>'` | `commands.execute.allInvocationsFailed` |
+| JSON 坏掉 | `Invalid json: <原因>` | `commands.tellraw.jsonException` |
 
 选择器没匹配到这条是**分发层**抛的，所以它不只出现在 `execute`：凡是
 `isListStart` 为真的命令（execute、kill、give、effect、tp、title、tell、……）
@@ -1811,9 +1890,10 @@ item"，`effect @e[type=armor_stand] minecraft:speed 30 1` 好好地给了速度
 1.12.2 先把命令按空格切成参数，再把 dataTag 交给 NBT 解析器，所以坏
 dataTag 的失败是**命令的失败**，不是读命令的失败。
 
-**词法器不配平花括号**：真服不预读花括号，它只是把最后一个参数原样交给
-NBT 解析器。gomc 之前在词法阶段就拒绝整行（`unbalanced {`），现在改成把
-不配平的 `{` 组原样交出去。
+**词法器不预读花括号**：真服不预读花括号，它只是把最后一个参数原样交给
+NBT 解析器。gomc 之前在词法阶段就拒绝整行（`unbalanced {`），后来把不配平
+的 `{` 组原样交出去；现在词法器**根本不认花括号**（见第 0 节），所以不配平
+的花括号和配平的花括号走的是同一条路。
 
 **措辞**分两种前缀：
 
@@ -1926,4 +2006,3 @@ Unable to locate any Stronghold feature
 | 地方 | 真服 | gomc | 为什么 |
 |---|---|---|---|
 | 成功路径 | `Located Stronghold at 808 (y?) -1144` | 找不到 | gomc 的世界里没有生成的结构，编一个坐标就是把偏差固化成假象 |
-| 引号 | `locate "Village"` → `Unable to locate any "Village" feature`（**引号保留**） | 引号被去掉 | 词法器层面的**全局**差异（`/recipe`、`/scoreboard` 同款），为一条命令破例不值得 |

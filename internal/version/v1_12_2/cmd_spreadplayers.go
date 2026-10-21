@@ -78,7 +78,7 @@ func (c *spreadPlayersCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	// is relative to the position of the command, a whole number names the
 	// middle of a block and a number with a decimal point is taken as it is.
 	for _, t := range toks[:2] {
-		if err := checkSpreadCentre(t.Unquote()); err != nil {
+		if err := checkSpreadCentre(t.Text); err != nil {
 			return nil, p.ErrorAt(t, "%v", err)
 		}
 	}
@@ -101,8 +101,8 @@ func (c *spreadPlayersCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	// The rest names the players. 1.12.2 tells a selector from a name with
 	// `PlayerSelector.isPattern`, which looks at the first character.
 	args := []ast.Arg{
-		&ast.StringArg{Value: toks[0].Unquote()},
-		&ast.StringArg{Value: toks[1].Unquote()},
+		&ast.StringArg{Value: toks[0].Text},
+		&ast.StringArg{Value: toks[1].Text},
 		&ast.FloatArg{Value: spread},
 		&ast.FloatArg{Value: maxRange},
 		&ast.StringArg{Value: strconv.FormatBool(teams)},
@@ -116,7 +116,7 @@ func (c *spreadPlayersCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 			args = append(args, sel)
 			continue
 		}
-		args = append(args, &ast.StringArg{Value: t.Unquote()})
+		args = append(args, &ast.StringArg{Value: t.Text})
 	}
 	return args, nil
 }

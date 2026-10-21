@@ -43,7 +43,7 @@
 | 包 | 职责 | 关键类型 |
 |---|---|---|
 | `internal/nbt` | NBT 值模型、SNBT 解析、二进制编解码、子集匹配 | `Value`, `Compound`, `ParseSNBT` |
-| `internal/lexer` | 把一行命令切成 token（尊重引号/花括号） | `Token`, `Tokenize` |
+| `internal/lexer` | 把一行命令切成 token（1.12.2 的规则：**按空格切**，引号和花括号都不是分组符） | `Token`, `Tokenize` |
 | `internal/ast` | 命令的抽象语法树节点 | `Node` 家族 |
 | `internal/parser` | token -> AST，带列号错误（**版本无关的原语**） | `Parser`, `Error` |
 | `internal/world` | 世界状态：方块、实体、玩家、scoreboard、tag、gamerule | `World`, `Scoreboard` |

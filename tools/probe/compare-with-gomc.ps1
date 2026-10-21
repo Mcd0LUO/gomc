@@ -29,6 +29,10 @@ if (-not $Case -or -not $Golden) {
 }
 
 # 1. 用例里的控制台命令（跳过 say 标记），以及第一个标记前有几条命令。
+#
+# 标记的形状是 `say <一个大写字母><数字>`，比如 `say M01`。别的 `say`
+# 是**要对比的命令**，不是标记：真服对 `say "a b"` 的回答是
+# `[Server] "a b"`，引号和空格都在里面，和标记长得不一样。
 $caseLines = Get-Content $Case
 $inConsole = $false
 $cmds = @()
@@ -39,19 +43,19 @@ foreach ($l in $caseLines) {
 	if (-not $inConsole) { continue }
 	$t = $l.Trim()
 	if ($t -eq '' -or $t.StartsWith('#')) { continue }
-	if ($t -match '^say\s') { $seenMarker = $true; continue }
+	if ($t -match '^say\s+[A-Z]\d+$') { $seenMarker = $true; continue }
 	$cmds += $t
 	if (-not $seenMarker) { $leading++ }
 }
 
-# 2. 真服的输出：按 [Server] Sxx 标记切段。
+# 2. 真服的输出：按 [Server] M01 这样的标记切段。
 $expectedPath = [IO.Path]::ChangeExtension($Case, '.expected')
 $serverLines = Get-Content $expectedPath
 $segments = @()
 $pre = @()
 $cur = -1
 foreach ($l in $serverLines) {
-	if ($l -match '^\[Server\] \S+$') {
+	if ($l -match '^\[Server\] [A-Z]\d+$') {
 		$segments += ,@()
 		$cur = $segments.Count - 1
 		continue

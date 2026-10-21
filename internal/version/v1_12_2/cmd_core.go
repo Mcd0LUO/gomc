@@ -22,10 +22,16 @@ func (c *sayCmd) Usage() string { return usageLine("say") }
 
 // Parse implements exec.Handler.
 func (c *sayCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
-	msg := p.Rest()
-	if strings.TrimSpace(msg) == "" {
-		return nil, p.Errorf("expected a message")
+	// 1.12.2 refuses the command when the **first** argument is empty
+	// (`CommandSay.execute`: `stringArray.length <= 0 ||
+	// stringArray[0].length() <= 0`). A command line with two spaces in a
+	// row has an empty first argument, so `say  hi` is a usage error and
+	// not a message with a space in front of it.
+	first, ok := p.Peek()
+	if !ok || first.Text == "" {
+		return nil, p.Errorf("Usage: %s", c.Usage())
 	}
+	msg := p.Rest()
 	return []ast.Arg{&ast.StringArg{Value: msg}}, nil
 }
 
@@ -105,11 +111,14 @@ func (c *tellRawCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	// 1.12.2 takes the JSON as **the rest of the line**: the arguments
 	// after the target are joined with spaces and handed to the JSON
 	// parser, so a JSON with spaces in it is one argument.
-	text := p.Rest()
-	if strings.TrimSpace(text) == "" {
+	if !p.More() {
 		return nil, p.Errorf("Usage: %s", usageLine("tellraw"))
 	}
-	return []ast.Arg{target, &ast.JSONArg{Value: text}}, nil
+	msg, err := jsonArg(p)
+	if err != nil {
+		return nil, err
+	}
+	return []ast.Arg{target, msg}, nil
 }
 
 // Run implements exec.Handler.
@@ -118,6 +127,11 @@ func (c *tellRawCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	// `CommandAbstract.b`, which keeps only the players it finds.
 	entities, err := resolvePlayerTargets(ctx, args[0])
 	if err != nil {
+		return 0, err
+	}
+	// The JSON is looked at **after** the target: 1.12.2 resolves the
+	// target first and only then hands the JSON to its parser.
+	if err := jsonArgError(args, 1); err != nil {
 		return 0, err
 	}
 	raw := args[1].(*ast.JSONArg).Value

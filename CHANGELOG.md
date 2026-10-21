@@ -110,6 +110,36 @@
 
 一批按 1.12.2 真实行为对齐的修正（都来自反编译源码 + 真服实测）：
 
+- **命令行是按**空格**切的，引号和花括号都不是分组符**。1.12.2 用
+  `String.split(" ")` 切命令（`CommandHandler.a`），所以：
+  - `say "a b"` 的参数是 `"a` 和 `b"`，**引号留在输出里**；
+  - `setblock 1 2 3 {a:1}` 的方块名就是 `{a:1}`；
+  - `say  hi`（两个空格）的第一个参数是**空的**，`/say` 因此报用法错误
+    （真服：`CommandSay.execute` 拒绝空的第一个参数）；
+  - 制表符**不是**分隔符。
+
+  gomc 之前把引号、花括号、方括号都当分组符，于是这些命令的输出比真服
+  少一层引号。NBT 和 JSON 这两种参数改读**整行剩下的部分**
+  （`CommandAbstract.a(String[], int)`），所以带空格的复合物照样能还原。
+  真服实测见探针用例 `50-quotes`，对拍用例 `quotes` 4 条逐字一致。
+- **`/title` 的动作不再按名单校验**。1.12.2 把动作映射到一个枚举上
+  （`PacketPlayOutTitle.EnumTitleAction.a`），而**对不上的动作当 `title`
+  处理**（那个方法最后一行是 `return TITLE`）。gomc 之前对不上的动作直接
+  报错，于是 `title @a "§7◈ §e§l⚶ §7◈"` 这种写法在 gomc 这里被拒；在真服
+  上它其实是**一段坏掉的 JSON**（真服实测，探针用例 `51-argument-slots`）。
+- **`/setblock` 的模式位不再报错**。真服只认 `destroy` 和 `keep`，其它词
+  一律当 `replace`（`CommandSetBlock.execute`）；gomc 之前对不上的模式报
+  `expected replace, destroy or keep`。真服实测：`setblock 4 4 4 stone 0 0`
+  照样放下方块。
+- **`/scoreboard players` 的子命令先数参数个数**，个数不对时报**那条子命令
+  自己的用法**（语言文件里的 `commands.scoreboard.players.*.usage`），和
+  真服一致。原来 gomc 说的是自己编的话（`expected set, add, remove, ...`），
+  而且 `operation` 少一个参数时它会**放过去**——真服要求**恰好 7 段**。
+  `/scoreboard objectives` 的三个子命令同样。
+- **坏掉的 JSON 现在会被报出来**：`Invalid json: <原因>`（语言键
+  `commands.tellraw.jsonException`）。真服是先找目标再看 JSON，所以这个错
+  在**运行期**、目标之后才报；`check` 把它作为一条静态问题列出来。
+
 - **随机源每个引擎重置一次**。`@r` 选择器和 `/weather` 的默认时长共用世界那条
   随机流（真服也是这样 ✓），但**引擎从不重置**它，于是同一个用例在不同的测试
   顺序下会选中不同的实体，golden 变成顺序相关的 flaky 测试。现在每个引擎从

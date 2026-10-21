@@ -1,0 +1,11 @@
+# case: quotes and braces
+step 1: say "a b"
+  count: 1
+  feedback: [Server] "a b"
+step 2: say 'c d'
+  count: 1
+  feedback: [Server] 'c d'
+step 3: setblock 77 17 -202 {metadata:"",mirror:"NONE"}
+  error: There is no such block with name {metadata:"",mirror:"none"}
+step 4: title @s title "e f"
+  error: Player '@s' cannot be found

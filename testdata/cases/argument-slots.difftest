@@ -1,0 +1,24 @@
+# 参数是**按位置**的：第几个参数就是第几个意思。
+#
+# 1.12.2 不看参数长什么样，只看它在第几个位置：
+#
+#   - `setblock` 的第六个参数是 oldBlockHandling，只有 "destroy" 和 "keep"
+#     有意思；别的词**不是错误**，就当 "replace" 处理
+#     （`CommandSetBlock.execute` 只比较这两个词）。
+#   - `title` 的动作对不上就**当 title 处理**
+#     （`PacketPlayOutTitle.EnumTitleAction.a` 的最后一行是 `return TITLE`），
+#     于是 JSON 是整行剩下的部分。
+#   - `tellraw` 少了目标的时候，第一个参数就成了目标。
+#   - `scoreboard players tag` 的模式只有 add/remove/list。
+#
+# 和探针用例 51-argument-slots 一一对应。
+name: argument slots
+
+run:
+  setblock 4 4 4 stone 0 0
+  setblock 5 4 4 stone 0 keep
+  setblock 4 4 4 stone 0 keep
+  title @s time 0 30 0
+  tellraw ["@s hello"]
+  scoreboard players tag @s reset foo
+  title @s title "e f"

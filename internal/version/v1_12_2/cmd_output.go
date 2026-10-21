@@ -19,6 +19,12 @@ import (
 //   - `title`, `subtitle` and `actionbar` take a JSON message.
 //   - `clear` and `reset` take nothing.
 //   - `times` takes the fade in, stay and fade out durations.
+//
+// The action is **not** checked against a list of names. 1.12.2 maps it to
+// the enum `PacketPlayOutTitle.EnumTitleAction` -- whose `a(String)`
+// compares the names without regard to case -- and **an action it does
+// not know is treated as `title`**: the method ends with `return TITLE`.
+// So a misspelled action is not a mistake of the command, it is a title.
 type titleCmd struct{}
 
 // Name implements exec.Handler.
@@ -26,6 +32,39 @@ func (c *titleCmd) Name() string { return "title" }
 
 // Usage implements exec.Handler.
 func (c *titleCmd) Usage() string { return usageLine("title") }
+
+// titleAction is the action of a `/title` command.
+type titleAction string
+
+const (
+	titleActionTitle     titleAction = "title"
+	titleActionSubtitle  titleAction = "subtitle"
+	titleActionActionbar titleAction = "actionbar"
+	titleActionTimes     titleAction = "times"
+	titleActionClear     titleAction = "clear"
+	titleActionReset     titleAction = "reset"
+)
+
+// titleActionOf maps the action of a `/title` command to the enum 1.12.2
+// uses.
+//
+// (`PacketPlayOutTitle.EnumTitleAction.a(String)`.)
+func titleActionOf(s string) titleAction {
+	switch strings.ToLower(s) {
+	case "subtitle":
+		return titleActionSubtitle
+	case "actionbar":
+		return titleActionActionbar
+	case "times":
+		return titleActionTimes
+	case "clear":
+		return titleActionClear
+	case "reset":
+		return titleActionReset
+	default:
+		return titleActionTitle
+	}
+}
 
 // Parse implements exec.Handler.
 func (c *titleCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
@@ -37,16 +76,30 @@ func (c *titleCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	if err != nil {
 		return nil, err
 	}
-	switch action {
-	case "title", "subtitle", "actionbar":
-		msg, err := p.JSON()
-		if err != nil {
-			return nil, err
+	// 1.12.2 looks at the number of arguments **before** it looks at the
+	// target (`CommandTitle.execute` starts with the two length checks).
+	// A command with nothing after the action is a usage mistake, and
+	// the usage it names depends on the action.
+	if p.Count() == 0 {
+		switch action {
+		case "title", "subtitle", "actionbar":
+			return nil, p.Errorf("Usage: %s", usageLine("title "+action))
+		case "times":
+			return nil, p.Errorf("Usage: %s", usageLine("title times"))
 		}
-		return []ast.Arg{target, &ast.StringArg{Value: action}, msg}, nil
-	case "clear", "reset":
-		return []ast.Arg{target, &ast.StringArg{Value: action}}, nil
-	case "times":
+	}
+	switch titleActionOf(action) {
+	case titleActionClear, titleActionReset:
+		// `clear` and `reset` take nothing.
+		if p.More() {
+			return nil, p.Errorf("Usage: %s", usageLine("title"))
+		}
+		return []ast.Arg{target, &ast.StringArg{Value: string(titleActionOf(action))}}, nil
+	case titleActionTimes:
+		// `times` takes exactly three numbers.
+		if p.Count() != 3 {
+			return nil, p.Errorf("Usage: %s", usageLine("title"))
+		}
 		fadeIn, err := p.Int()
 		if err != nil {
 			return nil, err
@@ -61,13 +114,23 @@ func (c *titleCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 		}
 		return []ast.Arg{
 			target,
-			&ast.StringArg{Value: action},
+			&ast.StringArg{Value: string(titleActionTimes)},
 			&ast.IntArg{Value: fadeIn},
 			&ast.IntArg{Value: stay},
 			&ast.IntArg{Value: fadeOut},
 		}, nil
+	default:
+		// Every other action is a title, and it takes a JSON message: the
+		// rest of the line.
+		if !p.More() {
+			return nil, p.Errorf("Usage: %s", usageLine("title"))
+		}
+		msg, err := jsonArg(p)
+		if err != nil {
+			return nil, err
+		}
+		return []ast.Arg{target, &ast.StringArg{Value: string(titleActionOf(action))}, msg}, nil
 	}
-	return nil, p.Errorf("expected title, subtitle, actionbar, clear, reset or times, got %q", action)
 }
 
 // Run implements exec.Handler.
@@ -76,6 +139,11 @@ func (c *titleCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	// `CommandAbstract.b`, which keeps only the players it finds.
 	players, err := resolvePlayerTargets(ctx, args[0])
 	if err != nil {
+		return 0, err
+	}
+	// The JSON is looked at **after** the target: 1.12.2 resolves the
+	// target first and only then hands the JSON to its parser.
+	if err := jsonArgError(args, 2); err != nil {
 		return 0, err
 	}
 	action := args[1].(*ast.StringArg).Value
@@ -88,7 +156,7 @@ func (c *titleCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 			e.NBT.Set("Title", state)
 		}
 		switch action {
-		case "title", "subtitle", "actionbar":
+		case string(titleActionTitle), string(titleActionSubtitle), string(titleActionActionbar):
 			msg := ""
 			if len(args) > 2 {
 				if j, ok := args[2].(*ast.JSONArg); ok {
@@ -96,11 +164,11 @@ func (c *titleCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 				}
 			}
 			state.Set(action, nbt.String(msg))
-		case "clear":
+		case string(titleActionClear):
 			state.Set("clear", nbt.Byte(1))
-		case "reset":
+		case string(titleActionReset):
 			state.Set("reset", nbt.Byte(1))
-		case "times":
+		case string(titleActionTimes):
 			times := nbt.NewCompound()
 			times.Set("fadeIn", nbt.Int(args[2].(*ast.IntArg).Value))
 			times.Set("stay", nbt.Int(args[3].(*ast.IntArg).Value))

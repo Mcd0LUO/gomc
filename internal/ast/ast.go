@@ -174,6 +174,13 @@ type JSONArg struct {
 	Value string
 	// Offset is the byte offset within the line.
 	Offset int
+	// Err is the failure of the JSON parser, when the text is not JSON.
+	//
+	// The message is the one the server would say. It is not reported
+	// while the command is parsed: the server resolves the target of the
+	// command before it looks at the JSON, so a command whose target does
+	// not exist fails with the target and not with the JSON.
+	Err error
 }
 
 // ArgKind implements Arg.
