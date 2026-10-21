@@ -14,15 +14,16 @@
 # `/setworldspawn` 一样要数参数：0 个用执行命令的玩家，3 个给位置，
 # 其它都是用法错误。
 #
-# 和探针用例 43-spawnpoint-args 一一对应。探针那边机器人登录在
-# (7.5, 4.0, 4.5)（超平坦世界里服务器找的落脚点），所以这里的 Steve
-# 也放在 (7, 4, 4)——取整之后两边都是 (7, 4, 4)。
+# 和探针用例 43-spawnpoint-args 一一对应。探针那边机器人登录的位置每次都
+# 不同（服务器随机找的落脚点），所以第一条命令先把它 `/tp` 到 (7, 4, 4)，
+# 之后的位置才是固定的。
 name: spawnpoint arguments
 
 setup:
-  gomcplayer Steve 7 4 4
+  gomcplayer Steve 0 4 0
 
 run:
+  tp Steve 7 4 4
   spawnpoint
   spawnpoint Steve
   spawnpoint Steve 1 2 3

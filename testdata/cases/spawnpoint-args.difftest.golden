@@ -1,26 +1,29 @@
 # case: spawnpoint arguments
-step 1: gomcplayer Steve 7 4 4
+step 1: gomcplayer Steve 0 4 0
   count: 1
   feedback: Successfully created the player Steve
-step 2: spawnpoint
+step 2: tp Steve 7 4 4
+  count: 1
+  feedback: Teleported Steve to 7.5, 4.0, 4.5
+step 3: spawnpoint
   error: You must specify which player you wish to perform this action on.
-step 3: spawnpoint Steve
+step 4: spawnpoint Steve
   count: 1
   feedback: Set Steve's spawn point to (7, 4, 4)
-step 4: spawnpoint Steve 1 2 3
+step 5: spawnpoint Steve 1 2 3
   count: 1
   feedback: Set Steve's spawn point to (1, 2, 3)
-step 5: spawnpoint Steve 1 2
+step 6: spawnpoint Steve 1 2
   error: Usage: /spawnpoint [player] [<x> <y> <z>]
-step 6: spawnpoint 1 2 3
+step 7: spawnpoint 1 2 3
   error: Usage: /spawnpoint [player] [<x> <y> <z>]
-step 7: spawnpoint Steve 1 2 3 4
+step 8: spawnpoint Steve 1 2 3 4
   count: 1
   feedback: Set Steve's spawn point to (1, 2, 3)
-step 8: setworldspawn
+step 9: setworldspawn
   error: You must specify which player you wish to perform this action on.
-step 9: setworldspawn 1 2 3
+step 10: setworldspawn 1 2 3
   count: 1
   feedback: Set the world spawn point to (1, 2, 3)
-step 10: setworldspawn 1 2
+step 11: setworldspawn 1 2
   error: Usage: /setworldspawn [<x> <y> <z>]
