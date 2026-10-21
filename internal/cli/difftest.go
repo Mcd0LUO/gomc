@@ -11,10 +11,14 @@ import (
 )
 
 // runDifftest dispatches the difftest subcommands.
-func runDifftest(args []string, stdout, stderr io.Writer) int {
+func runDifftest(args []string, stdout, stderr io.Writer, opts options) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "difftest requires a subcommand: run, check, update or probe")
+		fmt.Fprintln(stderr, "difftest requires a subcommand: run, check, update, probe or list")
 		return 2
+	}
+	if wantsHelp(args) {
+		usageDifftest(stdout)
+		return 0
 	}
 	switch args[0] {
 	case "run":
@@ -25,9 +29,51 @@ func runDifftest(args []string, stdout, stderr io.Writer) int {
 		return difftestUpdate(args[1:], stdout, stderr)
 	case "probe":
 		return difftestProbe(args[1:], stdout, stderr)
+	case "list":
+		return difftestList(args[1:], stdout, stderr)
 	}
 	fmt.Fprintf(stderr, "unknown difftest subcommand %q\n", args[0])
 	return 2
+}
+
+// difftestList lists the cases of a directory and their golden files.
+//
+// The cases are the files of the repository, so the directory defaults to
+// "testdata/cases" — the place they live in.
+func difftestList(args []string, stdout, stderr io.Writer) int {
+	dir := "testdata/cases"
+	if len(args) == 1 {
+		dir = args[0]
+	} else if len(args) > 1 {
+		fmt.Fprintln(stderr, "list takes at most one directory")
+		return 2
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		fmt.Fprintf(stderr, "error: cannot read %s: %v\n", dir, err)
+		return 1
+	}
+	count := 0
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || !strings.HasSuffix(name, ".difftest") {
+			continue
+		}
+		path := filepath.Join(dir, name)
+		c, err := readCase(path)
+		if err != nil {
+			fmt.Fprintf(stderr, "error: %v\n", err)
+			return 1
+		}
+		golden := "no golden"
+		if _, err := os.Stat(goldenPath(path)); err == nil {
+			golden = "golden"
+		}
+		fmt.Fprintf(stdout, "%-34s %3d command(s)  %s\n", c.Name, len(c.Run), golden)
+		count++
+	}
+	fmt.Fprintf(stdout, "\n%d case(s) in %s\n", count, dir)
+	return 0
 }
 
 // readCase loads a case file.

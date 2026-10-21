@@ -435,6 +435,26 @@
 - **difftest 的错误一行一条**：一个步骤里的多条错误以前用 `;` 连在一起，
   现在一行一条——真服也是一行一条。
 
+### 体验
+
+这一轮针对**用的人**改了几处 CLI：
+
+- **`check` 里一个未注册的命令名不再遮住同文件的其它问题**。1.12.2 拒绝整个
+  文件，所以以前 `setblok`（命令名错一个）会把同一文件里
+  `scoreboard players add Steve counter notanumber` 这类参数错一起盖住。现在
+  lint 逐行扫，未注册的命令名只跳过**那一行**。
+- **`gomc run --as <玩家>`**：以玩家身份执行函数。玩家出现在世界出生点，并且
+  是命令的**监听者**——1.12.2 量的相对坐标用的是监听者的方块位置，而玩家的
+  那个 Y 高半格。真服上函数最常见的执行者就是玩家，这一档以前在 gomc 里
+  够不着（`/spawnpoint` 那一档也跟着对上了）。
+- **`--json`**：一行一个 JSON 对象（`level` / `kind` / `path` / `line` / `col` /
+  `msg` / `usage` / `hint`）。以前 `--plain-errors` 的行格式不统一——解析错误带
+  `line:col`，函数加载错误带路径没有列号——脚本得分别认。
+- **每个子命令都有 `-h`**：以前 `gomc check --help` 会报
+  `cannot open world "--help"`。
+- **`gomc commands` 按域分组并带上用法行**；**`gomc difftest list`** 列出用例
+  名、命令条数和有没有 golden。
+
 ### 内部结构
 
 - **1.12.2 特有的规则搬回版本包**。`internal/parser` 和 `internal/exec` 是

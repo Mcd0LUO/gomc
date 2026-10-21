@@ -57,6 +57,33 @@ func TestFunctionLoadsFromWorldLayout(t *testing.T) {
 	}
 }
 
+// TestCommandGroupsCoverEveryCommand keeps the listing of the commands in
+// step with the registry.
+//
+// The groups are only for the reader, but a command that is in no group
+// would simply not be listed.
+func TestCommandGroupsCoverEveryCommand(t *testing.T) {
+	reg := exec.NewRegistry()
+	Register(reg)
+	seen := map[string]bool{}
+	for _, g := range CommandGroups() {
+		for _, name := range g.Commands {
+			if seen[name] {
+				t.Errorf("the command %q is in two groups", name)
+			}
+			seen[name] = true
+			if _, ok := reg.Get(name); !ok {
+				t.Errorf("the group %q lists %q, which is not a command", g.Name, name)
+			}
+		}
+	}
+	for _, name := range reg.Names() {
+		if !seen[name] {
+			t.Errorf("the command %q is in no group", name)
+		}
+	}
+}
+
 func TestUnknownCommandFailsWholeFunction(t *testing.T) {
 	// 1.12.2 throws when a function references an unknown command, and the
 	// whole file fails to load rather than skipping the offending line.
@@ -77,6 +104,32 @@ func TestUnknownCommandFailsWholeFunction(t *testing.T) {
 	}
 	if loadErr.Line != 2 {
 		t.Errorf("error line = %d, want 2", loadErr.Line)
+	}
+}
+
+// TestLintChecksTheLinesOfABrokenFunction covers that one unknown command
+// name does not hide the other mistakes in the same file.
+//
+// 1.12.2 refuses the whole function, so the file never runs — but the
+// lines around the mistake are still worth reporting, otherwise one typo
+// hides everything else the author wrote wrong.
+func TestLintChecksTheLinesOfABrokenFunction(t *testing.T) {
+	root := t.TempDir()
+	writeFunction(t, root, "demo", "bad",
+		"say ok\nnotacommand arg\nscoreboard players add Steve counter notanumber\n")
+	e := newTestEngine(t)
+	e.SetRoot(root)
+	e.LoadFunctions()
+	lint := e.LintFunctions()
+	if len(lint) != 1 {
+		t.Fatalf("got %d lint errors, want 1: %v", len(lint), lint)
+	}
+	lintErr, ok := lint[0].(*exec.FunctionLintError)
+	if !ok {
+		t.Fatalf("error type = %T, want *exec.FunctionLintError", lint[0])
+	}
+	if lintErr.Line != 3 {
+		t.Errorf("error line = %d, want 3", lintErr.Line)
 	}
 }
 

@@ -161,6 +161,14 @@ type Engine struct {
 	World *world.World
 	// Functions holds the loaded functions.
 	Functions *FunctionStore
+	// broken holds the functions that failed to load, with the lines that
+	// could be read.
+	//
+	// 1.12.2 refuses such a function as a whole, so it is not registered
+	// and cannot run. The lines are kept anyway, so the linter can still
+	// check them: one unknown command name should not hide every other
+	// mistake in the file.
+	broken []*Function
 	// Feedback collects the output messages produced by commands.
 	Feedback []string
 	// Errors collects the failures of commands that ran inside a
@@ -242,6 +250,7 @@ func (e *Engine) LoadFunctions() []error {
 	}
 	e.Functions.Clear()
 	e.ExtensionUses = nil
+	e.broken = nil
 	base := filepath.Join(e.Root, "data", "functions")
 	var errs []error
 	err := filepath.WalkDir(base, func(path string, d os.DirEntry, err error) error {
@@ -267,6 +276,12 @@ func (e *Engine) LoadFunctions() []error {
 		fn, loadErr := e.loadFunctionFile(id, path)
 		if loadErr != nil {
 			errs = append(errs, loadErr)
+			// The function is not registered — 1.12.2 refuses it as a
+			// whole — but its lines are kept, so the linter still
+			// checks them.
+			if fn != nil {
+				e.broken = append(e.broken, fn)
+			}
 			return nil
 		}
 		e.Functions.Put(fn)
@@ -308,6 +323,11 @@ func (e *Engine) LoadFunction(id string) error {
 // Validation mirrors `CustomFunction.a`: comments and blank lines are
 // skipped, and an unknown command name aborts the whole file.
 //
+// The rest of the file is read anyway, so the linter can check the other
+// lines: one unknown command name should not hide every other mistake in
+// the file. Only the **first** unknown command name is reported, because
+// that is the one 1.12.2 throws on.
+//
 // Every other line is parsed as well, and the parsed form is kept, so
 // the function does not have to parse its commands again on every run.
 // A line that does not parse is *not* a load error: 1.12.2 only checks
@@ -320,6 +340,7 @@ func (e *Engine) loadFunctionFile(id, path string) (*Function, error) {
 		return nil, err
 	}
 	fn := &Function{ID: id, Path: path}
+	var loadErr error
 	for i, raw := range strings.Split(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n") {
 		lineNo := i + 1
 		line := strings.TrimSpace(raw)
@@ -329,7 +350,12 @@ func (e *Engine) loadFunctionFile(id, path string) (*Function, error) {
 		fields := strings.SplitN(line, " ", 2)
 		name := fields[0]
 		if _, ok := e.Registry.Get(name); !ok {
-			return nil, e.functionLoadError(id, path, lineNo, name, line)
+			if loadErr == nil {
+				loadErr = e.functionLoadError(id, path, lineNo, name, line)
+			}
+			// The line is left out, but the file is read to the end so
+			// the linter sees the lines around it.
+			continue
 		}
 		if note, ok := e.Registry.Extension(name); ok {
 			// The command is one gomc adds on top of the 1.12.2 set.
@@ -350,7 +376,7 @@ func (e *Engine) loadFunctionFile(id, path string) (*Function, error) {
 		}
 		fn.Commands = append(fn.Commands, cmd)
 	}
-	return fn, nil
+	return fn, loadErr
 }
 
 // functionLoadError builds the error message 1.12.2 produces for an
@@ -702,14 +728,27 @@ func (e *Engine) LintFunctions() []error {
 		if fn == nil {
 			continue
 		}
-		for i, line := range fn.Lines {
-			if _, err := e.ParseCommand(line, fn.LineNumbers[i]); err != nil {
-				out = append(out, &FunctionLintError{
-					Path: fn.Path,
-					Line: fn.LineNumbers[i],
-					Err:  err,
-				})
-			}
+		out = append(out, e.lintFunction(fn)...)
+	}
+	// The functions that failed to load are linted too: 1.12.2 refuses
+	// them as a whole, but the mistakes in the lines around the unknown
+	// command name are worth reporting all the same.
+	for _, fn := range e.broken {
+		out = append(out, e.lintFunction(fn)...)
+	}
+	return out
+}
+
+// lintFunction checks the lines of one function.
+func (e *Engine) lintFunction(fn *Function) []error {
+	var out []error
+	for i, line := range fn.Lines {
+		if _, err := e.ParseCommand(line, fn.LineNumbers[i]); err != nil {
+			out = append(out, &FunctionLintError{
+				Path: fn.Path,
+				Line: fn.LineNumbers[i],
+				Err:  err,
+			})
 		}
 	}
 	return out

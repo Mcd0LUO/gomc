@@ -10,18 +10,30 @@
 gomc check  <world>                    # 校验世界里的所有函数（含参数 lint）
 gomc run    <world> <ns:function>      # 执行一个函数
 gomc tick   <world> [ticks]            # 推进 N 个 tick
-gomc commands                          # 列出支持的命令
+gomc commands                          # 列出支持的命令（按域分组，带用法行）
 gomc difftest run    <world> <case>    # 打印一个用例的执行观察
 gomc difftest check  <world> <case>    # 与 golden 文件比对
 gomc difftest update <world> <case>    # 重写 golden 文件
 gomc difftest probe  <case>            # 生成给真实服务端用的探针函数
+gomc difftest list   [dir]             # 列出用例和它们的 golden
 
 gomc --plain-errors check <world>      # 只输出一行错误（给脚本用）
+gomc --json         check <world>      # 一行一个 JSON 对象（给脚本用）
+gomc run --as Steve <world> <fn>       # 以玩家身份执行（监听者是玩家）
 ```
+
+每个子命令都有自己的说明：`gomc check -h`。
 
 `check` 做两件事：一是查**命令名**未注册（1.12.2 加载函数时就会拒绝的），
 二是 lint **参数**（1.12.2 要等函数真跑了才会暴露的问题，比如
 `scoreboard players add s obj notanumber`）。第二项是 gomc 自己加的。
+一个未注册的命令名**不会**遮住同一文件里的其它问题——1.12.2 拒绝整个文件，
+但其余行照样逐条报出来。
+
+`--as <玩家>` 让函数**以玩家**执行：玩家出现在世界出生点，并且是命令的
+**监听者**——1.12.2 量的相对坐标用的是监听者的方块位置，而玩家的那个
+Y 高半格（`EntityPlayer.getChunkCoordinates`）。真服上函数最常见的执行者
+就是玩家，这一档以前在 gomc 里够不着。
 
 ## 错误输出
 
@@ -53,6 +65,13 @@ error[Syntax]: 1:31: expected an integer, got "="
 上面是**解析错误**的格式（`line:col`）。**函数加载错误**的行格式不一样——
 它带路径、没有列号：`error[Unknown]: <路径>:<行>: <消息>`。脚本不能按一种格式
 吃全部错误。
+
+要一个**稳定的格式**就用 `--json`：一行一个 JSON 对象，字段固定，脚本不用
+猜位置在哪。
+
+```json
+{"level":"error","kind":"Syntax","path":"data/functions/demo/f.mcfunction","line":1,"col":31,"msg":"expected an integer, got \"=\"","usage":"/scoreboard players set <player> <objective> <score> [dataTag]"}
+```
 
 开关放在子命令前后的任何位置都行。
 

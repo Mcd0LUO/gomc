@@ -12,6 +12,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -41,9 +42,115 @@ Usage:
   gomc difftest check  <world> <case>   compare a case with its golden file
   gomc difftest update <world> <case>   rewrite the golden file of a case
   gomc difftest probe  <case>           write the probe function for a real server
+  gomc difftest list   [dir]            list the cases and their golden files
 
 The world argument is a Minecraft 1.12.2 save directory. Functions are
 loaded from <world>/data/functions/<namespace>/<name>.mcfunction.
+
+Switches (accepted anywhere):
+  --plain-errors        one line per error, for scripts
+  --json                one JSON object per error, for scripts
+  --as <player>         run the function as that player instead of the console
+
+Every subcommand explains itself with -h.
+`)
+}
+
+// usageCheck prints the help of the check subcommand.
+func usageCheck(w io.Writer) {
+	fmt.Fprint(w, `gomc check - validate the functions in a world
+
+Usage:
+  gomc check <world>
+
+It reports two kinds of problem:
+
+  - a command name 1.12.2 does not know. The server refuses the whole
+    function when it loads it, so the function cannot run at all.
+  - a mistake in the arguments. 1.12.2 only reveals it when the function
+    runs; gomc checks it while loading, so it is found before the first
+    run.
+
+The second kind is gomc's own addition. The message of every problem is
+the one 1.12.2 would say; the position, the usage line and the
+suggestion are added by gomc and are not part of it.
+
+Exit code: 0 when nothing is wrong, 1 when there is at least one problem.
+`)
+}
+
+// usageRun prints the help of the run subcommand.
+func usageRun(w io.Writer) {
+	fmt.Fprint(w, `gomc run - run a function in a world
+
+Usage:
+  gomc run <world> <function> [--as <player>]
+
+The function is identified the way 1.12.2 identifies it: "namespace:name",
+both parts lower-cased, and a missing namespace means "minecraft".
+
+--as <player> runs the function as that player instead of as the console.
+The player appears at the world spawn, and it is the listener of the
+commands: 1.12.2 measures a relative coordinate against the listener's
+block position, and a player's is half a block higher than the block it
+stands in. The player has operator permissions, because 1.12.2 refuses
+"/function" for a player without them.
+
+A broken sibling function does not stop the function under test: 1.12.2
+logs it and keeps every other function registered.
+
+Exit code: 0 when the function ran, 1 when a command inside it failed.
+`)
+}
+
+// usageTick prints the help of the tick subcommand.
+func usageTick(w io.Writer) {
+	fmt.Fprint(w, `gomc tick - advance the world by N ticks
+
+Usage:
+  gomc tick <world> [ticks]
+
+Every tick runs the function named by the "gameLoopFunction" game rule,
+the way 1.12.2 does. Without the rule, or with a function that does not
+exist, the tick does nothing and says nothing.
+
+Exit code: 0 unless a tick failed.
+`)
+}
+
+// usageCommands prints the help of the commands subcommand.
+func usageCommands(w io.Writer) {
+	fmt.Fprint(w, `gomc commands - list the supported commands
+
+Usage:
+  gomc commands
+
+The list is grouped by domain, and every command comes with the usage
+line 1.12.2 prints for it, so it is also the syntax of the command.
+`)
+}
+
+// usageDifftest prints the help of the difftest subcommand.
+func usageDifftest(w io.Writer) {
+	fmt.Fprint(w, `gomc difftest - the differential testing layer
+
+Usage:
+  gomc difftest run    <world> <case>   print what a case does
+  gomc difftest check  <world> <case>   compare a case with its golden file
+  gomc difftest update <world> <case>   rewrite the golden file of a case
+  gomc difftest probe  <case>           write the probe function for a real server
+  gomc difftest list   [dir]            list the cases and their golden files
+
+A case is a small scenario: a "setup" section that prepares the world and
+a "run" section with the commands under test. Running it produces the
+canonical observation of what happened; the golden file holds that
+observation, and "check" compares the two.
+
+"probe" writes the same case as a function for a real 1.12.2 server, so
+the two can be compared command by command.
+
+"check" and "run" take --full, which adds the state of the world after
+the run to the observation.
 `)
 }
 
@@ -52,6 +159,12 @@ type options struct {
 	// plainErrors turns off the enhanced error output, leaving the
 	// compact one-liner that scripts can parse.
 	plainErrors bool
+	// json prints the errors as one JSON object per line.
+	json bool
+	// as is the player a function runs as, empty for the console.
+	as string
+	// err is the mistake in the switches themselves.
+	err error
 }
 
 // parseOptions takes the global switches out of the argument list.
@@ -61,15 +174,37 @@ type options struct {
 func parseOptions(args []string) (options, []string) {
 	var opts options
 	rest := make([]string, 0, len(args))
-	for _, a := range args {
-		switch a {
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
 		case "--plain-errors":
 			opts.plainErrors = true
+		case "--json":
+			opts.json = true
+		case "--as":
+			if i+1 >= len(args) {
+				if opts.err == nil {
+					opts.err = fmt.Errorf("--as needs the name of a player")
+				}
+				continue
+			}
+			i++
+			opts.as = args[i]
 		default:
-			rest = append(rest, a)
+			rest = append(rest, args[i])
 		}
 	}
 	return opts, rest
+}
+
+// wantsHelp reports whether the arguments ask for the help of a
+// subcommand.
+func wantsHelp(args []string) bool {
+	for _, a := range args {
+		if a == "-h" || a == "--help" {
+			return true
+		}
+	}
+	return false
 }
 
 // Run dispatches a command line and returns the process exit code.
@@ -79,21 +214,41 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 	opts, args := parseOptions(args)
+	if opts.err != nil {
+		fmt.Fprintf(stderr, "error: %v\n", opts.err)
+		return 2
+	}
 	if len(args) == 0 {
 		Usage(stdout)
 		return 2
 	}
 	switch args[0] {
 	case "check":
+		if wantsHelp(args[1:]) {
+			usageCheck(stdout)
+			return 0
+		}
 		return runCheck(args[1:], stdout, stderr, opts)
 	case "run":
+		if wantsHelp(args[1:]) {
+			usageRun(stdout)
+			return 0
+		}
 		return runRun(args[1:], stdout, stderr, opts)
 	case "tick":
+		if wantsHelp(args[1:]) {
+			usageTick(stdout)
+			return 0
+		}
 		return runTick(args[1:], stdout, stderr, opts)
 	case "commands":
+		if wantsHelp(args[1:]) {
+			usageCommands(stdout)
+			return 0
+		}
 		return runCommands(stdout)
 	case "difftest":
-		return runDifftest(args[1:], stdout, stderr)
+		return runDifftest(args[1:], stdout, stderr, opts)
 	case "version", "--version", "-v":
 		fmt.Fprintln(stdout, buildinfo.String())
 		return 0
@@ -139,7 +294,15 @@ func runCheck(args []string, stdout, stderr io.Writer, opts options) int {
 		reportExtensionUse(stderr, u, opts)
 	}
 	if len(errs)+len(lint) > 0 {
-		fmt.Fprintf(stderr, "%d error(s)\n", len(errs)+len(lint))
+		if opts.json {
+			printJSON(stderr, jsonError{
+				Level: "error",
+				Kind:  "Summary",
+				Msg:   fmt.Sprintf("%d error(s)", len(errs)+len(lint)),
+			})
+		} else {
+			fmt.Fprintf(stderr, "%d error(s)\n", len(errs)+len(lint))
+		}
 		return 1
 	}
 	return 0
@@ -152,6 +315,16 @@ func runCheck(args []string, stdout, stderr io.Writer, opts options) int {
 // loads it, so the difference has to be visible: a function that only runs
 // on gomc is not a function that can be tested on a real server.
 func reportExtensionUse(w io.Writer, u exec.ExtensionUse, opts options) {
+	if opts.json {
+		printJSON(w, jsonError{
+			Level: "warning",
+			Kind:  "Extension",
+			Path:  u.Path,
+			Line:  u.Line,
+			Msg:   fmt.Sprintf("%q is a gomc-only command: %s", u.Command, u.Note),
+		})
+		return
+	}
 	if opts.plainErrors {
 		fmt.Fprintf(w, "warning: %s:%d: gomc-only command %q\n", u.Path, u.Line, u.Command)
 		return
@@ -159,6 +332,60 @@ func reportExtensionUse(w io.Writer, u exec.ExtensionUse, opts options) {
 	fmt.Fprintf(w, "warning: %s:%d\n", u.Path, u.Line)
 	fmt.Fprintf(w, "  %q is a gomc-only command: %s\n", u.Command, u.Note)
 	fmt.Fprintf(w, "  a real 1.12.2 server does not know it and refuses the function\n")
+}
+
+// jsonError is the machine readable form of a problem.
+//
+// The fields are the ones the other formats carry, so a script can read
+// where the problem is without parsing the text.
+type jsonError struct {
+	// Level is "error" or "warning".
+	Level string `json:"level"`
+	// Kind is the class of the problem, e.g. "Syntax" or "Unknown".
+	Kind string `json:"kind"`
+	// Path is the file the command came from.
+	Path string `json:"path,omitempty"`
+	// Line is the 1-based line number.
+	Line int `json:"line,omitempty"`
+	// Col is the 1-based column number.
+	Col int `json:"col,omitempty"`
+	// Msg is what went wrong.
+	Msg string `json:"msg"`
+	// Usage is the usage line of the command that failed.
+	Usage string `json:"usage,omitempty"`
+	// Hint is an extra suggestion.
+	Hint string `json:"hint,omitempty"`
+}
+
+// reportJSON prints a problem as one JSON object per line.
+func reportJSON(w io.Writer, err error, level string) {
+	d, ok := detailOf(err)
+	if !ok {
+		printJSON(w, jsonError{Level: level, Kind: "Error", Msg: err.Error()})
+		return
+	}
+	printJSON(w, jsonError{
+		Level: level,
+		Kind:  d.kind,
+		Path:  d.path,
+		Line:  d.line,
+		Col:   d.col,
+		Msg:   d.msg,
+		Usage: d.usage,
+		Hint:  d.hint,
+	})
+}
+
+// printJSON writes one JSON object.
+func printJSON(w io.Writer, e jsonError) {
+	data, err := json.Marshal(e)
+	if err != nil {
+		// The struct has nothing that cannot be marshalled, so this
+		// cannot happen; the message is still better than a panic.
+		fmt.Fprintf(w, "{\"level\":%q,\"kind\":%q,\"msg\":%q}\n", e.Level, e.Kind, e.Msg)
+		return
+	}
+	fmt.Fprintln(w, string(data))
 }
 
 // runRun executes a function in a world.
@@ -199,6 +426,15 @@ func runRun(args []string, stdout, stderr io.Writer, opts options) int {
 		World:           "world",
 		PermissionLevel: 4,
 		Feedback:        true,
+	}
+	if opts.as != "" {
+		// The function runs as a player, so the player is the listener
+		// of the commands.
+		src, err = playerSource(engine, opts.as)
+		if err != nil {
+			fmt.Fprintf(stderr, "error: %v\n", err)
+			return 1
+		}
 	}
 	count, err := engine.RunFunctionByID(id, src)
 	if err != nil {
@@ -276,12 +512,56 @@ func runTick(args []string, stdout, stderr io.Writer, opts options) int {
 func runCommands(stdout io.Writer) int {
 	reg := exec.NewRegistry()
 	v1_12_2.Register(reg)
-	names := reg.Names()
-	sort.Strings(names)
-	for _, n := range names {
-		fmt.Fprintln(stdout, n)
+	groups := v1_12_2.CommandGroups()
+	total := 0
+	for _, g := range groups {
+		fmt.Fprintf(stdout, "%s:\n", g.Name)
+		for _, name := range g.Commands {
+			h, ok := reg.Get(name)
+			if !ok {
+				continue
+			}
+			fmt.Fprintf(stdout, "  %-16s %s\n", name, h.Usage())
+			total++
+		}
 	}
+	fmt.Fprintf(stdout, "\n%d command(s)\n", total)
 	return 0
+}
+
+// playerSource returns a source that runs as the given player.
+//
+// The player is put at the world spawn, where a player who joins a server
+// appears, and it is the **listener** of the commands: 1.12.2 measures a
+// relative coordinate against the listener's block position, and a
+// player's is half a block higher than the block it stands in
+// (`EntityPlayer.getChunkCoordinates`).
+//
+// The level is the operator's: 1.12.2 refuses "/function" for a player
+// without the permission, so the function could not be run at all.
+func playerSource(engine *exec.Engine, name string) (*exec.Source, error) {
+	player, ok := engine.World.EntityTypes.NewEntity("player", "")
+	if !ok {
+		return nil, fmt.Errorf("the player entity type is missing")
+	}
+	player.PlayerName = name
+	spawn := engine.World.Spawn
+	// A player who joins appears in the middle of the spawn block.
+	player.Pos = world.Vec{
+		X: float64(spawn.X) + 0.5,
+		Y: float64(spawn.Y),
+		Z: float64(spawn.Z) + 0.5,
+	}
+	engine.World.AddEntity(player)
+	return &exec.Source{
+		Name:            name,
+		Entity:          player,
+		Pos:             player.Pos,
+		ListenerPlayer:  true,
+		World:           "world",
+		PermissionLevel: 4,
+		Feedback:        true,
+	}, nil
 }
 
 // newEngine builds an engine for a world directory.
@@ -310,6 +590,10 @@ func newEngine(root string) (*exec.Engine, error) {
 //
 // The message itself is never changed: it stays what 1.12.2 would say.
 func reportError(w io.Writer, err error, opts options) {
+	if opts.json {
+		reportJSON(w, err, "error")
+		return
+	}
 	if !opts.plainErrors && reportDetailed(w, err) {
 		return
 	}
@@ -444,6 +728,10 @@ func reportDetailedKind(w io.Writer, err error, prefix string) bool {
 // 1.12.2 logs a function that fails to load and keeps every other function
 // registered, so a broken file is a warning for everything except `check`.
 func reportWarning(w io.Writer, err error, opts options) {
+	if opts.json {
+		reportJSON(w, err, "warning")
+		return
+	}
 	if !opts.plainErrors && reportDetailedKind(w, err, "warning") {
 		return
 	}
