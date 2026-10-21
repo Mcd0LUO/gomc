@@ -341,7 +341,7 @@ func (e *Engine) loadFunctionFile(id, path string) (*Function, error) {
 	}
 	fn := &Function{ID: id, Path: path}
 	var loadErr error
-	for i, raw := range strings.Split(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n") {
+	for i, raw := range splitLines(string(data)) {
 		lineNo := i + 1
 		line := strings.TrimSpace(raw)
 		if line == "" || strings.HasPrefix(line, "#") {
@@ -749,6 +749,44 @@ func (e *Engine) LintFunctions() []error {
 		out = append(out, e.lintFunction(fn)...)
 	}
 	return out
+}
+
+// splitLines splits a function file into lines the way Java's
+// `BufferedReader.readLine` does.
+//
+// A line ends at a line feed, a carriage return, or the two of them
+// together -- and a file may mix them. That is not a rare curiosity: a
+// real project has function files whose lines end with a lone carriage
+// return (the old Mac convention) next to lines that end with CRLF.
+//
+// The server reads the file with Guava's `Files.readLines`, which uses
+// `BufferedReader.readLine`, so it sees the same lines gomc does. If the
+// carriage return were not a line ending, two commands would be read as
+// one, and the second one would be parsed as an argument of the first.
+//
+// (Measured on a real 1.12.2 server: a function file with a lone CR
+// between two commands loads as two commands, and the second one runs.)
+func splitLines(data string) []string {
+	var lines []string
+	start := 0
+	for i := 0; i < len(data); i++ {
+		switch data[i] {
+		case '\n':
+			lines = append(lines, data[start:i])
+			start = i + 1
+		case '\r':
+			lines = append(lines, data[start:i])
+			// A CRLF is one line ending, not two.
+			if i+1 < len(data) && data[i+1] == '\n' {
+				i++
+			}
+			start = i + 1
+		}
+	}
+	if start < len(data) {
+		lines = append(lines, data[start:])
+	}
+	return lines
 }
 
 // lintFunction checks the lines of one function.

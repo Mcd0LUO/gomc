@@ -120,6 +120,10 @@ datapack 布局。
 
 ### 1.2 加载 [读][验]
 
+- **行是按 `\n`、`\r`、或者 `\r\n` 切的**——服务端用 Guava 的
+  `Files.readLines`（底层是 `BufferedReader.readLine`），这三种都算行尾，
+  而且**一个文件里可以混用**。老 Mac 的换行（只有 `\r`）在真实工程里真的
+  出现过：混用 CRLF 和单独 CR 的函数文件，会被服务端读成两行。
 - 每一行 trim 后按**第一个空格**切成两段（`split(" ", 2)`）。
 - `#` 开头的行跳过，空行跳过。
 - `//` 开头 → 报错 `Unknown or invalid command '//' (if you intended to make a comment, use '#' not '//')`。

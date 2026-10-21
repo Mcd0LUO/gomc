@@ -99,6 +99,64 @@ func writeFunction(t *testing.T, root, ns, name, body string) {
 	}
 }
 
+// TestSplitLinesMatchesJava covers the line endings of a function file.
+//
+// The server reads a function file with `BufferedReader.readLine`, so a
+// line feed, a carriage return and the two of them together all end a
+// line -- and a file may mix them.
+func TestSplitLinesMatchesJava(t *testing.T) {
+	tests := []struct {
+		in   string
+		want []string
+	}{
+		{"a\nb", []string{"a", "b"}},
+		{"a\r\nb", []string{"a", "b"}},
+		// A lone carriage return ends a line too (the old Mac convention).
+		{"a\rb", []string{"a", "b"}},
+		// A file may mix them.
+		{"a\r\nb\rc\nd", []string{"a", "b", "c", "d"}},
+		// A trailing line ending does not add an empty line.
+		{"a\n", []string{"a"}},
+		{"a\r\n", []string{"a"}},
+		// But an empty line in the middle is a line.
+		{"a\n\nb", []string{"a", "", "b"}},
+		{"", nil},
+	}
+	for _, tc := range tests {
+		got := splitLines(tc.in)
+		if len(got) != len(tc.want) {
+			t.Errorf("splitLines(%q) = %q, want %q", tc.in, got, tc.want)
+			continue
+		}
+		for i := range got {
+			if got[i] != tc.want[i] {
+				t.Errorf("splitLines(%q) = %q, want %q", tc.in, got, tc.want)
+				break
+			}
+		}
+	}
+}
+
+// TestFunctionWithMixedLineEndingsRunsBothCommands covers the same rule
+// through the loader: two commands separated by a lone carriage return are
+// two commands, not one.
+func TestFunctionWithMixedLineEndingsRunsBothCommands(t *testing.T) {
+	root := t.TempDir()
+	writeFunction(t, root, "demo", "cr", "record one\rrecord two\n")
+	e, lines := newRecordingEngine(t)
+	e.SetRoot(root)
+	if errs := e.LoadFunctions(); len(errs) > 0 {
+		t.Fatalf("LoadFunctions: %v", errs)
+	}
+	src := &Source{Name: "Server", World: "world", PermissionLevel: 4}
+	if _, err := e.RunFunctionByID("demo:cr", src); err != nil {
+		t.Fatalf("RunFunctionByID: %v", err)
+	}
+	if len(*lines) != 2 {
+		t.Errorf("recorded %v, want two commands", *lines)
+	}
+}
+
 func TestFunctionRunsCommandsTopToBottom(t *testing.T) {
 	root := t.TempDir()
 	writeFunction(t, root, "demo", "seq", "record one\nrecord two\nrecord three\n")
