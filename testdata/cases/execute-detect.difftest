@@ -1,0 +1,25 @@
+# `/execute` 的 detect 分支要**参数够多**才成立。
+#
+# 1.12.2 的条件是 `"detect".equals(astring[4]) && astring.length > 10`
+# （`CommandExecute.execute`）：参数不够时，**整段 "detect …" 就是那条要
+# 执行的命令**——而 "detect" 不是命令，于是真服什么也没跑成，报的是
+# execute 自己的汇总 `All invocations failed: 'detect ~ ~ ~'`。
+#
+# 所以：
+#   - `execute <目标> ~ ~ ~ detect ~ ~ ~`（8 段）-> detect 不成立；
+#   - `execute <目标> ~ ~ ~ detect ~ ~ ~ stone 0`（10 段）-> 也不成立
+#     （10 不是「大于 10」）；
+#   - 加上要执行的那条命令（12 段）-> detect 才成立。
+#
+# 和探针用例 52-execute-detect 一一对应。
+name: execute detect needs enough arguments
+
+setup:
+  gomcplayer Steve 0 4 0
+
+run:
+  execute Steve ~ ~ ~ detect ~ ~ ~
+  execute Steve ~ ~ ~ detect ~ ~ ~ stone 0
+  execute Steve 1 4 1 detect 1 4 1 stone 0 say hi
+  execute Steve ~ ~ ~ detect ~ ~ ~ stone 0 say hi
+  blockdata ~ ~-1 ~ {id:"minecraft:mob_spawner"}

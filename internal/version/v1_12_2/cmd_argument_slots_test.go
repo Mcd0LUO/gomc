@@ -3,6 +3,8 @@ package v1_12_2
 import (
 	"strings"
 	"testing"
+
+	"github.com/Mcd0LUO/gomc/internal/exec"
 )
 
 // TestQuotesStayInTheMessage covers the way 1.12.2 cuts a command line.
@@ -120,5 +122,81 @@ func TestScoreboardPlayersOperationNeedsSevenArguments(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "Usage: /scoreboard players operation") {
 		t.Errorf("error = %q, want the usage of the subcommand", err)
+	}
+}
+
+// TestExecuteDetectNeedsEnoughArguments covers the detect of `/execute`.
+//
+// 1.12.2 only takes the detect branch when the command has enough arguments
+// for it (`"detect".equals(astring[4]) && astring.length > 10`). A line
+// whose detect is not complete is not a detect at all: the rest of the
+// line, "detect" included, is the command to run -- and "detect" is not a
+// command.
+//
+// (Measured on a real 1.12.2 server: `execute Steve ~ ~ ~ detect ~ ~ ~`
+// answers "All invocations failed: 'detect ~ ~ ~'".)
+func TestExecuteDetectNeedsEnoughArguments(t *testing.T) {
+	e := newTestEngine(t)
+	addPlayer(t, e, "Steve")
+	err := runLine(e, "execute Steve ~ ~ ~ detect ~ ~ ~")
+	if err == nil {
+		t.Fatal("expected an error for a detect without arguments")
+	}
+	if !strings.Contains(err.Error(), "All invocations failed: 'detect ~ ~ ~'") {
+		t.Errorf("error = %q, want the summary of the execute", err)
+	}
+	// With a command after the detect, the detect is a detect -- and it
+	// fails, because there is no stone where it looks. The failure belongs
+	// to the entity, so it is collected instead of returned.
+	if _, err := e.ExecuteLine("execute Steve ~ ~ ~ detect ~ ~ ~ stone 0 say hi", 1,
+		&exec.Source{Name: "Server", World: "world", PermissionLevel: 4, Feedback: true}); err != nil {
+		t.Fatalf("ExecuteLine: %v", err)
+	}
+	errs := e.TakeErrors()
+	if len(errs) != 1 {
+		t.Fatalf("got %d errors, want 1: %v", len(errs), errs)
+	}
+	if !strings.Contains(errs[0].Error(), "Failed to execute 'detect' as Steve") {
+		t.Errorf("error = %q, want the failure of the detect", errs[0])
+	}
+}
+
+// TestLintMeasuresRelativeCoordinatesFromTheGround covers the base the
+// linter uses for a relative coordinate.
+//
+// 1.12.2 measures a relative coordinate against the position of whoever
+// runs the function, and the linter does not know that. It measures from
+// the ground instead: `~-1` is one block below the ground (y=4 → 3) and not
+// below the world, so the linter does not report it.
+func TestLintMeasuresRelativeCoordinatesFromTheGround(t *testing.T) {
+	root := t.TempDir()
+	writeFunction(t, root, "demo", "rel", "blockdata ~ ~-1 ~ {id:\"minecraft:mob_spawner\"}\n")
+	e := newTestEngine(t)
+	e.SetRoot(root)
+	if errs := e.LoadFunctions(); len(errs) > 0 {
+		t.Fatalf("LoadFunctions: %v", errs)
+	}
+	if errs := e.LintFunctions(); len(errs) > 0 {
+		t.Errorf("the linter reported %v, want nothing", errs)
+	}
+}
+
+// TestLintReportsARelativeHeightThatIsOutOfRange covers the other side of
+// the same rule: a relative height that is out of range even from the
+// ground is a mistake.
+func TestLintReportsARelativeHeightThatIsOutOfRange(t *testing.T) {
+	root := t.TempDir()
+	writeFunction(t, root, "demo", "rel", "blockdata ~ ~-300 ~ {id:\"minecraft:mob_spawner\"}\n")
+	e := newTestEngine(t)
+	e.SetRoot(root)
+	if errs := e.LoadFunctions(); len(errs) > 0 {
+		t.Fatalf("LoadFunctions: %v", errs)
+	}
+	errs := e.LintFunctions()
+	if len(errs) == 0 {
+		t.Fatal("expected the linter to report the height")
+	}
+	if !strings.Contains(errs[0].Error(), "too small") {
+		t.Errorf("error = %q, want a height that is too small", errs[0])
 	}
 }

@@ -1,6 +1,7 @@
 package v1_12_2
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/Mcd0LUO/gomc/internal/ast"
@@ -93,37 +94,64 @@ func (c *executeCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 		return nil, err
 	}
 	a := &executeArgs{target: target, pos: *pos, detectData: &blockDataArg{Text: "", Any: true}}
-	if p.OptionalLiteral("detect") {
-		// The detect coordinates are relative to the *execution* position,
-		// which is only known at run time (it depends on the target
-		// entity). So they are parsed against zero here and resolved
-		// against the execution position later.
+	// 1.12.2 only takes the detect branch when the action is "detect" **and**
+	// the command has enough arguments for it (`CommandExecute.execute`:
+	// `"detect".equals(astring[4]) && astring.length > 10`).
+	//
+	// A line whose detect is not complete is therefore not a detect at all:
+	// the rest of the line, "detect" included, is the command to run -- and
+	// "detect" is not a command, so the server answers "Unknown command.
+	// Try /help for a list of commands".
+	//
+	// The branch needs the action, the three coordinates, the block and the
+	// data value, and at least one argument for the command itself.
+	if p.Count() >= 7 {
+		if p.OptionalLiteral("detect") {
+			// The detect coordinates are relative to the *execution* position,
+			// which is only known at run time (it depends on the target
+			// entity). So they are parsed against zero here and resolved
+			// against the execution position later.
+			//
+			// Parsing them against the execute coordinates would apply the
+			// execution offset twice.
+			dp, err := p.CoordWith(coordLoose)
+			if err != nil {
+				return nil, err
+			}
+			a.detect = true
+			a.detectPos = *dp
+			block, err := p.String()
+			if err != nil {
+				return nil, err
+			}
+			if err := checkBlockName(p, block); err != nil {
+				return nil, err
+			}
+			a.detectBlock = block
+			// The data value is required in 1.12.2: the detect block is five
+			// arguments, the last one the data value. It is read with the
+			// same predicate the other commands that ask about a block use,
+			// so `*` and `-1` mean "any data value" here too.
+			t, ok := p.Next()
+			if !ok {
+				return nil, p.Errorf("expected a data value but reached end of command")
+			}
+			a.detectData = parseBlockDataArg(fillBlockName(block), t.Text)
+		}
+	} else if t, ok := p.Peek(); ok && t.Text == "detect" {
+		// The rest of the line is the command to run, and "detect" is not
+		// a command: the server runs nothing and reports the summary of
+		// the execute.
 		//
-		// Parsing them against the execute coordinates would apply the
-		// execution offset twice.
-		dp, err := p.CoordWith(coordLoose)
-		if err != nil {
-			return nil, err
+		// (Measured on a real 1.12.2 server: `execute Steve ~ ~ ~ detect ~ ~ ~`
+		// answers "All invocations failed: 'detect ~ ~ ~'" -- the "Unknown
+		// command" line goes to the target, not to the console.)
+		return nil, &parser.Error{
+			Kind: parser.KindRuntime,
+			Msg:  fmt.Sprintf("All invocations failed: '%s'", p.Rest()),
+			Line: p.Line(),
+			Col:  1,
 		}
-		a.detect = true
-		a.detectPos = *dp
-		block, err := p.String()
-		if err != nil {
-			return nil, err
-		}
-		if err := checkBlockName(p, block); err != nil {
-			return nil, err
-		}
-		a.detectBlock = block
-		// The data value is required in 1.12.2: the detect block is five
-		// arguments, the last one the data value. It is read with the
-		// same predicate the other commands that ask about a block use,
-		// so `*` and `-1` mean "any data value" here too.
-		t, ok := p.Next()
-		if !ok {
-			return nil, p.Errorf("expected a data value but reached end of command")
-		}
-		a.detectData = parseBlockDataArg(fillBlockName(block), t.Text)
 	}
 	sub := p.Rest()
 	if strings.TrimSpace(sub) == "" {

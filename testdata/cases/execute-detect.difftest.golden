@@ -1,0 +1,14 @@
+# case: execute detect needs enough arguments
+step 1: gomcplayer Steve 0 4 0
+  count: 1
+  feedback: Successfully created the player Steve
+step 2: execute Steve ~ ~ ~ detect ~ ~ ~
+  error: All invocations failed: 'detect ~ ~ ~'
+step 3: execute Steve ~ ~ ~ detect ~ ~ ~ stone 0
+  error: All invocations failed: 'detect ~ ~ ~ stone 0'
+step 4: execute Steve 1 4 1 detect 1 4 1 stone 0 say hi
+  error: Failed to execute 'detect' as Steve
+step 5: execute Steve ~ ~ ~ detect ~ ~ ~ stone 0 say hi
+  error: Failed to execute 'detect' as Steve
+step 6: blockdata ~ ~-1 ~ {id:"minecraft:mob_spawner"}
+  error: The number you have entered (-1.00) is too small, it must be at least 0

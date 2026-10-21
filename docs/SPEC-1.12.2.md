@@ -60,6 +60,15 @@
   子命令自己的用法（`CommandScoreboard.execute`）：
   `set`/`add`/`remove` 至少 5 个、`reset` 3 或 4 个、`enable` 4 个、
   `test` 5 或 6 个、`operation` **恰好 7 个**、`list` 至多 3 个、`tag` 至少 4 个。
+- **`/execute` 的 detect 分支要参数够多才成立**。1.12.2 的条件是
+  `"detect".equals(astring[4]) && astring.length > 10`
+  （`CommandExecute.execute`）：参数不够时，**整段 `detect …` 就是那条要
+  执行的命令**——而 `detect` 不是命令，于是真服什么也没跑成，报的是 execute
+  自己的汇总 `All invocations failed: 'detect ~ ~ ~'`。
+
+  也就是说，`execute <目标> ~ ~ ~ detect ~ ~ ~ stone 0`（10 段）**不是**
+  detect，而 `execute <目标> ~ ~ ~ detect ~ ~ ~ stone 0 say hi`（12 段）才是。
+  真服实测见探针用例 `52-execute-detect`。
 
 > 有一处**先后顺序**还没对齐：`scoreboard players tag` 的模式（`add`/
 > `remove`/`list`）在真服上是**先找实体、再看模式**，所以实体找不到时报的是
@@ -1393,6 +1402,22 @@ gomc 现在量的就是**方块位置**（`exec.Source.RelativeBase()`，也就�
 
 真服实测（2026-10-21，探针用例 `44-relative-base` 和 `45-relative-bounds`）：
 土落在 **9, 4, 4**，第 10 格是空气；越界那条报的是 **304.00**。
+
+**体检（`gomc check`）时的基准是地表高度 y=4**。真服量的是**谁调用了这个
+函数**，而体检不知道那个人是谁——函数多半是从地面上的玩家或命令方块调
+用的，用地表当基准比用原点靠谱：
+
+| 写法 | 基准是原点 (y=0) | 基准是地表 (y=4) | 真服（从地面调用） |
+|---|---|---|---|
+| `~-1` | -1 → **越界** | 3 → 合法 | 合法 ✓ |
+| `~-5` | -5 → 越界 | -1 → 越界 | 越界 ✓ |
+| `~250` | 250 → 合法 | 254 → 合法 | 合法 ✓ |
+
+（真实项目里就有 `blockdata ~ ~-1 ~ {...}` 这种写法：按原点算是越界，按地表
+算是合法的，而真服从地面调用时是合法的。）
+
+**运行时**量的是**实际**基准（`exec.Source.RelativeBase()`），所以那才是逐字
+一致的那一份。
 
 ### 12.1.1 执行者和监听者不是一回事
 

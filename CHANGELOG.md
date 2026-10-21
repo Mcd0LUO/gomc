@@ -139,6 +139,18 @@
 - **坏掉的 JSON 现在会被报出来**：`Invalid json: <原因>`（语言键
   `commands.tellraw.jsonException`）。真服是先找目标再看 JSON，所以这个错
   在**运行期**、目标之后才报；`check` 把它作为一条静态问题列出来。
+- **`/execute` 的 detect 分支要参数够多才成立**。1.12.2 的条件是
+  `"detect".equals(astring[4]) && astring.length > 10`：参数不够时，整段
+  `detect …` 就是那条要执行的命令，而 `detect` 不是命令，于是真服报的是
+  execute 自己的汇总 `All invocations failed: 'detect ~ ~ ~'`。gomc 之前
+  一看到 `detect` 就进那个分支，参数不够时说的是自己编的话
+  （`expected a value but reached end of command`）。
+  真服实测见探针用例 `52-execute-detect`，对拍用例 `execute-detect` 5 条
+  逐字一致。
+- **体检时相对坐标的基准改成地表高度（y=4）**。真服量的是**谁调用了这个
+  函数**，而体检不知道那个人是谁。函数多半是从地面上的玩家或命令方块调用
+  的，用原点当基准会把 `~-1` 这种常见写法误报成越界——真实项目里就有
+  `blockdata ~ ~-1 ~ {...}`。运行时量的是实际基准，那一份没动。
 
 - **随机源每个引擎重置一次**。`@r` 选择器和 `/weather` 的默认时长共用世界那条
   随机流（真服也是这样 ✓），但**引擎从不重置**它，于是同一个用例在不同的测试

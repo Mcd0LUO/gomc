@@ -409,6 +409,21 @@ func (e *Engine) ParseCommand(line string, lineNo int) (*ast.Command, error) {
 	return e.ParseCommandAt(line, lineNo, parser.CoordBase{})
 }
 
+// lintBase is the position a relative coordinate in a function file is
+// measured from when the file is **checked**.
+//
+// 1.12.2 measures it against the position of **whoever runs the function**,
+// and the checker does not know that. The ground level is the best guess: a
+// function is usually called by a player or a command block standing on the
+// ground, and the difference decides the answer -- `~-1` is one block below
+// the ground (y=4 → 3) but below the world when it is measured from the
+// origin (y=0 → -1).
+//
+// (Measured: a real project's `blockdata ~ ~-1 ~ {...}` is refused by the
+// origin and accepted by the ground, and the server accepts it when the
+// function is called from the ground.)
+var lintBase = parser.CoordBase{X: 0, Y: 4, Z: 0}
+
 // ParseCommandAt parses a command line that runs at the given base into
 // an AST command.
 //
@@ -740,7 +755,9 @@ func (e *Engine) LintFunctions() []error {
 func (e *Engine) lintFunction(fn *Function) []error {
 	var out []error
 	for i, line := range fn.Lines {
-		cmd, err := e.ParseCommand(line, fn.LineNumbers[i])
+		// The linter does not know who will run the function, so it
+		// measures a relative coordinate from the ground.
+		cmd, err := e.ParseCommandAt(line, fn.LineNumbers[i], lintBase)
 		if err != nil {
 			out = append(out, &FunctionLintError{
 				Path: fn.Path,

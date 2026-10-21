@@ -1,0 +1,15 @@
+UUID of player Steve is 5627dd98-e6be-3c21-b8a8-e92344183641
+Steve[/127.0.0.1:39240] logged in with entity id 1 at ([probe]-1.5, 4.0, 3.5)
+[Server] P01
+All invocations failed: 'detect ~ ~ ~'
+[Server] P02
+All invocations failed: 'detect ~ ~ ~ stone 0'
+[Server] P03
+Failed to execute 'detect' as Steve
+[Server] P04
+Failed to execute 'detect' as Steve
+[Server] P05
+The number you have entered (-1.00) is too small, it must be at least 0
+[Server] P06
+Steve lost connection: Server closed
+Steve left the game
