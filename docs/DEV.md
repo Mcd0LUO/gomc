@@ -243,3 +243,18 @@ go vet ./...
 go test ./... -timeout 30s -p 2
 gomc.exe difftest check testdata/demo-world testdata/cases/scoreboard.difftest
 ```
+
+## 推送
+
+这台机器的出网走本地代理（`127.0.0.1:7890`），而 **git 默认的 schannel 后端
+过这个代理握手会失败**（`schannel: failed to receive handshake`，而且会挂
+住十几分钟）。换 OpenSSL 后端就好：
+
+```powershell
+git -c http.sslBackend=openssl -c http.sslVersion=tlsv1.2 `
+    -c http.proxy=http://127.0.0.1:7890 -c https.proxy=http://127.0.0.1:7890 `
+    push origin main
+```
+
+代理没起来的时候（端口不通）直连也不通，这时候推不了——**不要重试到天荒
+地老**，告诉用户把代理打开就行。
