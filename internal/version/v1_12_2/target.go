@@ -20,8 +20,8 @@ func parseEntityTarget(p *parser.Parser) (ast.Arg, error) {
 	if !ok {
 		return nil, p.Errorf("expected a target")
 	}
-	if parser.IsSelector(t.Text) {
-		return p.Selector()
+	if IsSelector(t.Text) {
+		return parseSelector(p)
 	}
 	name, err := p.String()
 	if err != nil {
@@ -79,7 +79,7 @@ func resolveEntityTargetsEntity(ctx *exec.Context, arg ast.Arg) ([]*world.Entity
 func resolvePlayerTargets(ctx *exec.Context, arg ast.Arg) ([]*world.Entity, error) {
 	switch t := arg.(type) {
 	case *ast.Selector:
-		resolver := &exec.SelectorResolver{World: ctx.World}
+		resolver := &SelectorResolver{World: ctx.World}
 		entities, err := resolver.Resolve(ctx.Source, t)
 		selectorWarnings(ctx, resolver)
 		if err != nil {
@@ -165,7 +165,7 @@ func entityTargetCommand(ctx *exec.Context) bool {
 // 1.12.2 sends them next to the command's own output: `kill
 // @e[type=pigzombie]` answers "Entity type 'minecraft:pigzombie' is
 // invalid" and then succeeds.
-func selectorWarnings(ctx *exec.Context, r *exec.SelectorResolver) {
+func selectorWarnings(ctx *exec.Context, r *SelectorResolver) {
 	for _, w := range r.Warnings {
 		ctx.Engine.Feedback = append(ctx.Engine.Feedback, w)
 	}
@@ -179,7 +179,7 @@ func selectorWarnings(ctx *exec.Context, r *exec.SelectorResolver) {
 func resolveTarget(ctx *exec.Context, arg ast.Arg, entityVariant bool) ([]*world.Entity, error) {
 	switch t := arg.(type) {
 	case *ast.Selector:
-		resolver := &exec.SelectorResolver{World: ctx.World}
+		resolver := &SelectorResolver{World: ctx.World}
 		entities, err := resolver.Resolve(ctx.Source, t)
 		selectorWarnings(ctx, resolver)
 		if err != nil {
@@ -313,7 +313,7 @@ func selectorIsList(sel *ast.Selector) bool {
 	if sel.Base == "a" || sel.Base == "e" {
 		def = 0
 	}
-	return parser.SelectorIntDefault(sel, "c", def) != 1
+	return SelectorIntDefault(sel, "c", def) != 1
 }
 
 // selectorText returns the selector as it was written.

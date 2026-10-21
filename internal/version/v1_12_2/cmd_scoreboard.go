@@ -81,11 +81,11 @@ func resolveHolders(ctx *exec.Context, arg ast.Arg) ([]string, error) {
 		// that is no entity at all is kept as it is: 1.12.2 tracks a
 		// score under any name.
 		if e := entityByUUID(ctx, t.Value); e != nil {
-			return []string{exec.ScoreboardHolder(e)}, nil
+			return []string{ScoreboardHolder(e)}, nil
 		}
 		return []string{t.Value}, nil
 	case *ast.Selector:
-		resolver := &exec.SelectorResolver{World: ctx.World}
+		resolver := &SelectorResolver{World: ctx.World}
 		entities, err := resolver.Resolve(ctx.Source, t)
 		selectorWarnings(ctx, resolver)
 		if err != nil {
@@ -108,7 +108,7 @@ func resolveHolders(ctx *exec.Context, arg ast.Arg) ([]string, error) {
 				out = append(out, e.ID)
 				continue
 			}
-			out = append(out, exec.ScoreboardHolder(e))
+			out = append(out, ScoreboardHolder(e))
 		}
 		return out, nil
 	}
@@ -155,7 +155,7 @@ func resolveTeamHolders(ctx *exec.Context, args []ast.Arg, usageKey string) ([]s
 		if ctx.Source.Entity == nil || !ctx.Source.Entity.IsPlayer {
 			return nil, usageErrorf(usageKey)
 		}
-		return []string{exec.ScoreboardHolder(ctx.Source.Entity)}, nil
+		return []string{ScoreboardHolder(ctx.Source.Entity)}, nil
 	}
 	var out []string
 	for _, arg := range args {

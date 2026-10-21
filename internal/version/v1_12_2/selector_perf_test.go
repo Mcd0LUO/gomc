@@ -1,28 +1,58 @@
-// Package exec_test holds the benchmarks and the checks that guard the
+// Package v1_12_2 holds the benchmarks and the checks that guard the
 // performance of the target selector.
 //
-// The file lives in the external test package on purpose: package
-// v1_12_2 imports package exec, so a test file inside package exec could
-// not import the real command set back without an import cycle.
+// The selector is 1.12.2's own: its argument set, its filters and the order
+// it returns its results in are all 1.12.2 rules, so the benchmarks live
+// next to the code they measure.
 //
 // The selector walks the entities of the world without copying them, so
 // the world keeps the list of its entities cached. The checks here make
 // sure that the cache follows the entities that come and go, and the
 // benchmarks make sure that a selection does not get more expensive when
 // the world grows.
-package exec_test
+package v1_12_2
 
 import (
 	"fmt"
 	"testing"
 
 	"github.com/Mcd0LUO/gomc/internal/exec"
-	"github.com/Mcd0LUO/gomc/internal/parser"
 	"github.com/Mcd0LUO/gomc/internal/world"
 )
 
 // perfEntities is the number of entities the selector benchmarks walk.
 const perfEntities = 8000
+
+// benchSelectorRuns is the number of selector resolutions a benchmark
+// does in one step.
+const benchSelectorRuns = 1000
+
+// benchEntities is the number of entities the selector scan sees.
+const benchEntities = 2000
+
+// benchObjective is the name of the objective the benchmark writes to.
+const benchObjective = "bench"
+
+// newBenchEngine returns an engine that knows the real 1.12.2 command set
+// and owns an empty world.
+func newBenchEngine(tb testing.TB) *exec.Engine {
+	tb.Helper()
+	reg := exec.NewRegistry()
+	Register(reg)
+	return exec.NewEngine(reg, world.NewWorld())
+}
+
+// benchSource returns a console-like source that is allowed to run every
+// command of the benchmark set.
+func benchSource() *exec.Source {
+	return &exec.Source{
+		Name:            "Server",
+		World:           "world",
+		PermissionLevel: 4,
+		Feedback:        true,
+		Pos:             world.Vec{X: 0, Y: 64, Z: 0},
+	}
+}
 
 // addEntitiesOfType puts n entities of the given type into the world.
 //
@@ -43,11 +73,11 @@ func addEntitiesOfType(w *world.World, typ string, n int) {
 // entities, in the order the selector returned them.
 func resolveIds(tb testing.TB, w *world.World, text string) []string {
 	tb.Helper()
-	sel, err := parser.ParseSelector(text)
+	sel, err := ParseSelector(text)
 	if err != nil {
 		tb.Fatalf("ParseSelector(%q): %v", text, err)
 	}
-	r := &exec.SelectorResolver{World: w}
+	r := &SelectorResolver{World: w}
 	src := &exec.Source{Pos: world.Vec{X: 0, Y: 64, Z: 0}}
 	entities, err := r.Resolve(src, sel)
 	if err != nil {
@@ -60,6 +90,95 @@ func resolveIds(tb testing.TB, w *world.World, text string) []string {
 	return out
 }
 
+// BenchmarkSelectorScan measures the cost of resolving a target selector
+// when the world holds many entities.
+//
+// The `Resolver` sub-benchmark calls the selector resolver directly, so
+// the number is the price of one selection. The `Command` sub-benchmark
+// runs the whole command path, which adds the parsing of the command and
+// the work that follows the selection.
+func BenchmarkSelectorScan(b *testing.B) {
+	sel, err := ParseSelector("@e[type=armor_stand]")
+	if err != nil {
+		b.Fatalf("ParseSelector: %v", err)
+	}
+
+	b.Run("Resolver", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			b.StopTimer()
+			eng := newBenchEngine(b)
+			src := benchSource()
+			addEntitiesOfType(eng.World, "armor_stand", benchEntities)
+			resolver := &SelectorResolver{World: eng.World}
+			b.StartTimer()
+			for j := 0; j < benchSelectorRuns; j++ {
+				matched, err := resolver.Resolve(src, sel)
+				if err != nil {
+					b.Fatalf("Resolve: %v", err)
+				}
+				if len(matched) != benchEntities {
+					b.Fatalf("matched %d entities, want %d", len(matched), benchEntities)
+				}
+			}
+		}
+	})
+
+	b.Run("Command", func(b *testing.B) {
+		b.ReportAllocs()
+		line := "scoreboard players set @e[type=armor_stand] " + benchObjective + " 1"
+		for i := 0; i < b.N; i++ {
+			b.StopTimer()
+			eng := newBenchEngine(b)
+			src := benchSource()
+			eng.World.Scoreboard.AddObjective(benchObjective, world.CriteriaDummy, "")
+			addEntitiesOfType(eng.World, "armor_stand", benchEntities)
+			b.StartTimer()
+			for j := 0; j < benchSelectorRuns; j++ {
+				if _, err := eng.ExecuteLine(line, 1, src); err != nil {
+					b.Fatalf("ExecuteLine: %v", err)
+				}
+				// The command answers once per matched entity. The
+				// answer is not part of the selection, so it is dropped
+				// outside the measured window.
+				b.StopTimer()
+				eng.Feedback = nil
+				b.StartTimer()
+			}
+		}
+	})
+}
+
+// BenchmarkSelectorScanScaling measures one selector resolution for
+// different entity counts, which shows how the price of a selection grows
+// with the size of the world.
+func BenchmarkSelectorScanScaling(b *testing.B) {
+	sel, err := ParseSelector("@e[type=armor_stand]")
+	if err != nil {
+		b.Fatalf("ParseSelector: %v", err)
+	}
+	for _, n := range []int{100, 500, 2000, 8000} {
+		b.Run(fmt.Sprintf("Entities%d", n), func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				b.StopTimer()
+				eng := newBenchEngine(b)
+				src := benchSource()
+				addEntitiesOfType(eng.World, "armor_stand", n)
+				resolver := &SelectorResolver{World: eng.World}
+				b.StartTimer()
+				matched, err := resolver.Resolve(src, sel)
+				if err != nil {
+					b.Fatalf("Resolve: %v", err)
+				}
+				if len(matched) != n {
+					b.Fatalf("matched %d entities, want %d", len(matched), n)
+				}
+			}
+		})
+	}
+}
+
 // BenchmarkSelectorScanFewHits measures a selector that walks a big world
 // and matches almost nothing.
 //
@@ -68,7 +187,7 @@ func resolveIds(tb testing.TB, w *world.World, text string) []string {
 // number of entities of the world, and the result must not be sized after
 // the number of candidates either — hardly any of them match.
 func BenchmarkSelectorScanFewHits(b *testing.B) {
-	sel, err := parser.ParseSelector("@e[type=zombie]")
+	sel, err := ParseSelector("@e[type=zombie]")
 	if err != nil {
 		b.Fatalf("ParseSelector: %v", err)
 	}
@@ -89,7 +208,7 @@ func BenchmarkSelectorScanFewHits(b *testing.B) {
 				}
 				zombie.Pos = world.Vec{X: float64(n), Y: 64, Z: 0}
 				eng.World.AddEntity(zombie)
-				resolver := &exec.SelectorResolver{World: eng.World}
+				resolver := &SelectorResolver{World: eng.World}
 				b.StartTimer()
 				matched, err := resolver.Resolve(src, sel)
 				if err != nil {
@@ -112,7 +231,7 @@ func BenchmarkSelectorScanFewHits(b *testing.B) {
 // The walk of the world is the same as in the other benchmarks, so the
 // numbers show what the sort costs.
 func BenchmarkSelectorScanOneHit(b *testing.B) {
-	sel, err := parser.ParseSelector("@e[type=zombie,c=1]")
+	sel, err := ParseSelector("@e[type=zombie,c=1]")
 	if err != nil {
 		b.Fatalf("ParseSelector: %v", err)
 	}
@@ -133,7 +252,7 @@ func BenchmarkSelectorScanOneHit(b *testing.B) {
 				}
 				zombie.Pos = world.Vec{X: float64(n), Y: 64, Z: 0}
 				eng.World.AddEntity(zombie)
-				resolver := &exec.SelectorResolver{World: eng.World}
+				resolver := &SelectorResolver{World: eng.World}
 				b.StartTimer()
 				matched, err := resolver.Resolve(src, sel)
 				if err != nil {
@@ -155,7 +274,7 @@ func BenchmarkSelectorScanOneHit(b *testing.B) {
 // world with many matches pays for a sort that only its first result is
 // used for.
 func BenchmarkSelectorScanOneHitMany(b *testing.B) {
-	sel, err := parser.ParseSelector("@e[type=armor_stand,c=1]")
+	sel, err := ParseSelector("@e[type=armor_stand,c=1]")
 	if err != nil {
 		b.Fatalf("ParseSelector: %v", err)
 	}
@@ -168,7 +287,7 @@ func BenchmarkSelectorScanOneHitMany(b *testing.B) {
 				eng := newBenchEngine(b)
 				src := benchSource()
 				addEntitiesOfType(eng.World, "armor_stand", n)
-				resolver := &exec.SelectorResolver{World: eng.World}
+				resolver := &SelectorResolver{World: eng.World}
 				b.StartTimer()
 				matched, err := resolver.Resolve(src, sel)
 				if err != nil {
@@ -197,7 +316,7 @@ func BenchmarkSelectorScanRepeated(b *testing.B) {
 		{"Few", "@e[type=zombie]", 1},
 	} {
 		b.Run(tc.name, func(b *testing.B) {
-			sel, err := parser.ParseSelector(tc.sel)
+			sel, err := ParseSelector(tc.sel)
 			if err != nil {
 				b.Fatalf("ParseSelector: %v", err)
 			}
@@ -215,7 +334,7 @@ func BenchmarkSelectorScanRepeated(b *testing.B) {
 					zombie.Pos = world.Vec{X: perfEntities, Y: 64, Z: 0}
 					eng.World.AddEntity(zombie)
 				}
-				resolver := &exec.SelectorResolver{World: eng.World}
+				resolver := &SelectorResolver{World: eng.World}
 				b.StartTimer()
 				for j := 0; j < benchSelectorRuns; j++ {
 					matched, err := resolver.Resolve(src, sel)

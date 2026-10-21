@@ -1,4 +1,4 @@
-package exec
+package v1_12_2
 
 import (
 	"sort"
@@ -7,9 +7,9 @@ import (
 	"github.com/Mcd0LUO/gomc/internal/world"
 )
 
-// benchEntities builds n entities spread over a line, the way a world full
+// lineEntities builds n entities spread over a line, the way a world full
 // of mobs is spread over the ground.
-func benchEntities(n int) []*world.Entity {
+func lineEntities(n int) []*world.Entity {
 	out := make([]*world.Entity, 0, n)
 	for i := 0; i < n; i++ {
 		e := &world.Entity{ID: "e" + string(rune('a'+i%26)) + string(rune('a'+i/26))}
@@ -26,7 +26,7 @@ func benchEntities(n int) []*world.Entity {
 func BenchmarkSortThenFirst(b *testing.B) {
 	for _, n := range []int{100, 1000, 8000} {
 		b.Run("Entities"+itoa(n), func(b *testing.B) {
-			entities := benchEntities(n)
+			entities := lineEntities(n)
 			ref := world.Vec{X: 0, Y: 64, Z: 0}
 			r := &SelectorResolver{}
 			b.ReportAllocs()
@@ -51,7 +51,7 @@ func BenchmarkSortThenFirst(b *testing.B) {
 func BenchmarkClosestOnly(b *testing.B) {
 	for _, n := range []int{100, 1000, 8000} {
 		b.Run("Entities"+itoa(n), func(b *testing.B) {
-			entities := benchEntities(n)
+			entities := lineEntities(n)
 			ref := world.Vec{X: 0, Y: 64, Z: 0}
 			r := &SelectorResolver{}
 			b.ReportAllocs()
@@ -64,16 +64,6 @@ func BenchmarkClosestOnly(b *testing.B) {
 }
 
 // itoa turns a number into its decimal form.
-func itoa(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	var b [8]byte
-	i := len(b)
-	for n > 0 {
-		i--
-		b[i] = byte('0' + n%10)
-		n /= 10
-	}
-	return string(b[i:])
-}
+//
+// The helper is shared with the other tests of the package, so it is not
+// defined here.

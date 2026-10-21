@@ -96,8 +96,8 @@ func (c *statsCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 		if !ok {
 			return []ast.Arg{spec}, nil
 		}
-		if parser.IsSelector(t.Text) {
-			sel, err := p.Selector()
+		if IsSelector(t.Text) {
+			sel, err := parseSelector(p)
 			if err != nil {
 				// A selector that does not parse is reported as such,
 				// before anything else is looked at.
@@ -295,7 +295,7 @@ func statsIsCommandResult(name string) bool {
 func resolveStatsTarget(ctx *exec.Context, arg ast.Arg) ([]*world.Entity, error) {
 	switch t := arg.(type) {
 	case *ast.Selector:
-		resolver := &exec.SelectorResolver{World: ctx.World}
+		resolver := &SelectorResolver{World: ctx.World}
 		entities, err := resolver.Resolve(ctx.Source, t)
 		selectorWarnings(ctx, resolver)
 		if err != nil {

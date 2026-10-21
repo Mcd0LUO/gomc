@@ -1,4 +1,4 @@
-package parser
+package v1_12_2
 
 import (
 	"fmt"
@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Mcd0LUO/gomc/internal/ast"
+	"github.com/Mcd0LUO/gomc/internal/parser"
 )
 
 // Selector argument names supported by 1.12.2.
@@ -78,6 +79,25 @@ func ParseSelector(text string) (*ast.Selector, error) {
 		}
 		sel.Args = append(sel.Args, ast.SelectorArg{Key: key, Value: strings.TrimSpace(value)})
 	}
+	return sel, nil
+}
+
+// parseSelector reads a target selector from the parser.
+//
+// The shape of a selector is a version rule — 1.12.2 accepts a fixed set
+// of argument names and nothing else — so the version package reads it.
+// The generic parser only knows how to hand out a token and how to report
+// an error at one of them.
+func parseSelector(p *parser.Parser) (*ast.Selector, error) {
+	t, ok := p.Next()
+	if !ok {
+		return nil, p.Errorf("expected a target but reached end of command")
+	}
+	sel, err := ParseSelector(t.Text)
+	if err != nil {
+		return nil, p.ErrorAt(t, "%v", err)
+	}
+	sel.Offset = t.Offset
 	return sel, nil
 }
 

@@ -1,10 +1,10 @@
-package exec
+package v1_12_2
 
 import (
 	"testing"
 
+	"github.com/Mcd0LUO/gomc/internal/exec"
 	"github.com/Mcd0LUO/gomc/internal/nbt"
-	"github.com/Mcd0LUO/gomc/internal/parser"
 	"github.com/Mcd0LUO/gomc/internal/world"
 )
 
@@ -45,9 +45,9 @@ func testWorld(t *testing.T) *world.World {
 }
 
 // resolve runs a selector against a world and returns the matched ids.
-func resolve(t *testing.T, w *world.World, src *Source, text string) []string {
+func resolve(t *testing.T, w *world.World, src *exec.Source, text string) []string {
 	t.Helper()
-	sel, err := parser.ParseSelector(text)
+	sel, err := ParseSelector(text)
 	if err != nil {
 		t.Fatalf("ParseSelector(%q): %v", text, err)
 	}
@@ -85,7 +85,7 @@ func sameSet(a, b []string) bool {
 
 func TestSelectorBases(t *testing.T) {
 	w := testWorld(t)
-	src := &Source{Name: "Server", World: "world", PermissionLevel: 4}
+	src := &exec.Source{Name: "Server", World: "world", PermissionLevel: 4}
 
 	// @e selects every entity.
 	got := resolve(t, w, src, "@e")
@@ -112,7 +112,7 @@ func TestSelectorBases(t *testing.T) {
 // unless a type argument replaces that filter.
 func TestSelectorRandomIsPlayerOnly(t *testing.T) {
 	w := testWorld(t)
-	src := &Source{Name: "Server", World: "world", PermissionLevel: 4}
+	src := &exec.Source{Name: "Server", World: "world", PermissionLevel: 4}
 
 	// @r defaults to a single entity.
 	got := resolve(t, w, src, "@r")
@@ -139,7 +139,7 @@ func TestSelectorRandomIsPlayerOnly(t *testing.T) {
 
 func TestSelectorTypeFilter(t *testing.T) {
 	w := testWorld(t)
-	src := &Source{Name: "Server", World: "world", PermissionLevel: 4}
+	src := &exec.Source{Name: "Server", World: "world", PermissionLevel: 4}
 
 	got := resolve(t, w, src, "@e[type=zombie]")
 	if !sameSet(got, []string{"z1"}) {
@@ -155,7 +155,7 @@ func TestSelectorTypeFilter(t *testing.T) {
 
 func TestSelectorNameFilter(t *testing.T) {
 	w := testWorld(t)
-	src := &Source{Name: "Server", World: "world", PermissionLevel: 4}
+	src := &exec.Source{Name: "Server", World: "world", PermissionLevel: 4}
 
 	// A player is matched by the player name.
 	got := resolve(t, w, src, "@e[name=Steve]")
@@ -185,7 +185,7 @@ func TestSelectorNameFilter(t *testing.T) {
 
 func TestSelectorTeamFilter(t *testing.T) {
 	w := testWorld(t)
-	src := &Source{Name: "Server", World: "world", PermissionLevel: 4}
+	src := &exec.Source{Name: "Server", World: "world", PermissionLevel: 4}
 	w.Scoreboard.AddTeam("red")
 	w.Scoreboard.AddTeamMember("red", ScoreboardHolder(w.Entities["z1"]))
 
@@ -204,7 +204,7 @@ func TestSelectorTeamFilter(t *testing.T) {
 
 func TestSelectorTagFilter(t *testing.T) {
 	w := testWorld(t)
-	src := &Source{Name: "Server", World: "world", PermissionLevel: 4}
+	src := &exec.Source{Name: "Server", World: "world", PermissionLevel: 4}
 	w.Entities["z1"].SetTag("marked", true)
 
 	got := resolve(t, w, src, "@e[tag=marked]")
@@ -231,7 +231,7 @@ func TestSelectorTagFilter(t *testing.T) {
 // entity has to have a score in it.
 func TestSelectorScoreFilter(t *testing.T) {
 	w := testWorld(t)
-	src := &Source{Name: "Server", World: "world", PermissionLevel: 4}
+	src := &exec.Source{Name: "Server", World: "world", PermissionLevel: 4}
 	w.Scoreboard.AddObjective("kills", world.CriteriaDummy, "")
 	w.Scoreboard.SetScore(ScoreboardHolder(w.Entities["z1"]), "kills", 5)
 
@@ -281,7 +281,7 @@ func TestSelectorScoreFilter(t *testing.T) {
 // filter only ever matches players, and a leading ! negates it.
 func TestSelectorGameModeFilter(t *testing.T) {
 	w := testWorld(t)
-	src := &Source{Name: "Server", World: "world", PermissionLevel: 4}
+	src := &exec.Source{Name: "Server", World: "world", PermissionLevel: 4}
 	w.Entities["p1"].NBT.Set("playerGameType", nbt.Int(1))
 	w.Entities["p2"].NBT.Set("playerGameType", nbt.Int(0))
 
@@ -316,7 +316,7 @@ func TestSelectorGameModeFilter(t *testing.T) {
 // wraps around north.
 func TestSelectorRotationFilter(t *testing.T) {
 	w := testWorld(t)
-	src := &Source{Name: "Server", World: "world", PermissionLevel: 4}
+	src := &exec.Source{Name: "Server", World: "world", PermissionLevel: 4}
 	w.Entities["p1"].Rot = world.Rotation{Pitch: 0, Yaw: 0}
 	w.Entities["p2"].Rot = world.Rotation{Pitch: 90, Yaw: 90}
 	w.Entities["z1"].Rot = world.Rotation{Pitch: 0, Yaw: 0}
@@ -363,7 +363,7 @@ func TestSelectorRotationFilter(t *testing.T) {
 
 func TestSelectorDistanceFilter(t *testing.T) {
 	w := testWorld(t)
-	src := &Source{Name: "Server", World: "world", PermissionLevel: 4}
+	src := &exec.Source{Name: "Server", World: "world", PermissionLevel: 4}
 
 	// r is the maximum distance.
 	got := resolve(t, w, src, "@e[r=5]")
@@ -391,7 +391,7 @@ func TestSelectorDistanceFilter(t *testing.T) {
 // block larger on the far side, so a dx of 1 covers two blocks.
 func TestSelectorVolumeFilter(t *testing.T) {
 	w := testWorld(t)
-	src := &Source{Name: "Server", World: "world", PermissionLevel: 4}
+	src := &exec.Source{Name: "Server", World: "world", PermissionLevel: 4}
 
 	// A volume of one block at the origin also reaches the zombie at x=2,
 	// because the box ends at x=2 and the zombie is 0.6 wide.
@@ -415,7 +415,7 @@ func TestSelectorVolumeFilter(t *testing.T) {
 
 func TestSelectorCountLimit(t *testing.T) {
 	w := testWorld(t)
-	src := &Source{Name: "Server", World: "world", PermissionLevel: 4}
+	src := &exec.Source{Name: "Server", World: "world", PermissionLevel: 4}
 
 	// @e defaults to no limit.
 	got := resolve(t, w, src, "@e")
@@ -452,7 +452,7 @@ func TestSelectorCountLimit(t *testing.T) {
 func TestSelectorSelf(t *testing.T) {
 	w := testWorld(t)
 	player := w.Entities["p1"]
-	src := &Source{Name: "Server", World: "world", PermissionLevel: 4, Entity: player}
+	src := &exec.Source{Name: "Server", World: "world", PermissionLevel: 4, Entity: player}
 
 	got := resolve(t, w, src, "@s")
 	if len(got) != 1 || got[0] != "p1" {
@@ -464,8 +464,8 @@ func TestSelectorSelf(t *testing.T) {
 	// used the selector: 1.12.2 answers "Entity '@s' cannot be found"
 	// for `kill @s` and "Selector '@s' found nothing" for a message that
 	// expands @s.
-	plain := &Source{Name: "Server", World: "world", PermissionLevel: 4}
-	sel, err := parser.ParseSelector("@s")
+	plain := &exec.Source{Name: "Server", World: "world", PermissionLevel: 4}
+	sel, err := ParseSelector("@s")
 	if err != nil {
 		t.Fatalf("ParseSelector: %v", err)
 	}
@@ -491,7 +491,7 @@ func TestSelectorSelf(t *testing.T) {
 // entity, the same as `say @e`.
 func TestSelectorCountFallsBackToDefault(t *testing.T) {
 	w := testWorld(t)
-	src := &Source{Name: "Server", World: "world", PermissionLevel: 4}
+	src := &exec.Source{Name: "Server", World: "world", PermissionLevel: 4}
 
 	all := []string{"p1", "p2", "z1", "a1"}
 	for _, text := range []string{"@e[c=abc]", "@e[c=1.0]", "@e[c=~]", "@e[c=99999999999999]"} {
@@ -515,7 +515,7 @@ func TestSelectorCountFallsBackToDefault(t *testing.T) {
 // and never by its custom name.
 func TestSelectorNameUsesUserName(t *testing.T) {
 	w := testWorld(t)
-	src := &Source{Name: "Server", World: "world", PermissionLevel: 4}
+	src := &exec.Source{Name: "Server", World: "world", PermissionLevel: 4}
 	// A selector argument may not contain a space, so the custom name of
 	// the test player has to be a single word.
 	w.Entities["p1"].NBT.Set("CustomName", nbt.String("SteveTheGreat"))
@@ -542,7 +542,7 @@ func TestSelectorNameUsesUserName(t *testing.T) {
 // `@e[name="Bob"]` and not by `@e[name=Bob]`.
 func TestSelectorCustomNameIsRaw(t *testing.T) {
 	w := testWorld(t)
-	src := &Source{Name: "Server", World: "world", PermissionLevel: 4}
+	src := &exec.Source{Name: "Server", World: "world", PermissionLevel: 4}
 	w.Entities["a1"].NBT.Set("CustomName", nbt.String(`"Bob"`))
 
 	// The name with the quotes matches.
@@ -570,7 +570,7 @@ func TestSelectorCustomNameIsRaw(t *testing.T) {
 // "Entity type 'minecraft:pigzombie' is invalid" and kills nothing.
 func TestSelectorUnknownTypeMatchesNothing(t *testing.T) {
 	w := testWorld(t)
-	src := &Source{Name: "Server", World: "world", PermissionLevel: 4}
+	src := &exec.Source{Name: "Server", World: "world", PermissionLevel: 4}
 	// The type 1.12.2 registers the zombie pigman under. The old
 	// spelling of it, "pigzombie", is not a type the server knows.
 	w.AddEntity(&world.Entity{
@@ -613,7 +613,7 @@ func TestSelectorUnknownTypeMatchesNothing(t *testing.T) {
 // select the zombie.
 func TestSelectorKnownTypeSpellings(t *testing.T) {
 	w := testWorld(t)
-	src := &Source{Name: "Server", World: "world", PermissionLevel: 4}
+	src := &exec.Source{Name: "Server", World: "world", PermissionLevel: 4}
 
 	for _, text := range []string{
 		"@e[type=zombie]",
@@ -636,7 +636,7 @@ func TestSelectorKnownTypeSpellings(t *testing.T) {
 // matches everybody.
 func TestSelectorGameModeNotSet(t *testing.T) {
 	w := testWorld(t)
-	src := &Source{Name: "Server", World: "world", PermissionLevel: 4}
+	src := &exec.Source{Name: "Server", World: "world", PermissionLevel: 4}
 	w.Entities["p1"].NBT.Set("playerGameType", nbt.Int(1))
 	w.Entities["p2"].NBT.Set("playerGameType", nbt.Int(0))
 
@@ -688,7 +688,7 @@ func TestCountOnePicksTheSameEntityAsTheSortedList(t *testing.T) {
 		}
 		w.AddEntity(e)
 	}
-	src := &Source{Name: "Server", World: "world", PermissionLevel: 4}
+	src := &exec.Source{Name: "Server", World: "world", PermissionLevel: 4}
 
 	// The closest one wins.
 	got := resolve(t, w, src, "@e[c=1]")
@@ -702,7 +702,7 @@ func TestCountOnePicksTheSameEntityAsTheSortedList(t *testing.T) {
 	if len(got) != 0 {
 		t.Errorf("@e[c=1,type=!zombie] = %v, want no match", got)
 	}
-	sel, err := parser.ParseSelector("@e[c=1]")
+	sel, err := ParseSelector("@e[c=1]")
 	if err != nil {
 		t.Fatalf("ParseSelector: %v", err)
 	}
@@ -718,7 +718,7 @@ func TestCountOnePicksTheSameEntityAsTheSortedList(t *testing.T) {
 	// The executor wins over the closest one, exactly like it does when
 	// the whole list is sorted.
 	executor := w.Entities["far"]
-	srcWithEntity := &Source{Name: "Server", World: "world", PermissionLevel: 4, Entity: executor}
+	srcWithEntity := &exec.Source{Name: "Server", World: "world", PermissionLevel: 4, Entity: executor}
 	entities, err = r.Resolve(srcWithEntity, sel)
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)

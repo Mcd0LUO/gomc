@@ -8,7 +8,6 @@ import (
 
 	"github.com/Mcd0LUO/gomc/internal/ast"
 	"github.com/Mcd0LUO/gomc/internal/exec"
-	"github.com/Mcd0LUO/gomc/internal/parser"
 	"github.com/Mcd0LUO/gomc/internal/world"
 )
 
@@ -35,7 +34,7 @@ func writeFunction(t *testing.T, root, ns, name, body string) {
 
 // parseTestSelector parses a selector for the tests.
 func parseTestSelector(text string) (*ast.Selector, error) {
-	return parser.ParseSelector(text)
+	return ParseSelector(text)
 }
 
 func TestFunctionLoadsFromWorldLayout(t *testing.T) {
@@ -276,7 +275,7 @@ func TestSelectorTypeAndTagFilters(t *testing.T) {
 	e.World.AddEntity(s)
 
 	src := &exec.Source{Name: "Server", World: "world", PermissionLevel: 4, Feedback: true}
-	resolver := &exec.SelectorResolver{World: e.World}
+	resolver := &SelectorResolver{World: e.World}
 
 	sel, err := parseTestSelector("@e[type=zombie]")
 	if err != nil {

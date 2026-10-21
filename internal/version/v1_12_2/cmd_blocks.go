@@ -42,7 +42,7 @@ func (c *cloneCmd) Usage() string {
 func (c *cloneCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	corners := make([]*ast.Coord, 0, 3)
 	for i := 0; i < 3; i++ {
-		pos, err := p.Coord(ast.Coord{})
+		pos, err := p.CoordWith(ast.Coord{}, coordBlockPos)
 		if err != nil {
 			return nil, err
 		}
@@ -233,7 +233,7 @@ func (c *testForBlocksCmd) Usage() string {
 func (c *testForBlocksCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	corners := make([]*ast.Coord, 0, 3)
 	for i := 0; i < 3; i++ {
-		pos, err := p.Coord(ast.Coord{})
+		pos, err := p.CoordWith(ast.Coord{}, coordBlockPos)
 		if err != nil {
 			return nil, err
 		}

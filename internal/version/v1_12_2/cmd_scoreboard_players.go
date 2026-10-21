@@ -214,8 +214,8 @@ func parseScoreHolder(p *parser.Parser) (ast.Arg, error) {
 	if !ok {
 		return nil, usageError(p, "scoreboard players set", "expected a player or target")
 	}
-	if parser.IsSelector(t.Text) {
-		sel, err := p.Selector()
+	if IsSelector(t.Text) {
+		sel, err := parseSelector(p)
 		if err != nil {
 			return nil, err
 		}
@@ -285,7 +285,7 @@ func checkDataTag(ctx *exec.Context, holder, text, parsePrefix string) error {
 		return exec.Errorf("%s%s", parsePrefix, err)
 	}
 	if !nbt.Matches(e.NBT, filter) {
-		return exec.Errorf("The dataTag does not match for %s", exec.ScoreboardHolder(e))
+		return exec.Errorf("The dataTag does not match for %s", ScoreboardHolder(e))
 	}
 	return nil
 }
@@ -742,7 +742,7 @@ func runPlayers(ctx *exec.Context, args []ast.Arg) (int, error) {
 					continue
 				}
 				ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-					fmt.Sprintf("Tags on entity %s are:", exec.ScoreboardHolder(e)))
+					fmt.Sprintf("Tags on entity %s are:", ScoreboardHolder(e)))
 				ctx.Engine.Feedback = append(ctx.Engine.Feedback,
 					joinVanillaList(list))
 				tags += len(list)

@@ -8,10 +8,10 @@ internal/
   nbt/                     NBT 值模型、SNBT 解析、二进制编解码、子集匹配
   lexer/                   一行命令 -> token
   ast/                     命令的抽象语法树
-  parser/                  token -> AST，带列号错误
+  parser/                  token -> AST，带列号错误（版本无关的原语）
   world/                   世界状态：方块、实体、scoreboard、gamerule、环境
-  exec/                    执行引擎：上下文、选择器解析、函数栈、tick
-  version/v1_12_2/         1.12.2 方言：命令实现
+  exec/                    执行引擎：上下文、函数栈、tick
+  version/v1_12_2/         1.12.2 方言：命令实现、坐标规则、selector
   difftest/                对拍层：用例、观察记录、golden 比对
   cli/                     CLI 子命令分发
 docs/                      本目录
@@ -217,7 +217,8 @@ go run ./tools/blockstates -in tools/blockstates/states.jsonl `
 - `internal/parser` 或 `internal/exec` 改了 → 跑全部 golden，
   `gomc difftest check` 看 diff 合不合理。
 - 选择器语义改了 → 同步更新 `docs/SPEC-1.12.2.md` 第 3 节，
-  以及 `internal/parser/selector_test.go` 和 `internal/exec/selector_test.go`。
+  以及 `internal/version/v1_12_2/selector_test.go` 和
+  `internal/version/v1_12_2/selector_resolve_test.go`。
 - gamerule 清单改了 → 同步 `internal/world/state.go` 和 SPEC 第 5 节。
 - **命令的回显文字改了** → 同步 SPEC 里对应的小节。
   真服的文案是语言文件里的原文，gomc 必须一字不差地对齐；

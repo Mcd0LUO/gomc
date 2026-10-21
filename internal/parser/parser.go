@@ -42,9 +42,9 @@ func (k Kind) String() string {
 
 // Error is a parse or execution error carrying a source position.
 //
-// The first five fields are what 1.12.2 would say. The rest is gomc's own
-// addition: they carry the context needed to point at the problem in the
-// file, and they are only rendered when the enhanced output is on.
+// The message is what the server would say. The rest is gomc's own
+// addition: it carries the context needed to point at the problem in the
+// file, and it is only rendered when the enhanced output is on.
 type Error struct {
 	// Kind classifies the error.
 	Kind Kind
@@ -204,7 +204,6 @@ func (p *Parser) OptionalLiteral(want string) bool {
 	return true
 }
 
-// Int reads the next token as an integer.
 // Int reads the next token as a number.
 func (p *Parser) Int() (int, error) {
 	t, ok := p.Next()
@@ -218,7 +217,7 @@ func (p *Parser) Int() (int, error) {
 	return n, nil
 }
 
-// JavaInt parses a decimal integer the way 1.12.2 does.
+// JavaInt parses a decimal integer the way Java's `Integer.parseInt` does.
 //
 // The server parses numbers with `Integer.parseInt`, so a value outside the
 // signed 32-bit range is not a number at all: it makes the command fail
@@ -246,9 +245,9 @@ func (p *Parser) Float() (float64, error) {
 
 // JavaDouble reads a number the way Java's `Double.parseDouble` does.
 //
-// 1.12.2 reads every number of a command with it, so the accepted shapes
-// are Java's: a trailing `d`, `D`, `f` or `F` is allowed, and the result
-// has to be finite.
+// Minecraft reads every number of a command with it, so the accepted
+// shapes are Java's: a trailing `d`, `D`, `f` or `F` is allowed, and the
+// result has to be finite.
 //
 // It reports whether the text is a number at all.
 func JavaDouble(text string) (float64, bool) {
@@ -272,118 +271,34 @@ func JavaDouble(text string) (float64, bool) {
 	return v, true
 }
 
-// The bounds 1.12.2 puts on a coordinate.
-//
-// `CommandAbstract.b(base, text, min, max, flag)` reads a coordinate with
-// those bounds, and which bounds a coordinate gets depends on what the
-// coordinate is for:
-//
-//   - a block position: X and Z are limited to [-30000000, 30000000] and Y
-//     to [0, 256] (`CommandAbstract.a(listener, args, start, centerCorrect)`);
-//   - a plain number: all three are limited to [-30000000, 30000000]
-//     (`CommandAbstract.b(base, text, flag)`, used by `/execute`,
-//     `/particle`, `/playsound`, `/summon`…);
-//   - the position of `/tp`: X and Z are limited to [-30000000, 30000000]
-//     and Y to [-4096, 4096].
-//
-// A coordinate outside the bounds is refused with
-// `commands.generic.num.tooBig` / `commands.generic.num.tooSmall`, and the
-// number in the message is formatted with "%.2f".
-//
-// (Measured on a real 1.12.2 server: `setblock 30000001 4 0 stone` answers
-// "The number you have entered (30000001.00) is too big, it must be at most
-// 30000000" and `setblock 0 -1 0 stone` answers "The number you have
-// entered (-1.00) is too small, it must be at least 0".)
-const (
-	coordMinXZ = -30000000
-	coordMaxXZ = 30000000
-	coordMinY  = 0
-	coordMaxY  = 256
-	// tpMinY and tpMaxY are the bounds of the Y of `/tp`.
-	tpMinY = -4096
-	tpMaxY = 4096
-)
-
 // CoordAxis says how one axis of a coordinate is read.
 type CoordAxis struct {
 	// Min and Max are the bounds of the axis.
 	Min, Max float64
 	// Center says that a whole number names the middle of a block.
 	//
-	// 1.12.2 then adds 0.5 to the number, and the message of a
+	// The number then gets 0.5 added to it, and the message of a
 	// coordinate that is out of bounds shows the number with the 0.5.
+	//
+	// Which bounds an axis gets, and whether it is centred, is up to
+	// the version: the specs live in the version packages.
 	Center bool
 }
 
 // CoordSpec says how the three axes of a coordinate are read.
 //
-// The specs 1.12.2 uses are below; they are the ones every command picks
-// from.
-var (
-	// BlockPos is the spec of a block position: X and Z are limited to
-	// ±30000000 and Y to [0, 256].
-	BlockPos = CoordSpec{
-		X: CoordAxis{Min: coordMinXZ, Max: coordMaxXZ},
-		Y: CoordAxis{Min: coordMinY, Max: coordMaxY},
-		Z: CoordAxis{Min: coordMinXZ, Max: coordMaxXZ},
-	}
-	// BlockPosCentered is the spec of a block position that is read in
-	// the "centre" mode, like `/spawnpoint` reads it: a whole number
-	// names the middle of a block.
-	//
-	// Only the X and Z are centred: 1.12.2 reads the Y of a block
-	// position with `b(base.getY(), text, 0, 256, false)`, and the
-	// `false` is the "centre" flag.
-	BlockPosCentered = CoordSpec{
-		X: CoordAxis{Min: coordMinXZ, Max: coordMaxXZ, Center: true},
-		Y: CoordAxis{Min: coordMinY, Max: coordMaxY},
-		Z: CoordAxis{Min: coordMinXZ, Max: coordMaxXZ, Center: true},
-	}
-	// Loose is the spec of a plain number: all three axes are limited
-	// to ±30000000. It is what `/execute` reads its coordinates with.
-	Loose = CoordSpec{
-		X: CoordAxis{Min: coordMinXZ, Max: coordMaxXZ},
-		Y: CoordAxis{Min: coordMinXZ, Max: coordMaxXZ},
-		Z: CoordAxis{Min: coordMinXZ, Max: coordMaxXZ},
-	}
-	// LooseCentered is the spec of a plain number in the "centre" mode,
-	// like `/particle` and `/playsound` read theirs.
-	LooseCentered = CoordSpec{
-		X: CoordAxis{Min: coordMinXZ, Max: coordMaxXZ, Center: true},
-		Y: CoordAxis{Min: coordMinXZ, Max: coordMaxXZ, Center: true},
-		Z: CoordAxis{Min: coordMinXZ, Max: coordMaxXZ, Center: true},
-	}
-	// Summon is the spec of `/summon`: X and Z are read in the "centre"
-	// mode, Y is not, and all three are limited to ±30000000.
-	Summon = CoordSpec{
-		X: CoordAxis{Min: coordMinXZ, Max: coordMaxXZ, Center: true},
-		Y: CoordAxis{Min: coordMinXZ, Max: coordMaxXZ},
-		Z: CoordAxis{Min: coordMinXZ, Max: coordMaxXZ, Center: true},
-	}
-	// Tp is the spec of `/tp`: X and Z are read in the "centre" mode
-	// and limited to ±30000000, Y is limited to ±4096.
-	Tp = CoordSpec{
-		X: CoordAxis{Min: coordMinXZ, Max: coordMaxXZ, Center: true},
-		Y: CoordAxis{Min: tpMinY, Max: tpMaxY},
-		Z: CoordAxis{Min: coordMinXZ, Max: coordMaxXZ, Center: true},
-	}
-)
-
-// CoordSpec says how the three axes of a coordinate are read.
+// A spec is the version's answer to "how does this command read a
+// coordinate": the bounds of each axis, and whether a whole number names
+// the middle of a block. Every command that reads a coordinate picks one
+// of the specs its version defines.
 type CoordSpec struct {
 	// X, Y and Z are the specs of the three axes.
 	X, Y, Z CoordAxis
 }
 
-// Coord reads a coordinate triple, resolving relative parts against base.
-//
-// The bounds are the ones of a block position: X and Z are limited to
-// ±30000000 and Y to [0, 256].
-func (p *Parser) Coord(base ast.Coord) (*ast.Coord, error) {
-	return p.CoordWith(base, BlockPos)
-}
-
 // CoordWith reads a coordinate triple with the given spec.
+//
+// Relative parts are resolved against base.
 func (p *Parser) CoordWith(base ast.Coord, spec CoordSpec) (*ast.Coord, error) {
 	x, rx, err := p.coordComponent(spec.X)
 	if err != nil {
@@ -417,8 +332,8 @@ func (p *Parser) CoordWith(base ast.Coord, spec CoordSpec) (*ast.Coord, error) {
 }
 
 // coordComponent parses one coordinate component, reporting whether it was
-// relative (prefixed with '~') and whether it is within the bounds 1.12.2
-// puts on that axis.
+// relative (prefixed with '~') and whether it is within the bounds the
+// spec puts on that axis.
 func (p *Parser) coordComponent(axis CoordAxis) (float64, bool, error) {
 	t, ok := p.Next()
 	if !ok {
@@ -434,19 +349,19 @@ func (p *Parser) coordComponent(axis CoordAxis) (float64, bool, error) {
 	}
 	f, ok := JavaDouble(raw)
 	if !ok {
-		// 1.12.2 reads a coordinate with `parseDouble`, which reports
+		// A coordinate is read with `parseDouble`, which reports
 		// `commands.generic.num.invalid` when the text is not a number.
 		//
 		// (Measured on a real 1.12.2 server: `setblock a 4 0 stone`
 		// answers "'a' is not a valid number".)
 		//
-		// A coordinate with a fraction is **not** refused: 1.12.2 takes
-		// the whole number of it, and so does the runtime.
+		// A coordinate with a fraction is **not** refused: the server
+		// takes the whole number of it, and so does the runtime.
 		return 0, rel, p.ErrorAt(t, "'%s' is not a valid number", t.Text)
 	}
 	// A whole number in the "centre" mode names the middle of a block,
-	// so 1.12.2 adds 0.5 to it -- and the message of a coordinate that
-	// is out of bounds shows the number with the 0.5.
+	// so 0.5 is added to it -- and the message of a coordinate that is
+	// out of bounds shows the number with the 0.5.
 	if axis.Center && !rel && !strings.Contains(raw, ".") {
 		f += 0.5
 	}
@@ -461,7 +376,7 @@ func (p *Parser) coordComponent(axis CoordAxis) (float64, bool, error) {
 	return f, rel, nil
 }
 
-// formatCoordBound renders a bound the way 1.12.2 puts it into its
+// formatCoordBound renders a bound the way the server puts it into its
 // message: the bound is an int there.
 func formatCoordBound(v float64) string {
 	return strconv.FormatInt(int64(v), 10)
@@ -491,18 +406,4 @@ func (p *Parser) JSON() (*ast.JSONArg, error) {
 		return nil, p.Errorf("expected JSON but reached end of command")
 	}
 	return &ast.JSONArg{Value: t.Text, Offset: t.Offset}, nil
-}
-
-// Selector reads the next token as a target selector.
-func (p *Parser) Selector() (*ast.Selector, error) {
-	t, ok := p.Next()
-	if !ok {
-		return nil, p.Errorf("expected a target but reached end of command")
-	}
-	sel, err := ParseSelector(t.Text)
-	if err != nil {
-		return nil, p.ErrorAt(t, "%v", err)
-	}
-	sel.Offset = t.Offset
-	return sel, nil
 }

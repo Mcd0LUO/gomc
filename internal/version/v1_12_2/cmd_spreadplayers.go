@@ -110,8 +110,8 @@ func (c *spreadPlayersCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 		&ast.StringArg{Value: strconv.FormatBool(teams)},
 	}
 	for _, t := range toks[5:] {
-		if parser.IsSelector(t.Text) {
-			sel, err := parser.ParseSelector(t.Text)
+		if IsSelector(t.Text) {
+			sel, err := ParseSelector(t.Text)
 			if err != nil {
 				return nil, p.ErrorAt(t, "%v", err)
 			}
@@ -479,7 +479,7 @@ func resolveSpreadTarget(ctx *exec.Context, arg ast.Arg) ([]*world.Entity, error
 		}
 		return []*world.Entity{p}, nil
 	}
-	resolver := &exec.SelectorResolver{World: ctx.World}
+	resolver := &SelectorResolver{World: ctx.World}
 	entities, err := resolver.Resolve(ctx.Source, sel)
 	selectorWarnings(ctx, resolver)
 	if err != nil {

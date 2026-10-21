@@ -24,7 +24,6 @@ import (
 
 	"github.com/Mcd0LUO/gomc/internal/ast"
 	"github.com/Mcd0LUO/gomc/internal/exec"
-	"github.com/Mcd0LUO/gomc/internal/parser"
 	"github.com/Mcd0LUO/gomc/internal/version/v1_12_2"
 	"github.com/Mcd0LUO/gomc/internal/world"
 )
@@ -37,10 +36,6 @@ const (
 	benchSetBlockLines = 10000
 	// benchSummonLines is the number of `summon` commands.
 	benchSummonLines = 5000
-	// benchEntities is the number of entities the selector scan sees.
-	benchEntities = 2000
-	// benchSelectorRuns is the number of selector resolutions.
-	benchSelectorRuns = 1000
 	// benchScoreWrites is the number of scoreboard writes.
 	benchScoreWrites = 10000
 	// benchHolders is the number of tracked scoreboard holders.
@@ -348,95 +343,6 @@ func BenchmarkSummon(b *testing.B) {
 	})
 }
 
-// BenchmarkSelectorScan measures the cost of resolving a target selector
-// when the world holds many entities.
-//
-// The `Resolver` sub-benchmark calls the selector resolver directly, so
-// the number is the price of one selection. The `Command` sub-benchmark
-// runs the whole command path, which adds the parsing of the command and
-// the work that follows the selection.
-func BenchmarkSelectorScan(b *testing.B) {
-	sel, err := parser.ParseSelector("@e[type=armor_stand]")
-	if err != nil {
-		b.Fatalf("ParseSelector: %v", err)
-	}
-
-	b.Run("Resolver", func(b *testing.B) {
-		b.ReportAllocs()
-		for i := 0; i < b.N; i++ {
-			b.StopTimer()
-			eng := newBenchEngine(b)
-			src := benchSource()
-			addEntities(eng.World, benchEntities)
-			resolver := &exec.SelectorResolver{World: eng.World}
-			b.StartTimer()
-			for j := 0; j < benchSelectorRuns; j++ {
-				matched, err := resolver.Resolve(src, sel)
-				if err != nil {
-					b.Fatalf("Resolve: %v", err)
-				}
-				if len(matched) != benchEntities {
-					b.Fatalf("matched %d entities, want %d", len(matched), benchEntities)
-				}
-			}
-		}
-	})
-
-	b.Run("Command", func(b *testing.B) {
-		b.ReportAllocs()
-		line := "scoreboard players set @e[type=armor_stand] " + benchObjective + " 1"
-		for i := 0; i < b.N; i++ {
-			b.StopTimer()
-			eng := newBenchEngine(b)
-			src := benchSource()
-			eng.World.Scoreboard.AddObjective(benchObjective, world.CriteriaDummy, "")
-			addEntities(eng.World, benchEntities)
-			b.StartTimer()
-			for j := 0; j < benchSelectorRuns; j++ {
-				if _, err := eng.ExecuteLine(line, 1, src); err != nil {
-					b.Fatalf("ExecuteLine: %v", err)
-				}
-				// The command answers once per matched entity. The
-				// answer is not part of the selection, so it is dropped
-				// outside the measured window.
-				b.StopTimer()
-				eng.Feedback = nil
-				b.StartTimer()
-			}
-		}
-	})
-}
-
-// BenchmarkSelectorScanScaling measures one selector resolution for
-// different entity counts, which shows how the price of a selection grows
-// with the size of the world.
-func BenchmarkSelectorScanScaling(b *testing.B) {
-	sel, err := parser.ParseSelector("@e[type=armor_stand]")
-	if err != nil {
-		b.Fatalf("ParseSelector: %v", err)
-	}
-	for _, n := range []int{100, 500, 2000, 8000} {
-		b.Run(fmt.Sprintf("Entities%d", n), func(b *testing.B) {
-			b.ReportAllocs()
-			for i := 0; i < b.N; i++ {
-				b.StopTimer()
-				eng := newBenchEngine(b)
-				src := benchSource()
-				addEntities(eng.World, n)
-				resolver := &exec.SelectorResolver{World: eng.World}
-				b.StartTimer()
-				matched, err := resolver.Resolve(src, sel)
-				if err != nil {
-					b.Fatalf("Resolve: %v", err)
-				}
-				if len(matched) != n {
-					b.Fatalf("matched %d entities, want %d", len(matched), n)
-				}
-			}
-		})
-	}
-}
-
 // BenchmarkScoreboardWrite measures many `scoreboard players set`
 // commands.
 func BenchmarkScoreboardWrite(b *testing.B) {
@@ -494,7 +400,7 @@ func BenchmarkScoreboardList(b *testing.B) {
 					name := fmt.Sprintf("%s%d", benchObjective, o)
 					eng.World.Scoreboard.AddObjective(name, world.CriteriaDummy, "")
 					for _, e := range eng.World.Entities {
-						eng.World.Scoreboard.SetScore(exec.ScoreboardHolder(e), name, o)
+						eng.World.Scoreboard.SetScore(v1_12_2.ScoreboardHolder(e), name, o)
 					}
 				}
 				b.StartTimer()

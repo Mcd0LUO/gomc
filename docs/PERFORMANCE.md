@@ -235,7 +235,7 @@ BenchmarkScoreboardList/AllHolders                  11493200 ns/op   2585906 B/o
 **零分配**，而且规模越大越划算：排序是 n log n 次比较（每次比较算两遍平方
 距离），扫一遍是 n 次。
 
-等价的证明在 `internal/exec/selector_test.go` 里：两个实现对同一批实体给出的
+等价的证明在 `internal/version/v1_12_2/selector_resolve_test.go` 里：两个实现对同一批实体给出的
 实体**总是同一个**，包括距离相同时取先匹配到的那个。
 
 端到端那组基准（`BenchmarkSelectorScanOneHitMany`）每次迭代都要重建 8000 个

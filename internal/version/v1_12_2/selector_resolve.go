@@ -1,4 +1,4 @@
-package exec
+package v1_12_2
 
 import (
 	"fmt"
@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/Mcd0LUO/gomc/internal/ast"
+	"github.com/Mcd0LUO/gomc/internal/exec"
 	"github.com/Mcd0LUO/gomc/internal/nbt"
-	"github.com/Mcd0LUO/gomc/internal/parser"
 	"github.com/Mcd0LUO/gomc/internal/world"
 )
 
@@ -50,7 +50,7 @@ type SelectorResolver struct {
 }
 
 // Resolve returns the entities matched by the selector.
-func (r *SelectorResolver) Resolve(src *Source, sel *ast.Selector) ([]*world.Entity, error) {
+func (r *SelectorResolver) Resolve(src *exec.Source, sel *ast.Selector) ([]*world.Entity, error) {
 	if sel == nil {
 		return nil, nil
 	}
@@ -82,7 +82,7 @@ func (r *SelectorResolver) Resolve(src *Source, sel *ast.Selector) ([]*world.Ent
 		matched = onlyPlayers(matched)
 	case "r":
 		// A type argument replaces the player filter for @r.
-		if _, hasType := parser.SelectorString(sel, "type"); !hasType {
+		if _, hasType := SelectorString(sel, "type"); !hasType {
 			matched = onlyPlayers(matched)
 		}
 	}
@@ -91,7 +91,7 @@ func (r *SelectorResolver) Resolve(src *Source, sel *ast.Selector) ([]*world.Ent
 	// `Integer.parseInt` with the default as the fallback. A count that is
 	// not an integer is therefore not an error: it falls back to the
 	// default of the base.
-	limit := parser.SelectorIntDefault(sel, "c", defaultCount(sel.Base))
+	limit := SelectorIntDefault(sel, "c", defaultCount(sel.Base))
 
 	switch sel.Base {
 	case "p", "a", "e":
@@ -231,7 +231,7 @@ func (t *typeNorms) of(raw string) string {
 }
 
 // filter applies the selector's filters to the world's entities.
-func (r *SelectorResolver) filter(src *Source, sel *ast.Selector) []*world.Entity {
+func (r *SelectorResolver) filter(src *exec.Source, sel *ast.Selector) []*world.Entity {
 	// 1.12.2 checks the type argument before anything else: a type the
 	// entity registry does not know makes the whole selector match
 	// nothing, whatever the base is. The server also says the type is
@@ -240,7 +240,7 @@ func (r *SelectorResolver) filter(src *Source, sel *ast.Selector) []*world.Entit
 	// (Measured: `kill @e[type=pigzombie]` answers "Entity type
 	// 'minecraft:pigzombie' is invalid" and succeeds. The negated
 	// spelling `type=!pigzombie` gets the same note, without the `!`.)
-	if v, ok := parser.SelectorString(sel, "type"); ok {
+	if v, ok := SelectorString(sel, "type"); ok {
 		name := strings.TrimPrefix(v, "!")
 		if !world.IsRegisteredEntityType(name) {
 			namespace, key := world.EntityTypeKey(name)
@@ -265,7 +265,7 @@ func (r *SelectorResolver) filter(src *Source, sel *ast.Selector) []*world.Entit
 	typeFilter := ""
 	typeNegated := false
 	hasType := false
-	if v, ok := parser.SelectorString(sel, "type"); ok && typeFilterApplies(sel.Base) {
+	if v, ok := SelectorString(sel, "type"); ok && typeFilterApplies(sel.Base) {
 		hasType = true
 		typeNegated = strings.HasPrefix(v, "!")
 		typeFilter = world.NormalizeEntityType(strings.TrimPrefix(v, "!"))
@@ -275,24 +275,24 @@ func (r *SelectorResolver) filter(src *Source, sel *ast.Selector) []*world.Entit
 	// which is `Entity.getName`: the user name for a player — a player
 	// with a custom name is still known by its user name — and the custom
 	// name for anything else.
-	nameFilter, hasName := parser.SelectorString(sel, "name")
+	nameFilter, hasName := SelectorString(sel, "name")
 	nameNegated := strings.HasPrefix(nameFilter, "!")
 	nameFilter = strings.TrimPrefix(nameFilter, "!")
 
-	teamFilter, hasTeam := parser.SelectorString(sel, "team")
+	teamFilter, hasTeam := SelectorString(sel, "team")
 	teamNegated := strings.HasPrefix(teamFilter, "!")
 	teamFilter = strings.TrimPrefix(teamFilter, "!")
 
-	tagFilter, hasTag := parser.SelectorString(sel, "tag")
+	tagFilter, hasTag := SelectorString(sel, "tag")
 	tagNegated := strings.HasPrefix(tagFilter, "!")
 	tagFilter = strings.TrimPrefix(tagFilter, "!")
 
-	scoreFilters := parser.SelectorScoreFilters(sel)
+	scoreFilters := SelectorScoreFilters(sel)
 
 	gamemode, hasGamemode := parseGamemode(sel)
 
-	levelMax, hasLevelMax, _ := parser.SelectorInt(sel, "l")
-	levelMin, hasLevelMin, _ := parser.SelectorInt(sel, "lm")
+	levelMax, hasLevelMax, _ := SelectorInt(sel, "l")
+	levelMin, hasLevelMin, _ := SelectorInt(sel, "lm")
 
 	ref := r.referenceVec(src, sel)
 	volume, hasVolume := r.parseVolume(sel, src)
@@ -409,18 +409,18 @@ func (r *SelectorResolver) squaredDistance(ref world.Vec, e *world.Entity) float
 // It honours the `x`/`y`/`z` arguments, which override the source position.
 // 1.12.2 parses the override as an integer and then offsets X and Z by half
 // a block, because the reference is a block position.
-func (r *SelectorResolver) referenceVec(src *Source, sel *ast.Selector) world.Vec {
+func (r *SelectorResolver) referenceVec(src *exec.Source, sel *ast.Selector) world.Vec {
 	pos := src.Pos
 	if sel == nil {
 		return pos
 	}
-	if v, ok, err := parser.SelectorInt(sel, "x"); err == nil && ok {
+	if v, ok, err := SelectorInt(sel, "x"); err == nil && ok {
 		pos.X = float64(v) + 0.5
 	}
-	if v, ok, err := parser.SelectorInt(sel, "y"); err == nil && ok {
+	if v, ok, err := SelectorInt(sel, "y"); err == nil && ok {
 		pos.Y = float64(v)
 	}
-	if v, ok, err := parser.SelectorInt(sel, "z"); err == nil && ok {
+	if v, ok, err := SelectorInt(sel, "z"); err == nil && ok {
 		pos.Z = float64(v) + 0.5
 	}
 	return pos
@@ -430,7 +430,7 @@ func (r *SelectorResolver) referenceVec(src *Source, sel *ast.Selector) world.Ve
 //
 // 1.12.2 uses the source's block position, with the `x`/`y`/`z` arguments
 // overriding it as plain integers.
-func (r *SelectorResolver) referenceBlock(src *Source, sel *ast.Selector) world.Vec {
+func (r *SelectorResolver) referenceBlock(src *exec.Source, sel *ast.Selector) world.Vec {
 	pos := world.Vec{
 		X: math.Floor(src.Pos.X),
 		Y: math.Floor(src.Pos.Y),
@@ -439,13 +439,13 @@ func (r *SelectorResolver) referenceBlock(src *Source, sel *ast.Selector) world.
 	if sel == nil {
 		return pos
 	}
-	if v, ok, err := parser.SelectorInt(sel, "x"); err == nil && ok {
+	if v, ok, err := SelectorInt(sel, "x"); err == nil && ok {
 		pos.X = float64(v)
 	}
-	if v, ok, err := parser.SelectorInt(sel, "y"); err == nil && ok {
+	if v, ok, err := SelectorInt(sel, "y"); err == nil && ok {
 		pos.Y = float64(v)
 	}
-	if v, ok, err := parser.SelectorInt(sel, "z"); err == nil && ok {
+	if v, ok, err := SelectorInt(sel, "z"); err == nil && ok {
 		pos.Z = float64(v)
 	}
 	return pos
@@ -463,18 +463,18 @@ type volume struct {
 // the far end is always one block past the last block of the range. An
 // axis without a size argument counts as a size of zero, so the box
 // still covers the anchor block.
-func (r *SelectorResolver) parseVolume(sel *ast.Selector, src *Source) (world.AABB, bool) {
+func (r *SelectorResolver) parseVolume(sel *ast.Selector, src *exec.Source) (world.AABB, bool) {
 	// 1.12.2 checks whether the arguments are present, not whether
 	// they parse, so an unparsable size still builds a volume.
-	_, hasDX := parser.SelectorString(sel, "dx")
-	_, hasDY := parser.SelectorString(sel, "dy")
-	_, hasDZ := parser.SelectorString(sel, "dz")
+	_, hasDX := SelectorString(sel, "dx")
+	_, hasDY := SelectorString(sel, "dy")
+	_, hasDZ := SelectorString(sel, "dz")
 	if !hasDX && !hasDY && !hasDZ {
 		return world.AABB{}, false
 	}
-	dx := float64(parser.SelectorIntDefault(sel, "dx", 0))
-	dy := float64(parser.SelectorIntDefault(sel, "dy", 0))
-	dz := float64(parser.SelectorIntDefault(sel, "dz", 0))
+	dx := float64(SelectorIntDefault(sel, "dx", 0))
+	dy := float64(SelectorIntDefault(sel, "dy", 0))
+	dz := float64(SelectorIntDefault(sel, "dz", 0))
 	anchor := r.referenceBlock(src, sel)
 	minX, maxX := volumeAxis(anchor.X, dx)
 	minY, maxY := volumeAxis(anchor.Y, dy)
@@ -518,8 +518,8 @@ type radiusRange struct {
 // `@e[rm=-1]` does not ask for "at least one block away" but for no
 // lower bound whatsoever.
 func (r *SelectorResolver) parseRadius(sel *ast.Selector) (radiusRange, bool) {
-	maxR := parser.SelectorIntDefault(sel, "r", -1)
-	minR := parser.SelectorIntDefault(sel, "rm", -1)
+	maxR := SelectorIntDefault(sel, "r", -1)
+	minR := SelectorIntDefault(sel, "rm", -1)
 	out := radiusRange{}
 	// The bounds below -0.5 do not take part in the test.
 	if maxR >= 0 {
@@ -552,11 +552,11 @@ type angleRange struct {
 // lower bound, which is the opposite of the naming intuition but matches
 // the 1.12.2 server.
 func (r *SelectorResolver) parseRotation(sel *ast.Selector, upper, lower string) (angleRange, bool) {
-	hi, hasHi, err := parser.SelectorInt(sel, upper)
+	hi, hasHi, err := SelectorInt(sel, upper)
 	if err != nil {
 		hasHi = false
 	}
-	lo, hasLo, err := parser.SelectorInt(sel, lower)
+	lo, hasLo, err := SelectorInt(sel, lower)
 	if err != nil {
 		hasLo = false
 	}
@@ -640,7 +640,7 @@ func ScoreboardHolder(e *world.Entity) string {
 //
 // 1.12.2 spells these as `score_<objective>` and `score_<objective>_min`.
 // The objective has to exist and the entity has to have a score in it.
-func matchScores(w *world.World, e *world.Entity, filters []parser.ScoreFilter) bool {
+func matchScores(w *world.World, e *world.Entity, filters []ScoreFilter) bool {
 	holder := ScoreboardHolder(e)
 	for _, f := range filters {
 		score, ok := w.Scoreboard.Score(holder, f.Objective)
@@ -679,7 +679,7 @@ const (
 // 1.12.2 accepts the numeric id or the name, plus the one-letter
 // abbreviations, and a leading `!` negates the filter.
 func parseGamemode(sel *ast.Selector) (string, bool) {
-	v, ok := parser.SelectorString(sel, "m")
+	v, ok := SelectorString(sel, "m")
 	if !ok {
 		return "", false
 	}
@@ -791,7 +791,7 @@ func shuffle(items []*world.Entity) {
 	// keeps `@r` unpredictable while remaining reproducible when a seed
 	// is configured.
 	for i := len(items) - 1; i > 0; i-- {
-		j := randIntn(i + 1)
+		j := exec.RandIntn(i + 1)
 		items[i], items[j] = items[j], items[i]
 	}
 }

@@ -26,7 +26,7 @@ func (c *setWorldSpawnCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	if !p.More() {
 		return []ast.Arg{&ast.Coord{}}, nil
 	}
-	pos, err := p.Coord(ast.Coord{})
+	pos, err := p.CoordWith(ast.Coord{}, coordBlockPos)
 	if err != nil {
 		return nil, err
 	}
@@ -63,8 +63,8 @@ func (c *spawnPointCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 		if !ok {
 			return nil, p.Errorf("expected a target")
 		}
-		if parser.IsSelector(t.Text) || t.Text == "" {
-			sel, err := p.Selector()
+		if IsSelector(t.Text) || t.Text == "" {
+			sel, err := parseSelector(p)
 			if err != nil {
 				return nil, err
 			}
@@ -79,7 +79,7 @@ func (c *spawnPointCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	}
 	pos := ast.Coord{}
 	if p.More() {
-		parsed, err := p.CoordWith(ast.Coord{}, parser.BlockPosCentered)
+		parsed, err := p.CoordWith(ast.Coord{}, coordBlockPosCentered)
 		if err != nil {
 			return nil, err
 		}

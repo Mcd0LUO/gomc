@@ -365,11 +365,34 @@
 - **比较时把 UUID 归一化**：真服每次开服给的实体 UUID 都不一样，所以期望文件里
   留着真的 UUID（好看），比的是占位符——不然含 UUID 的用例自己跟自己对不上。
 
+### 内部结构
+
+- **1.12.2 特有的规则搬回版本包**。`internal/parser` 和 `internal/exec` 是
+  **版本无关的原语层**，但有几处 1.12.2 的规则住错了地方：
+
+  | 搬走的东西 | 从 | 到 |
+  |---|---|---|
+  | 坐标的上下界和六套坐标规格 | `internal/parser/parser.go` | `internal/version/v1_12_2/coords.go` |
+  | 选择器的语法（选项名、参数形状） | `internal/parser/selector.go` | `internal/version/v1_12_2/selector.go` |
+  | 选择器的语义（每个过滤器、结果的排序） | `internal/exec/selector.go` | `internal/version/v1_12_2/selector_resolve.go` |
+  | 计分板用什么名字跟踪实体 | `internal/exec/selector.go` | `internal/version/v1_12_2/selector_resolve.go` |
+
+  搬完之后 `internal/parser` 里**没有一条 1.12.2 的规则**了，`internal/exec`
+  也不再知道选择器长什么样——它只提供执行引擎的通用能力。
+
+  两个「猜着来」的方法删掉了：`parser.Parser.Coord`（它默认用方块位置
+  的上下界）和 `parser.Parser.Selector`（它默认用 1.12.2 的选择器语法）。
+  现在分别用 `CoordWith(base, spec)` 和版本包自己的 `parseSelector(p)`——
+  **坐标和选择器都是版本规则，版本包说了算**。
+
+  **行为没变**：这是纯粹的搬家，测试、golden 和探针基线一行没改。
+
 ### 计划中
 
 - **版本抽象**：`internal/world` 里那 1500 行 1.12.2 专属数据（方块名、物品名、
   实体类型、gamerule 默认值）挡在"加第二个版本"的路上，得挪进
-  `internal/version/v1_12_2`。
+  `internal/version/v1_12_2`。（选择器和坐标的规则已经搬完了，见上面的
+  「内部结构」。）
 - **`ast.Kind` 这套接口是死的**：22 处实现、0 处消费，真正分派靠类型断言；留着
   只会让人以为可以按 kind 写分派。
 - **19 条命令的用法行**是 gomc 自己写的，和语言文件里的原文不一致（`/fill`、

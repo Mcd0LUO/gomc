@@ -24,7 +24,7 @@ func (c *setBlockCmd) Usage() string {
 
 // Parse implements exec.Handler.
 func (c *setBlockCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
-	pos, err := p.Coord(ast.Coord{})
+	pos, err := p.CoordWith(ast.Coord{}, coordBlockPos)
 	if err != nil {
 		return nil, err
 	}
@@ -191,11 +191,11 @@ func (c *fillCmd) Usage() string {
 
 // Parse implements exec.Handler.
 func (c *fillCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
-	from, err := p.Coord(ast.Coord{})
+	from, err := p.CoordWith(ast.Coord{}, coordBlockPos)
 	if err != nil {
 		return nil, err
 	}
-	to, err := p.Coord(ast.Coord{})
+	to, err := p.CoordWith(ast.Coord{}, coordBlockPos)
 	if err != nil {
 		return nil, err
 	}
@@ -513,7 +513,7 @@ func (c *blockDataCmd) Usage() string { return "/blockdata <x> <y> <z> <nbt>" }
 
 // Parse implements exec.Handler.
 func (c *blockDataCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
-	pos, err := p.Coord(ast.Coord{})
+	pos, err := p.CoordWith(ast.Coord{}, coordBlockPos)
 	if err != nil {
 		return nil, err
 	}
@@ -563,7 +563,7 @@ func (c *testForBlockCmd) Usage() string {
 
 // Parse implements exec.Handler.
 func (c *testForBlockCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
-	pos, err := p.Coord(ast.Coord{})
+	pos, err := p.CoordWith(ast.Coord{}, coordBlockPos)
 	if err != nil {
 		return nil, err
 	}

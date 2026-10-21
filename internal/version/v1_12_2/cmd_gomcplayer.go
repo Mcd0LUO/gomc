@@ -42,7 +42,7 @@ func (c *gomcPlayerCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	}
 	args := []ast.Arg{&ast.StringArg{Value: name}}
 	if p.More() {
-		pos, err := p.Coord(ast.Coord{})
+		pos, err := p.CoordWith(ast.Coord{}, coordBlockPos)
 		if err != nil {
 			return nil, err
 		}

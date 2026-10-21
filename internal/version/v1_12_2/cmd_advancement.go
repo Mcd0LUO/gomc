@@ -439,7 +439,7 @@ func resolveAdvancementPlayer(ctx *exec.Context, arg ast.Arg) (*world.Entity, er
 		}
 		return p, nil
 	case *ast.Selector:
-		resolver := &exec.SelectorResolver{World: ctx.World}
+		resolver := &SelectorResolver{World: ctx.World}
 		entities, err := resolver.Resolve(ctx.Source, t)
 		selectorWarnings(ctx, resolver)
 		if err != nil {

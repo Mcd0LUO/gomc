@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	"github.com/Mcd0LUO/gomc/internal/exec"
-	"github.com/Mcd0LUO/gomc/internal/parser"
 	"github.com/Mcd0LUO/gomc/internal/world"
 )
 
@@ -22,15 +21,15 @@ func expandMessage(ctx *exec.Context, msg string) (string, error) {
 	tokens := strings.Fields(msg)
 	parts := make([]string, 0, len(tokens))
 	for _, tok := range tokens {
-		if !parser.IsSelector(tok) {
+		if !IsSelector(tok) {
 			parts = append(parts, tok)
 			continue
 		}
-		sel, err := parser.ParseSelector(tok)
+		sel, err := ParseSelector(tok)
 		if err != nil {
 			return "", exec.Errorf("%v", err)
 		}
-		resolver := &exec.SelectorResolver{World: ctx.World}
+		resolver := &SelectorResolver{World: ctx.World}
 		entities, err := resolver.Resolve(ctx.Source, sel)
 		selectorWarnings(ctx, resolver)
 		if err != nil {

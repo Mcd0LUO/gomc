@@ -19,10 +19,10 @@
                         cmd/gomc            CLI 入口
                             |
                             v
-              version/v1_12_2              1.12.2 方言：命令表、execute 语法、selector 选项
+              version/v1_12_2              1.12.2 方言：命令表、execute 语法、坐标规则、selector
                             |
                             v
-                    exec                 执行引擎：上下文、selector 解析、函数栈、tick
+                    exec                 执行引擎：上下文、函数栈、tick
                     |    \
                     v     v
              world      ast/lexer/parser   世界状态 / 词法 / 语法 / AST
@@ -45,10 +45,10 @@
 | `internal/nbt` | NBT 值模型、SNBT 解析、二进制编解码、子集匹配 | `Value`, `Compound`, `ParseSNBT` |
 | `internal/lexer` | 把一行命令切成 token（尊重引号/花括号） | `Token`, `Tokenize` |
 | `internal/ast` | 命令的抽象语法树节点 | `Node` 家族 |
-| `internal/parser` | token -> AST，带列号错误 | `Parser`, `Error` |
+| `internal/parser` | token -> AST，带列号错误（**版本无关的原语**） | `Parser`, `Error` |
 | `internal/world` | 世界状态：方块、实体、玩家、scoreboard、tag、gamerule | `World`, `Scoreboard` |
-| `internal/exec` | 执行引擎：上下文栈、selector、函数调用栈、tick 循环 | `Engine`, `Context` |
-| `internal/version/v1_12_2` | 1.12.2 语义：命令实现、execute 旧语法、selector 选项集 | `Register` |
+| `internal/exec` | 执行引擎：上下文栈、函数调用栈、tick 循环 | `Engine`, `Context` |
+| `internal/version/v1_12_2` | 1.12.2 语义：命令实现、execute 旧语法、坐标规则、selector 语法与语义 | `Register` |
 | `internal/difftest` | 对拍层：用例、观察记录、golden 比对 | `Case`, `Observation`, `Diff` |
 | `internal/cli` | CLI 子命令分发 | `Run` |
 | `cmd/gomc` | CLI | `main` |
@@ -251,5 +251,6 @@ error[Syntax]: data/functions/ns/f.mcfunction:12:5
 不要新建独立顶层包。
 - **加一个版本**：新建 `version/v1_13` 等，实现同样的注册入口；
   `exec` 层只暴露版本无关的原语。
-- **加一类 selector 过滤**：在 `exec/selector.go` 增加 filter 构造，
-  版本特有的选项名由 `version` 包提供映射。
+- **加一类 selector 过滤**：在 `version/v1_12_2/selector_resolve.go` 增加 filter 构造。
+  选择器的**规则**（选项名、每个选项的语义、结果的排序）都是版本特有的，
+  所以它们住在版本包里；`exec` 只提供执行引擎的通用能力。

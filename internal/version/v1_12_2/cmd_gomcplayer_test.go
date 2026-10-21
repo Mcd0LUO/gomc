@@ -33,7 +33,7 @@ func TestGomcPlayerBringsAPlayerIntoTheWorld(t *testing.T) {
 		t.Error("the entity is not marked as a player")
 	}
 	// The scoreboard tracks a player under its name, not under a UUID.
-	if got := exec.ScoreboardHolder(p); got != "Steve" {
+	if got := ScoreboardHolder(p); got != "Steve" {
 		t.Errorf("the scoreboard holder is %q, want %q", got, "Steve")
 	}
 }

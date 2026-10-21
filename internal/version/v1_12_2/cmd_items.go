@@ -33,8 +33,8 @@ func (c *clearCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 		if !ok {
 			return nil, p.Errorf("expected a target")
 		}
-		if parser.IsSelector(t.Text) {
-			sel, err := p.Selector()
+		if IsSelector(t.Text) {
+			sel, err := parseSelector(p)
 			if err != nil {
 				return nil, err
 			}
@@ -199,7 +199,7 @@ func (c *replaceItemCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 		return nil, p.Errorf("expected entity or block, got %q", mode)
 	}
 	if mode == "block" {
-		pos, err := p.Coord(ast.Coord{})
+		pos, err := p.CoordWith(ast.Coord{}, coordBlockPos)
 		if err != nil {
 			return nil, err
 		}
@@ -455,8 +455,8 @@ func (c *xpCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 		if !ok {
 			return nil, p.Errorf("expected a player")
 		}
-		if parser.IsSelector(t.Text) {
-			sel, err := p.Selector()
+		if IsSelector(t.Text) {
+			sel, err := parseSelector(p)
 			if err != nil {
 				return nil, err
 			}
