@@ -28,7 +28,7 @@ type timeCmd struct{}
 func (c *timeCmd) Name() string { return "time" }
 
 // Usage implements exec.Handler.
-func (c *timeCmd) Usage() string { return "/time <set|add|query> <value>" }
+func (c *timeCmd) Usage() string { return usageLine("time") }
 
 // Parse implements exec.Handler.
 func (c *timeCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {

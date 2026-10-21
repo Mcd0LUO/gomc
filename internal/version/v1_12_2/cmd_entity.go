@@ -18,7 +18,7 @@ type summonCmd struct{}
 func (c *summonCmd) Name() string { return "summon" }
 
 // Usage implements exec.Handler.
-func (c *summonCmd) Usage() string { return "/summon <entityname> [x] [y] [z] [dataTag]" }
+func (c *summonCmd) Usage() string { return usageLine("summon") }
 
 // Parse implements exec.Handler.
 func (c *summonCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
@@ -173,7 +173,7 @@ type killCmd struct{}
 func (c *killCmd) Name() string { return "kill" }
 
 // Usage implements exec.Handler.
-func (c *killCmd) Usage() string { return "/kill [<target>]" }
+func (c *killCmd) Usage() string { return usageLine("kill") }
 
 // Parse implements exec.Handler.
 func (c *killCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
@@ -216,7 +216,7 @@ type entityDataCmd struct{}
 func (c *entityDataCmd) Name() string { return "entitydata" }
 
 // Usage implements exec.Handler.
-func (c *entityDataCmd) Usage() string { return "/entitydata <target> <nbt>" }
+func (c *entityDataCmd) Usage() string { return usageLine("entitydata") }
 
 // Parse implements exec.Handler.
 func (c *entityDataCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
@@ -259,7 +259,7 @@ type testForCmd struct{}
 func (c *testForCmd) Name() string { return "testfor" }
 
 // Usage implements exec.Handler.
-func (c *testForCmd) Usage() string { return "/testfor <target> [<nbt>]" }
+func (c *testForCmd) Usage() string { return usageLine("testfor") }
 
 // Parse implements exec.Handler.
 func (c *testForCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
@@ -316,7 +316,7 @@ type tpCmd struct {
 func (c *tpCmd) Name() string { return c.name }
 
 // Usage implements exec.Handler.
-func (c *tpCmd) Usage() string { return "/" + c.name + " <target> <x> <y> <z>" }
+func (c *tpCmd) Usage() string { return usageLine(c.name) }
 
 // Parse implements exec.Handler.
 func (c *tpCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {

@@ -18,9 +18,7 @@ type setBlockCmd struct{}
 func (c *setBlockCmd) Name() string { return "setblock" }
 
 // Usage implements exec.Handler.
-func (c *setBlockCmd) Usage() string {
-	return "/setblock <x> <y> <z> <block> [dataValue|state] [oldBlockHandling] [dataTag]"
-}
+func (c *setBlockCmd) Usage() string { return usageLine("setblock") }
 
 // Parse implements exec.Handler.
 func (c *setBlockCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
@@ -185,9 +183,7 @@ type fillCmd struct{}
 func (c *fillCmd) Name() string { return "fill" }
 
 // Usage implements exec.Handler.
-func (c *fillCmd) Usage() string {
-	return "/fill <x1> <y1> <z1> <x2> <y2> <z2> <block> [dataValue|state] [oldBlockHandling] [dataTag]"
-}
+func (c *fillCmd) Usage() string { return usageLine("fill") }
 
 // Parse implements exec.Handler.
 func (c *fillCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
@@ -509,7 +505,7 @@ type blockDataCmd struct{}
 func (c *blockDataCmd) Name() string { return "blockdata" }
 
 // Usage implements exec.Handler.
-func (c *blockDataCmd) Usage() string { return "/blockdata <x> <y> <z> <nbt>" }
+func (c *blockDataCmd) Usage() string { return usageLine("blockdata") }
 
 // Parse implements exec.Handler.
 func (c *blockDataCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
@@ -557,9 +553,7 @@ type testForBlockCmd struct{}
 func (c *testForBlockCmd) Name() string { return "testforblock" }
 
 // Usage implements exec.Handler.
-func (c *testForBlockCmd) Usage() string {
-	return "/testforblock <x> <y> <z> <block> [dataValue|-1|state|*] [dataTag]"
-}
+func (c *testForBlockCmd) Usage() string { return usageLine("testforblock") }
 
 // Parse implements exec.Handler.
 func (c *testForBlockCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {

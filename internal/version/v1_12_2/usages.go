@@ -139,6 +139,18 @@ func commandUsage(key string) string {
 	return commandUsages[key]
 }
 
+// usageLine returns the usage line of a command.
+//
+// The text comes from the language file, so it is **the same line the
+// server prints**. A key the language file does not know falls back to a
+// generic line, so a command always has something to show.
+func usageLine(key string) string {
+	if u := commandUsage(key); u != "" {
+		return u
+	}
+	return "/" + key
+}
+
 // usageError returns a parse error that carries the usage line of the
 // command that was being parsed.
 //

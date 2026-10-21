@@ -29,7 +29,7 @@ type gomcPlayerCmd struct{}
 func (c *gomcPlayerCmd) Name() string { return "gomcplayer" }
 
 // Usage implements exec.Handler.
-func (c *gomcPlayerCmd) Usage() string { return "/gomcplayer <name> [x] [y] [z]" }
+func (c *gomcPlayerCmd) Usage() string { return usageLine("gomcplayer") }
 
 // Parse implements exec.Handler.
 //

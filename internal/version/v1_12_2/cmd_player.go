@@ -19,7 +19,7 @@ type gamemodeCmd struct{}
 func (c *gamemodeCmd) Name() string { return "gamemode" }
 
 // Usage implements exec.Handler.
-func (c *gamemodeCmd) Usage() string { return "/gamemode <mode> [<target>]" }
+func (c *gamemodeCmd) Usage() string { return usageLine("gamemode") }
 
 // Parse implements exec.Handler.
 func (c *gamemodeCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
@@ -113,7 +113,7 @@ type giveCmd struct{}
 func (c *giveCmd) Name() string { return "give" }
 
 // Usage implements exec.Handler.
-func (c *giveCmd) Usage() string { return "/give <target> <item> [<count>] [<data>] [<nbt>]" }
+func (c *giveCmd) Usage() string { return usageLine("give") }
 
 // giveMaxStackSize is the size of a stack of items.
 //
@@ -243,9 +243,7 @@ type effectCmd struct{}
 func (c *effectCmd) Name() string { return "effect" }
 
 // Usage implements exec.Handler.
-func (c *effectCmd) Usage() string {
-	return "/effect <player> <effect> [seconds] [amplifier] [hideParticles] OR /effect <player> clear"
-}
+func (c *effectCmd) Usage() string { return usageLine("effect") }
 
 // The defaults and limits of the `/effect` arguments.
 //
@@ -563,7 +561,7 @@ type defaultGameModeCmd struct{}
 func (c *defaultGameModeCmd) Name() string { return "defaultgamemode" }
 
 // Usage implements exec.Handler.
-func (c *defaultGameModeCmd) Usage() string { return "/defaultgamemode <mode>" }
+func (c *defaultGameModeCmd) Usage() string { return usageLine("defaultgamemode") }
 
 // Parse implements exec.Handler.
 func (c *defaultGameModeCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {

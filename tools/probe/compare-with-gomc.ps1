@@ -17,13 +17,14 @@
 #>
 param(
 	[string]$Case = '',
-	[string]$Golden = ''
+	[string]$Golden = '',
+	[int]$Setup = 0
 )
 
 $ErrorActionPreference = 'Stop'
 
 if (-not $Case -or -not $Golden) {
-	Write-Host "用法：.\compare-with-gomc.ps1 -Case <用例.case> -Golden <用例.difftest.golden>" -ForegroundColor Yellow
+	Write-Host "用法：.\compare-with-gomc.ps1 -Case <用例.case> -Golden <用例.difftest.golden> [-Setup <setup 步数>]" -ForegroundColor Yellow
 	exit 2
 }
 
@@ -74,6 +75,12 @@ foreach ($l in $goldenLines) {
 	if ($l -match '^step \d+: ') { $gomc += ,@(); continue }
 	if ($l -match '^  error: (.*)$') { $gomc[-1] += $Matches[1]; continue }
 	if ($l -match '^  feedback: (.*)$') { $gomc[-1] += $Matches[1]; continue }
+}
+
+# difftest 的 setup 步在真服那边没有对应的命令（那是 gomc 自己搭场景用的），
+# 所以比的时候跳过前面那几步。
+if ($Setup -gt 0) {
+	$gomc = $gomc[$Setup..($gomc.Count - 1)]
 }
 
 Write-Host "用例命令 $($cmds.Count) 条，真服输出 $($server.Count) 段，gomc $($gomc.Count) 步" -ForegroundColor Cyan

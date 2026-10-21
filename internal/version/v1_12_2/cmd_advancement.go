@@ -29,7 +29,7 @@ type advancementCmd struct{}
 func (c *advancementCmd) Name() string { return "advancement" }
 
 // Usage implements exec.Handler.
-func (c *advancementCmd) Usage() string { return "/advancement <grant|revoke|test> <player>" }
+func (c *advancementCmd) Usage() string { return usageLine("advancement") }
 
 // Parse implements exec.Handler.
 //

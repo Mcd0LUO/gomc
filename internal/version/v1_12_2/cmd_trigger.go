@@ -19,7 +19,7 @@ type triggerCmd struct{}
 func (c *triggerCmd) Name() string { return "trigger" }
 
 // Usage implements exec.Handler.
-func (c *triggerCmd) Usage() string { return "/trigger <objective> <add|set> <value>" }
+func (c *triggerCmd) Usage() string { return usageLine("trigger") }
 
 // Parse implements exec.Handler.
 //

@@ -41,7 +41,7 @@ type functionCmd struct{}
 func (c *functionCmd) Name() string { return "function" }
 
 // Usage implements exec.Handler.
-func (c *functionCmd) Usage() string { return "/function <id> [if|unless <target>]" }
+func (c *functionCmd) Usage() string { return usageLine("function") }
 
 // Parse implements exec.Handler.
 func (c *functionCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
@@ -116,7 +116,7 @@ type reloadCmd struct{}
 func (c *reloadCmd) Name() string { return "reload" }
 
 // Usage implements exec.Handler.
-func (c *reloadCmd) Usage() string { return "/reload" }
+func (c *reloadCmd) Usage() string { return usageLine("reload") }
 
 // Parse implements exec.Handler.
 func (c *reloadCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {

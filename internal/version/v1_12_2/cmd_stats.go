@@ -46,7 +46,7 @@ type statsCmd struct{}
 func (c *statsCmd) Name() string { return "stats" }
 
 // Usage implements exec.Handler.
-func (c *statsCmd) Usage() string { return "/stats <entity|block> ..." }
+func (c *statsCmd) Usage() string { return usageLine("stats") }
 
 // statsArgs is the parsed shape of a `/stats` command.
 //

@@ -23,7 +23,7 @@ type clearCmd struct{}
 func (c *clearCmd) Name() string { return "clear" }
 
 // Usage implements exec.Handler.
-func (c *clearCmd) Usage() string { return "/clear [<target>] [<item> [<data> [<maxCount>]] [<nbt>]]" }
+func (c *clearCmd) Usage() string { return usageLine("clear") }
 
 // Parse implements exec.Handler.
 func (c *clearCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
@@ -183,9 +183,7 @@ type replaceItemCmd struct{}
 func (c *replaceItemCmd) Name() string { return "replaceitem" }
 
 // Usage implements exec.Handler.
-func (c *replaceItemCmd) Usage() string {
-	return "/replaceitem <entity|block> <target> <slot> <item> [<count>]"
-}
+func (c *replaceItemCmd) Usage() string { return usageLine("replaceitem") }
 
 // Parse implements exec.Handler.
 func (c *replaceItemCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
@@ -351,7 +349,7 @@ type enchantCmd struct{}
 func (c *enchantCmd) Name() string { return "enchant" }
 
 // Usage implements exec.Handler.
-func (c *enchantCmd) Usage() string { return "/enchant <target> <enchantment> [<level>]" }
+func (c *enchantCmd) Usage() string { return usageLine("enchant") }
 
 // Parse implements exec.Handler.
 func (c *enchantCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
@@ -441,7 +439,7 @@ type xpCmd struct{}
 func (c *xpCmd) Name() string { return "xp" }
 
 // Usage implements exec.Handler.
-func (c *xpCmd) Usage() string { return "/xp <amount> [<player>]" }
+func (c *xpCmd) Usage() string { return usageLine("xp") }
 
 // Parse implements exec.Handler.
 func (c *xpCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {

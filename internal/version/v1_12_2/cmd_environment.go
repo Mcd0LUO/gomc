@@ -26,7 +26,7 @@ type weatherCmd struct{}
 func (c *weatherCmd) Name() string { return "weather" }
 
 // Usage implements exec.Handler.
-func (c *weatherCmd) Usage() string { return "/weather <clear|rain|thunder> [<duration>]" }
+func (c *weatherCmd) Usage() string { return usageLine("weather") }
 
 // Parse implements exec.Handler.
 func (c *weatherCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
@@ -103,7 +103,7 @@ type toggleDownfallCmd struct{}
 func (c *toggleDownfallCmd) Name() string { return "toggledownfall" }
 
 // Usage implements exec.Handler.
-func (c *toggleDownfallCmd) Usage() string { return "/toggledownfall" }
+func (c *toggleDownfallCmd) Usage() string { return usageLine("downfall") }
 
 // Parse implements exec.Handler.
 func (c *toggleDownfallCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
@@ -134,7 +134,7 @@ type difficultyCmd struct{}
 func (c *difficultyCmd) Name() string { return "difficulty" }
 
 // Usage implements exec.Handler.
-func (c *difficultyCmd) Usage() string { return "/difficulty <difficulty>" }
+func (c *difficultyCmd) Usage() string { return usageLine("difficulty") }
 
 // Parse implements exec.Handler.
 func (c *difficultyCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
@@ -213,7 +213,7 @@ type seedCmd struct{}
 func (c *seedCmd) Name() string { return "seed" }
 
 // Usage implements exec.Handler.
-func (c *seedCmd) Usage() string { return "/seed" }
+func (c *seedCmd) Usage() string { return usageLine("seed") }
 
 // Parse implements exec.Handler.
 func (c *seedCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
@@ -236,7 +236,7 @@ type idleTimeoutCmd struct{}
 func (c *idleTimeoutCmd) Name() string { return "setidletimeout" }
 
 // Usage implements exec.Handler.
-func (c *idleTimeoutCmd) Usage() string { return "/setidletimeout <minutes>" }
+func (c *idleTimeoutCmd) Usage() string { return usageLine("setidletimeout") }
 
 // Parse implements exec.Handler.
 func (c *idleTimeoutCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {

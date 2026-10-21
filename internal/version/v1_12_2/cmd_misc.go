@@ -18,7 +18,7 @@ type listCmd struct{}
 func (c *listCmd) Name() string { return "list" }
 
 // Usage implements exec.Handler.
-func (c *listCmd) Usage() string { return "/list" }
+func (c *listCmd) Usage() string { return usageLine("players") }
 
 // Parse implements exec.Handler.
 func (c *listCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
@@ -51,7 +51,7 @@ type helpCmd struct{}
 func (c *helpCmd) Name() string { return "help" }
 
 // Usage implements exec.Handler.
-func (c *helpCmd) Usage() string { return "/help [<command>]" }
+func (c *helpCmd) Usage() string { return usageLine("help") }
 
 // Parse implements exec.Handler.
 func (c *helpCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
@@ -94,7 +94,7 @@ type debugCmd struct{}
 func (c *debugCmd) Name() string { return "debug" }
 
 // Usage implements exec.Handler.
-func (c *debugCmd) Usage() string { return "/debug <start|stop>" }
+func (c *debugCmd) Usage() string { return usageLine("debug") }
 
 // Parse implements exec.Handler.
 func (c *debugCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {

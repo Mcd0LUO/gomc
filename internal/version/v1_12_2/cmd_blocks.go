@@ -34,9 +34,7 @@ type cloneCmd struct{}
 func (c *cloneCmd) Name() string { return "clone" }
 
 // Usage implements exec.Handler.
-func (c *cloneCmd) Usage() string {
-	return "/clone <x1> <y1> <z1> <x2> <y2> <z2> <x> <y> <z> [maskMode] [cloneMode]"
-}
+func (c *cloneCmd) Usage() string { return usageLine("clone") }
 
 // Parse implements exec.Handler.
 func (c *cloneCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
@@ -225,9 +223,7 @@ type testForBlocksCmd struct{}
 func (c *testForBlocksCmd) Name() string { return "testforblocks" }
 
 // Usage implements exec.Handler.
-func (c *testForBlocksCmd) Usage() string {
-	return "/testforblocks <x1> <y1> <z1> <x2> <y2> <z2> <x> <y> <z> [mode]"
-}
+func (c *testForBlocksCmd) Usage() string { return usageLine("compare") }
 
 // Parse implements exec.Handler.
 func (c *testForBlocksCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {

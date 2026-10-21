@@ -65,9 +65,7 @@ type executeCmd struct{}
 func (c *executeCmd) Name() string { return "execute" }
 
 // Usage implements exec.Handler.
-func (c *executeCmd) Usage() string {
-	return "/execute <entity> <x> <y> <z> [detect <x2> <y2> <z2> <block> <dataValue>] <command>"
-}
+func (c *executeCmd) Usage() string { return usageLine("execute") }
 
 // Parse implements exec.Handler.
 func (c *executeCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {

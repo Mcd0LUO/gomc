@@ -32,9 +32,7 @@ type spreadPlayersCmd struct{}
 func (c *spreadPlayersCmd) Name() string { return "spreadplayers" }
 
 // Usage implements exec.Handler.
-func (c *spreadPlayersCmd) Usage() string {
-	return "/spreadplayers <x> <z> <spreadDistance> <maxRange> <respectTeams true|false> <player ...>"
-}
+func (c *spreadPlayersCmd) Usage() string { return usageLine("spreadplayers") }
 
 // The limits 1.12.2 puts on the centre of the spread.
 //

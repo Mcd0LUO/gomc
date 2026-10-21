@@ -18,7 +18,7 @@ type sayCmd struct{}
 func (c *sayCmd) Name() string { return "say" }
 
 // Usage implements exec.Handler.
-func (c *sayCmd) Usage() string { return "/say <message>" }
+func (c *sayCmd) Usage() string { return usageLine("say") }
 
 // Parse implements exec.Handler.
 func (c *sayCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
@@ -59,7 +59,7 @@ func (c *tellCmd) Name() string {
 }
 
 // Usage implements exec.Handler.
-func (c *tellCmd) Usage() string { return "/tell <player> <message>" }
+func (c *tellCmd) Usage() string { return usageLine("message") }
 
 // Parse implements exec.Handler.
 func (c *tellCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
@@ -94,7 +94,7 @@ type tellRawCmd struct{}
 func (c *tellRawCmd) Name() string { return "tellraw" }
 
 // Usage implements exec.Handler.
-func (c *tellRawCmd) Usage() string { return "/tellraw <target> <raw json message>" }
+func (c *tellRawCmd) Usage() string { return usageLine("tellraw") }
 
 // Parse implements exec.Handler.
 func (c *tellRawCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
@@ -138,7 +138,7 @@ type gameruleCmd struct{}
 func (c *gameruleCmd) Name() string { return "gamerule" }
 
 // Usage implements exec.Handler.
-func (c *gameruleCmd) Usage() string { return "/gamerule <rule> [<value>]" }
+func (c *gameruleCmd) Usage() string { return usageLine("gamerule") }
 
 // Parse implements exec.Handler.
 func (c *gameruleCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {

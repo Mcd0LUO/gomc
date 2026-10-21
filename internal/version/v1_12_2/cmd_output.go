@@ -25,9 +25,7 @@ type titleCmd struct{}
 func (c *titleCmd) Name() string { return "title" }
 
 // Usage implements exec.Handler.
-func (c *titleCmd) Usage() string {
-	return "/title <target> <title|subtitle|actionbar|clear|reset|times> [<arguments>]"
-}
+func (c *titleCmd) Usage() string { return usageLine("title") }
 
 // Parse implements exec.Handler.
 func (c *titleCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
@@ -126,9 +124,7 @@ type playSoundCmd struct{}
 func (c *playSoundCmd) Name() string { return "playsound" }
 
 // Usage implements exec.Handler.
-func (c *playSoundCmd) Usage() string {
-	return "/playsound <sound> <source> <target> [<x> <y> <z>] [<volume>] [<pitch>] [<minimumVolume>]"
-}
+func (c *playSoundCmd) Usage() string { return usageLine("playsound") }
 
 // Parse implements exec.Handler.
 func (c *playSoundCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
@@ -218,7 +214,7 @@ type stopSoundCmd struct{}
 func (c *stopSoundCmd) Name() string { return "stopsound" }
 
 // Usage implements exec.Handler.
-func (c *stopSoundCmd) Usage() string { return "/stopsound <target> [<source>] [<sound>]" }
+func (c *stopSoundCmd) Usage() string { return usageLine("stopsound") }
 
 // Parse implements exec.Handler.
 func (c *stopSoundCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
@@ -287,9 +283,7 @@ type particleCmd struct{}
 func (c *particleCmd) Name() string { return "particle" }
 
 // Usage implements exec.Handler.
-func (c *particleCmd) Usage() string {
-	return "/particle <name> <x> <y> <z> <xd> <yd> <zd> <speed> [count] [mode] [player] [params]"
-}
+func (c *particleCmd) Usage() string { return usageLine("particle") }
 
 // Parse implements exec.Handler.
 func (c *particleCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
@@ -491,7 +485,7 @@ type meCmd struct{}
 func (c *meCmd) Name() string { return "me" }
 
 // Usage implements exec.Handler.
-func (c *meCmd) Usage() string { return "/me <action>" }
+func (c *meCmd) Usage() string { return usageLine("me") }
 
 // Parse implements exec.Handler.
 func (c *meCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {

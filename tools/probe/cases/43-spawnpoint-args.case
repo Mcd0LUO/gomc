@@ -1,0 +1,43 @@
+# /spawnpoint 和 /setworldspawn 的**参数布局**。
+#
+# 1.12.2 的 `CommandSpawnpoint.execute` 是这样的：
+#
+#   if (args.length > 1 && args.length < 4) throw new ExceptionUsage(...);
+#   player = args.length > 0 ? getPlayer(args[0]) : 执行的玩家;
+#   pos    = args.length > 3 ? parseBlockPos(args, 1, true) : player.getChunkCoordinates();
+#
+# 所以：
+#   - **2~3 个参数是用法错误**——位置不能不给玩家就单独给；
+#   - **0 个参数**用执行命令的玩家，**1 个参数**用那个玩家，两者的位置都是
+#     **玩家自己站的地方**（`getChunkCoordinates` 是 locX、locY+0.5、locZ，
+#     再取整）；
+#   - **4 个参数**才读位置，而且只改**第一个**匹配到的玩家。
+#
+# `/setworldspawn` 一样要数参数：0 个用执行命令的玩家，3 个给位置，
+# 其它都是用法错误。
+#
+# 控制台不是玩家，所以 0 个参数的那两条会被拒绝。
+#
+# bot: Steve
+
+--- console ---
+say Q01
+spawnpoint
+say Q02
+spawnpoint Steve
+say Q03
+spawnpoint Steve 1 2 3
+say Q04
+spawnpoint Steve 1 2
+say Q05
+spawnpoint 1 2 3
+say Q06
+spawnpoint Steve 1 2 3 4
+say Q07
+setworldspawn
+say Q08
+setworldspawn 1 2 3
+say Q09
+setworldspawn 1 2
+say Q10
+say Q11

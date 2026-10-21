@@ -31,9 +31,7 @@ type worldBorderCmd struct{}
 func (c *worldBorderCmd) Name() string { return "worldborder" }
 
 // Usage implements exec.Handler.
-func (c *worldBorderCmd) Usage() string {
-	return "/worldborder <set|add|center|damage|warning|get> [...]"
-}
+func (c *worldBorderCmd) Usage() string { return usageLine("worldborder") }
 
 // Parse implements exec.Handler.
 func (c *worldBorderCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {

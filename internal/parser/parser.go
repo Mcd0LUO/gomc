@@ -114,6 +114,13 @@ func (p *Parser) Line() int { return p.line }
 // More reports whether unconsumed tokens remain.
 func (p *Parser) More() bool { return p.pos < len(p.toks) }
 
+// Count returns the number of tokens that are left.
+//
+// It is how a command counts its arguments, the way the server counts the
+// strings of a command line: some commands look at the number before they
+// look at the arguments themselves.
+func (p *Parser) Count() int { return len(p.toks) - p.pos }
+
 // Peek returns the next token without consuming it.
 func (p *Parser) Peek() (lexer.Token, bool) {
 	if p.pos >= len(p.toks) {

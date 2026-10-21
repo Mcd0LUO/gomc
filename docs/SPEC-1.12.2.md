@@ -998,6 +998,53 @@ The block at 10, 4, 10 is Air (expected: Stone)
 好几个状态共用同一个数据值，这时真服比的是真实状态、gomc 比的是
 默认状态，可能不一样。单个属性的方块（`stone`、`wool`、`wheat`…）是准的。
 
+### 6.8 出生点两条命令的参数布局 [验][读]
+
+`/spawnpoint` 和 `/setworldspawn` **先数参数，再看参数**。1.12.2 的
+`CommandSpawnpoint.execute` 是这样的：
+
+```java
+if (args.length > 1 && args.length < 4) throw new ExceptionUsage("commands.spawnpoint.usage");
+player = args.length > 0 ? getPlayer(args[0]) : 执行的玩家;
+pos    = args.length > 3 ? parseBlockPos(args, 1, true) : player.getChunkCoordinates();
+```
+
+所以：
+
+| 参数个数 | `/spawnpoint` | `/setworldspawn` |
+|---|---|---|
+| 0 | 执行的玩家，位置是**他自己站的地方** | 执行的玩家，位置是他自己站的地方 |
+| 1 | 那个玩家，位置是**他自己站的地方** | 用法错误 |
+| 2、3 | **用法错误** | 用法错误 |
+| 3（`/setworldspawn`） | — | 给位置 |
+| 4 及以上 | 玩家 + 位置，**多出来的参数被忽略** | 用法错误 |
+
+「自己站的地方」是 `EntityPlayer.getChunkCoordinates()`：
+`new BlockPosition(locX, locY + 0.5, locZ)`，再取整——所以 Y 是玩家脚下
+那一块的 Y，X 和 Z 是他正上方那一块。
+
+**控制台不是玩家**，所以 0 个参数的那两条会被拒绝：
+`You must specify which player you wish to perform this action on.`
+（`commands.generic.player.unspecified`）。
+
+真服实测（2026-10-21，探针用例 `43-spawnpoint-args`；机器人登录在
+(7.5, 4.0, 4.5)）：
+
+| 命令 | 真服输出 |
+|---|---|
+| `spawnpoint` | `You must specify which player you wish to perform this action on.` |
+| `spawnpoint Steve` | `Set Steve's spawn point to (7, 4, 4)` |
+| `spawnpoint Steve 1 2 3` | `Set Steve's spawn point to (1, 2, 3)` |
+| `spawnpoint Steve 1 2` | `Usage: /spawnpoint [player] [<x> <y> <z>]` |
+| `spawnpoint 1 2 3` | `Usage: /spawnpoint [player] [<x> <y> <z>]` |
+| `spawnpoint Steve 1 2 3 4` | `Set Steve's spawn point to (1, 2, 3)`（第 4 个参数被忽略） |
+| `setworldspawn` | `You must specify which player you wish to perform this action on.` |
+| `setworldspawn 1 2 3` | `Set the world spawn point to (1, 2, 3)` |
+| `setworldspawn 1 2` | `Usage: /setworldspawn [<x> <y> <z>]` |
+
+`/spawnpoint` 改的**只有第一个**匹配到的玩家：1.12.2 走的是
+`PlayerSelector.getPlayer`，它给回**一个**玩家，不是整个列表。
+
 ---
 
 ## 7. 时间

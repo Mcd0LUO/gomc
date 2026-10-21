@@ -23,9 +23,7 @@ type scoreboardCmd struct{}
 func (c *scoreboardCmd) Name() string { return "scoreboard" }
 
 // Usage implements exec.Handler.
-func (c *scoreboardCmd) Usage() string {
-	return "/scoreboard (objectives|players|teams) ..."
-}
+func (c *scoreboardCmd) Usage() string { return usageLine("scoreboard") }
 
 // Parse implements exec.Handler.
 func (c *scoreboardCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
