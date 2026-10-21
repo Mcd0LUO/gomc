@@ -1,0 +1,24 @@
+# `~` 相对坐标的**边界**是「基准 + 偏移」，不是光看偏移。
+#
+# 1.12.2 读相对坐标用 `CommandAbstract.b(base, text, min, max, flag)`，
+# 越界的时候报的是**和**：
+#
+#   d1 = 基准 + 偏移;
+#   if (d1 < min) throw tooSmall(d1); if (d1 > max) throw tooBig(d1);
+#
+# 基准是 `ICommandListener.getChunkCoordinates()`，也就是**方块位置**。
+# 所以 `~ ~300 ~` 在基准 y=4 的地方是 304，超出方块位置的 [0, 256]，
+# 报的是 304.00 而不是 300.00。
+#
+# 这条**不能逐字对拍**：真服把同一条消息报两遍（发给盔甲架一遍、控制台
+# 一遍），还跟一句 "All invocations failed"，gomc 的 execute 报错只有一遍
+# ——那是 execute 报错格式的另一个缺口，不在这一条。gomc 自己的措辞由
+# `internal/version/v1_12_2/coords_test.go` 钉住。
+
+--- console ---
+say U01
+summon armor_stand 7.5 4.6 4.5
+say U02
+execute @e[type=armor_stand] ~ ~ ~ setblock ~ ~300 ~ stone
+say U03
+say U04

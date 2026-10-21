@@ -376,7 +376,20 @@ func (e *Engine) functionLoadError(id, path string, line int, name, source strin
 //
 // It returns a parse error for unknown commands and for malformed
 // arguments, both carrying the source position.
+//
+// A relative coordinate is measured from the origin; use ParseCommandAt
+// for a command that runs somewhere else.
 func (e *Engine) ParseCommand(line string, lineNo int) (*ast.Command, error) {
+	return e.ParseCommandAt(line, lineNo, parser.CoordBase{})
+}
+
+// ParseCommandAt parses a command line that runs at the given base into
+// an AST command.
+//
+// The base is the block position the command runs at: 1.12.2 measures a
+// relative coordinate against it, and the bounds of the coordinate are
+// checked on the sum of the base and the offset.
+func (e *Engine) ParseCommandAt(line string, lineNo int, base parser.CoordBase) (*ast.Command, error) {
 	trimmed := strings.TrimSpace(line)
 	if trimmed == "" {
 		return nil, &parser.Error{Kind: parser.KindSyntax, Msg: "empty command", Line: lineNo, Col: 1}
@@ -416,7 +429,7 @@ func (e *Engine) ParseCommand(line string, lineNo int) (*ast.Command, error) {
 		return nil, err
 	}
 	rest := toks[1:]
-	p := parser.New(rest, lineNo, trimmed)
+	p := parser.NewAt(rest, lineNo, trimmed, base)
 	args, err := handler.Parse(p)
 	if err != nil {
 		perr := parser.Positioned(err, lineNo, 1, 0)
@@ -473,11 +486,24 @@ func (e *Engine) Execute(cmd *ast.Command, src *Source) (int, error) {
 
 // ExecuteLine parses and runs a single command line.
 func (e *Engine) ExecuteLine(line string, lineNo int, src *Source) (int, error) {
-	cmd, err := e.ParseCommand(line, lineNo)
+	cmd, err := e.ParseCommandAt(line, lineNo, coordBaseOf(src))
 	if err != nil {
 		return 0, err
 	}
 	return e.Execute(cmd, src)
+}
+
+// coordBaseOf returns the position a relative coordinate is measured from
+// under the given source.
+//
+// It is the block position of the source, which is what 1.12.2 measures a
+// relative coordinate against.
+func coordBaseOf(src *Source) parser.CoordBase {
+	if src == nil {
+		return parser.CoordBase{}
+	}
+	b := src.RelativeBase()
+	return parser.CoordBase{X: b.X, Y: b.Y, Z: b.Z}
 }
 
 // RunFunction executes a loaded function under the given source.

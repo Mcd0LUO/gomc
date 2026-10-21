@@ -1,0 +1,15 @@
+# case: relative base
+step 1: gomcplayer Steve 0 4 0
+  count: 1
+  feedback: Successfully created the player Steve
+step 2: tp Steve 7.5 4 4.5
+  count: 1
+  feedback: Teleported Steve to 7.5, 4.0, 4.5
+step 3: execute @a ~ ~ ~ setblock ~2.6 ~ ~ dirt
+  count: 1
+  feedback: Block placed
+step 4: testforblock 9 4 4 dirt
+  count: 1
+  feedback: Successfully found the block at 9, 4, 4
+step 5: testforblock 10 4 4 dirt
+  error: The block at 10, 4, 4 is Air (expected: Dirt)

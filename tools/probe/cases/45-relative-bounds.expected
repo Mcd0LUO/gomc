@@ -1,0 +1,8 @@
+[Server] U01
+Object successfully summoned
+[Server] U02
+[Armor Stand: The number you have entered (304.00) is too big, it must be at most 256]
+The number you have entered (304.00) is too big, it must be at most 256
+All invocations failed: 'setblock ~ ~300 ~ stone'
+[Server] U03
+[Server] U04

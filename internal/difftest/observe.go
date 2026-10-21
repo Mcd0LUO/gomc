@@ -82,9 +82,9 @@ func Run(root string, c *Case) (*Observation, error) {
 		// function, so those failures are collected by the engine.
 		for _, e := range engine.TakeErrors() {
 			if res.Err == "" {
-				res.Err = e.Error()
+				res.Err = errorMessage(e)
 			} else {
-				res.Err += "; " + e.Error()
+				res.Err += "; " + errorMessage(e)
 			}
 		}
 		obs.Steps = append(obs.Steps, res)

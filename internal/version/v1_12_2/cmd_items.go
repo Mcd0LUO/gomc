@@ -197,7 +197,7 @@ func (c *replaceItemCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 		return nil, p.Errorf("expected entity or block, got %q", mode)
 	}
 	if mode == "block" {
-		pos, err := p.CoordWith(ast.Coord{}, coordBlockPos)
+		pos, err := p.CoordWith(coordBlockPos)
 		if err != nil {
 			return nil, err
 		}

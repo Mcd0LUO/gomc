@@ -1,0 +1,31 @@
+# `~` 相对坐标的**基准**。
+#
+# 1.12.2 读相对坐标用 `CommandAbstract.b(base, text, min, max, flag)`，
+# 而 base 是 `ICommandListener.getChunkCoordinates()`——一个**方块位置**：
+#
+#   - 控制台是 (0, 0, 0)；
+#   - `/execute` 的子命令是 execute 位置的方块位置
+#     （`CommandListenerWrapper` 里的 `new BlockPosition(vec3d)`）。
+#
+# 所以带小数的偏移会差一格：基准是 7.5 时 7.5+2.6 = 10.1 落在第 10 格，
+# 基准是方块位置 7 时 7+2.6 = 9.6 落在第 9 格。
+#
+# 目标选**玩家**（机器人），不选盔甲架：真服把子命令的输出也给目标一份，
+# 盔甲架收不到聊天就进日志（"[Armor Stand: Block placed]"），玩家的那份
+# 进的是聊天、不进日志——所以玩家这一条两边是同一行，可以逐字比。
+#
+# 机器人一登录的位置每次都不同，所以第一条命令先把它 `/tp` 到 (7.5, 4, 4.5)。
+#
+# bot: Steve
+
+--- console ---
+say V01
+tp Steve 7.5 4 4.5
+say V02
+execute @a ~ ~ ~ setblock ~2.6 ~ ~ dirt
+say V03
+testforblock 9 4 4 dirt
+say V04
+testforblock 10 4 4 dirt
+say V05
+say V06

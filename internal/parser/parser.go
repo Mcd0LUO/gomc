@@ -101,11 +101,38 @@ type Parser struct {
 	// src is the original text of the source line, used to map byte
 	// offsets to columns.
 	src string
+	// base is the position a relative coordinate is measured from.
+	//
+	// 1.12.2 reads a relative coordinate against the **block position**
+	// the command runs at (`ICommandListener.getChunkCoordinates()`),
+	// and the bounds of the coordinate are checked on the sum of the
+	// base and the offset.
+	base CoordBase
+}
+
+// CoordBase is the position a relative coordinate is measured from.
+//
+// The three numbers are the block position the command runs at: 1.12.2
+// measures a relative coordinate against the block position of the
+// listener, so the base is a whole number.
+type CoordBase struct {
+	// X, Y and Z are the coordinates of the base.
+	X, Y, Z float64
 }
 
 // New creates a parser over the given tokens.
+//
+// A relative coordinate is measured from the origin.
 func New(toks []lexer.Token, line int, src string) *Parser {
 	return &Parser{toks: toks, line: line, src: src}
+}
+
+// NewAt creates a parser over the given tokens, with the position a
+// relative coordinate is measured from.
+//
+// The base is the block position the command runs at.
+func NewAt(toks []lexer.Token, line int, src string, base CoordBase) *Parser {
+	return &Parser{toks: toks, line: line, src: src, base: base}
 }
 
 // Line returns the source line the tokens came from.
@@ -305,43 +332,31 @@ type CoordSpec struct {
 
 // CoordWith reads a coordinate triple with the given spec.
 //
-// Relative parts are resolved against base.
-func (p *Parser) CoordWith(base ast.Coord, spec CoordSpec) (*ast.Coord, error) {
-	x, rx, err := p.coordComponent(spec.X)
+// A relative part stays an **offset** in the result: the base it is
+// measured from is only known when the command runs, so the caller
+// resolves it then.
+func (p *Parser) CoordWith(spec CoordSpec) (*ast.Coord, error) {
+	x, rx, err := p.coordComponent(spec.X, p.base.X)
 	if err != nil {
 		return nil, err
 	}
-	y, ry, err := p.coordComponent(spec.Y)
+	y, ry, err := p.coordComponent(spec.Y, p.base.Y)
 	if err != nil {
 		return nil, err
 	}
-	z, rz, err := p.coordComponent(spec.Z)
+	z, rz, err := p.coordComponent(spec.Z, p.base.Z)
 	if err != nil {
 		return nil, err
 	}
-	out := &ast.Coord{RelativeX: rx, RelativeY: ry, RelativeZ: rz}
-	if rx {
-		out.X = base.X + x
-	} else {
-		out.X = x
-	}
-	if ry {
-		out.Y = base.Y + y
-	} else {
-		out.Y = y
-	}
-	if rz {
-		out.Z = base.Z + z
-	} else {
-		out.Z = z
-	}
-	return out, nil
+	return &ast.Coord{X: x, Y: y, Z: z, RelativeX: rx, RelativeY: ry, RelativeZ: rz}, nil
 }
 
 // coordComponent parses one coordinate component, reporting whether it was
 // relative (prefixed with '~') and whether it is within the bounds the
 // spec puts on that axis.
-func (p *Parser) coordComponent(axis CoordAxis) (float64, bool, error) {
+//
+// base is the position a relative component is measured from.
+func (p *Parser) coordComponent(axis CoordAxis, base float64) (float64, bool, error) {
 	t, ok := p.Next()
 	if !ok {
 		return 0, false, p.Errorf("expected a coordinate but reached end of command")
@@ -372,13 +387,21 @@ func (p *Parser) coordComponent(axis CoordAxis) (float64, bool, error) {
 	if axis.Center && !rel && !strings.Contains(raw, ".") {
 		f += 0.5
 	}
-	if f < axis.Min {
-		return 0, rel, p.ErrorAt(t, "The number you have entered (%s) is too small, it must be at least %s",
-			fmt.Sprintf("%.2f", f), formatCoordBound(axis.Min))
+	// A relative coordinate is measured from the position the command
+	// runs at, and 1.12.2 checks the bounds of the **sum**: the message
+	// of a coordinate that is out of bounds shows the sum, not the
+	// offset.
+	value := f
+	if rel {
+		value += base
 	}
-	if f > axis.Max {
+	if value < axis.Min {
+		return 0, rel, p.ErrorAt(t, "The number you have entered (%s) is too small, it must be at least %s",
+			fmt.Sprintf("%.2f", value), formatCoordBound(axis.Min))
+	}
+	if value > axis.Max {
 		return 0, rel, p.ErrorAt(t, "The number you have entered (%s) is too big, it must be at most %s",
-			fmt.Sprintf("%.2f", f), formatCoordBound(axis.Max))
+			fmt.Sprintf("%.2f", value), formatCoordBound(axis.Max))
 	}
 	return f, rel, nil
 }

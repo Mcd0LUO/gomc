@@ -1259,9 +1259,9 @@ Stone Slab`）——它给的是**配方**不是物品。
 |---|---|
 | 实体落地后的精确位置 | 真服有重力，gomc 不模拟（见 2.5） |
 | 函数内命令失败何时报错 | 真实服务端有的报有的不报，gomc 统一报 |
-| `~` 相对坐标的基准是**方块位置** | gomc 用的是执行者的**精确**位置（见 12.1） |
+| `/execute` 的输出多打一份 | Paper 把子命令的输出也给目标一份，gomc 只打控制台那份（见 12.2） |
 
-### 12.1 `~` 相对坐标的基准还没对齐
+### 12.1 `~` 相对坐标的基准（2026-10-21 对齐）
 
 1.12.2 读相对坐标用 `CommandAbstract.b(base, text, min, max, flag)`，而
 **base 是 `ICommandListener.getChunkCoordinates()`**——那是一个
@@ -1274,22 +1274,37 @@ Stone Slab`）——它给的是**配方**不是物品。
 | `/execute` 的子命令 | `CommandListenerWrapper` 里的 `new BlockPosition(vec3d)`，也就是 execute 位置的**方块位置** |
 | 其它实体 | `Entity.getChunkCoordinates()`，实体的方块位置 |
 
-gomc 现在用的是 `ctx.Source.Pos`——**执行者的精确位置**。两边在下面
-这些情况下会差一格：
+**边界的检查也是「基准 + 偏移」**：越界的时候报的是**和**，不是光看偏移。
 
-- 玩家**跳在半空**（y 不是整数）：真服的 Y 基准是 `⌊y+0.5⌋`，gomc 是 y。
-  `/setblock ~ ~-1 ~` 在 y=4.6 时，真服落在 4、gomc 落在 3。
-- 相对坐标带**小数**：`~0.6` 在 x=7.5 时，真服是 7+0.6 → 7，gomc 是
-  7.5+0.6 → 8。
-- `/execute` 里的 `~`：真服的基准是 execute 位置的方块位置，gomc 用的是
-  实体的精确位置。
+gomc 现在量的就是**方块位置**（`exec.Source.RelativeBase()`，也就是执行位置的
+取整），所以：
 
-**为什么还没改**：gomc 的 `exec.Source` 只有「执行者实体」和「执行位置」
-两个字段，**分不出「玩家直接执行」和「execute 的子命令」**——真服这两种
-情况的基准不一样（玩家的 Y 基准多 0.5，execute 的基准是 execute 位置），
-所以要么给 `Source` 加一个字段，要么把基准的算法下沉到 `exec`。这要动到
-执行引擎的接口，得先能在真服上量出差别（探针需要一个站在半空或者用小数
-相对坐标的机器人）。
+- 相对坐标带**小数**时不再差一格：x=7.5 时 `~2.6` 落在第 9 格
+  （7+2.6 = 9.6），不是第 10 格（7.5+2.6 = 10.1）；
+- `/execute` 里的 `~` 量的是 execute 位置的方块位置 ✓；
+- 越界的消息报的是和：`~ ~300 ~` 在基准 y=4 的地方是
+  `The number you have entered (304.00) is too big, it must be at most 256`，
+  不是 300.00。
+
+真服实测（2026-10-21，探针用例 `44-relative-base` 和 `45-relative-bounds`）：
+土落在 **9, 4, 4**，第 10 格是空气；越界那条报的是 **304.00**。
+
+**还差的一点**：玩家的 Y 基准是 `⌊y+0.5⌋`，不是 `⌊y⌋`——玩家跳在半空时差半格。
+gomc 现在没有「玩家直接执行命令」这个情形（函数都是从控制台跑的），所以碰不到；
+哪天有了，得把玩家那一档的基准单独算。
+
+### 12.2 `/execute` 的输出多打一份（Paper 私有）
+
+真服（Paper）把 `/execute` 的子命令输出**打两遍**：一遍给目标（聊天里，日志上是
+`[Steve: Block placed]`），一遍给控制台（`Block placed`）。
+
+**vanilla 1.12.2 只有一遍**：`CommandExecute` 调的是
+`CommandBlockListenerAbstract.executeCommand(listener, command)`，输出只发给
+listener（也就是控制台）。多出来的那一遍是 Paper 的补丁带来的——它传了一个
+`ProxiedNativeCommandSender`，输出同时进了 Bukkit 那一侧。
+
+gomc 建模的是 vanilla 的行为（一遍）。所以 `/execute` 的那一步**不能逐字对拍**：
+探针用例 `44-relative-base` 的 4 步里，那一步差的就是这多出来的一行。
 
 ### 实体 UUID 已经建模（2026-10-21 改）
 

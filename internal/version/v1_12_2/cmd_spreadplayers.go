@@ -125,7 +125,7 @@ func (c *spreadPlayersCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 func (c *spreadPlayersCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	// The centre is relative to the position of the command, which is only
 	// known when the command runs.
-	base := ctx.Source.Pos.BlockPos()
+	base := ctx.Source.RelativeBase().BlockPos()
 	centreX, err := resolveSpreadCentre(args[0].(*ast.StringArg).Value, float64(base.X))
 	if err != nil {
 		return 0, err

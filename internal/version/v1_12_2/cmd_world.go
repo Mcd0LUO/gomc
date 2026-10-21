@@ -22,7 +22,7 @@ func (c *setBlockCmd) Usage() string { return usageLine("setblock") }
 
 // Parse implements exec.Handler.
 func (c *setBlockCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
-	pos, err := p.CoordWith(ast.Coord{}, coordBlockPos)
+	pos, err := p.CoordWith(coordBlockPos)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +96,7 @@ func isDataValue(text string) bool {
 // Run implements exec.Handler.
 func (c *setBlockCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	posArg := args[0].(*ast.Coord)
-	pos := resolveRelative(*posArg, ctx.Source.Pos).BlockPos()
+	pos := resolveRelative(*posArg, ctx.Source.RelativeBase()).BlockPos()
 	ref := args[1].(*ast.BlockRef)
 	mode := args[3].(*ast.StringArg).Value
 	var data *nbt.Compound
@@ -187,11 +187,11 @@ func (c *fillCmd) Usage() string { return usageLine("fill") }
 
 // Parse implements exec.Handler.
 func (c *fillCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
-	from, err := p.CoordWith(ast.Coord{}, coordBlockPos)
+	from, err := p.CoordWith(coordBlockPos)
 	if err != nil {
 		return nil, err
 	}
-	to, err := p.CoordWith(ast.Coord{}, coordBlockPos)
+	to, err := p.CoordWith(coordBlockPos)
 	if err != nil {
 		return nil, err
 	}
@@ -340,8 +340,8 @@ func nbtErrorMessage(err error) string {
 
 // Run implements exec.Handler.
 func (c *fillCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
-	from := resolveRelative(*args[0].(*ast.Coord), ctx.Source.Pos).BlockPos()
-	to := resolveRelative(*args[1].(*ast.Coord), ctx.Source.Pos).BlockPos()
+	from := resolveRelative(*args[0].(*ast.Coord), ctx.Source.RelativeBase()).BlockPos()
+	to := resolveRelative(*args[1].(*ast.Coord), ctx.Source.RelativeBase()).BlockPos()
 	ref := args[2].(*ast.BlockRef)
 	dataValue := args[3].(*fillDataValue)
 	mode := args[4].(*ast.StringArg).Value
@@ -509,7 +509,7 @@ func (c *blockDataCmd) Usage() string { return usageLine("blockdata") }
 
 // Parse implements exec.Handler.
 func (c *blockDataCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
-	pos, err := p.CoordWith(ast.Coord{}, coordBlockPos)
+	pos, err := p.CoordWith(coordBlockPos)
 	if err != nil {
 		return nil, err
 	}
@@ -528,7 +528,7 @@ func (c *blockDataCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 
 // Run implements exec.Handler.
 func (c *blockDataCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
-	pos := resolveRelative(*args[0].(*ast.Coord), ctx.Source.Pos).BlockPos()
+	pos := resolveRelative(*args[0].(*ast.Coord), ctx.Source.RelativeBase()).BlockPos()
 	// 1.12.2 refuses a position whose chunk is not loaded.
 	if !ctx.World.IsLoaded(pos) {
 		return 0, exec.Errorf("Cannot change block outside of the world")
@@ -557,7 +557,7 @@ func (c *testForBlockCmd) Usage() string { return usageLine("testforblock") }
 
 // Parse implements exec.Handler.
 func (c *testForBlockCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
-	pos, err := p.CoordWith(ast.Coord{}, coordBlockPos)
+	pos, err := p.CoordWith(coordBlockPos)
 	if err != nil {
 		return nil, err
 	}
@@ -591,7 +591,7 @@ func (c *testForBlockCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 
 // Run implements exec.Handler.
 func (c *testForBlockCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
-	pos := resolveRelative(*args[0].(*ast.Coord), ctx.Source.Pos).BlockPos()
+	pos := resolveRelative(*args[0].(*ast.Coord), ctx.Source.RelativeBase()).BlockPos()
 	ref := args[1].(*ast.BlockRef)
 	data := args[2].(*blockDataArg)
 	// 1.12.2 refuses a position whose chunk is not loaded, before it

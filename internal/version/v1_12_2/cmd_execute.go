@@ -74,7 +74,7 @@ func (c *executeCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 		return nil, err
 	}
 	// The coordinates are relative to the target entity, not the source.
-	pos, err := p.CoordWith(ast.Coord{}, coordLoose)
+	pos, err := p.CoordWith(coordLoose)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func (c *executeCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 		//
 		// Parsing them against the execute coordinates would apply the
 		// execution offset twice.
-		dp, err := p.CoordWith(ast.Coord{}, coordLoose)
+		dp, err := p.CoordWith(coordLoose)
 		if err != nil {
 			return nil, err
 		}
@@ -134,6 +134,11 @@ func (c *executeCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	// The target entity becomes the *executor* of the sub-command, so the
 	// sub-command's output is prefixed with the entity's name, and `@s`
 	// inside it refers to that entity.
+	//
+	// The sub-command runs at the block the execute position points at:
+	// 1.12.2 wraps the listener in a `CommandListenerWrapper` whose
+	// block position is the one of the execute position, and a relative
+	// coordinate of the sub-command is measured against it.
 	total := 0
 	for _, e := range entities {
 		pos := resolveRelative(a.Value.pos, e.Pos)

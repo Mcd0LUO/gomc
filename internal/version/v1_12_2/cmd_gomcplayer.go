@@ -42,7 +42,7 @@ func (c *gomcPlayerCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	}
 	args := []ast.Arg{&ast.StringArg{Value: name}}
 	if p.More() {
-		pos, err := p.CoordWith(ast.Coord{}, coordBlockPos)
+		pos, err := p.CoordWith(coordBlockPos)
 		if err != nil {
 			return nil, err
 		}
@@ -69,7 +69,7 @@ func (c *gomcPlayerCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	// The position is the one of the command unless it is given.
 	pos := ctx.Source.Pos
 	if len(args) > 1 {
-		pos = resolveRelative(*args[1].(*ast.Coord), ctx.Source.Pos)
+		pos = resolveRelative(*args[1].(*ast.Coord), ctx.Source.RelativeBase())
 	}
 
 	player, ok := ctx.World.EntityTypes.NewEntity("player", "")

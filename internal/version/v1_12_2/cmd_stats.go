@@ -235,7 +235,7 @@ func runStatsBlock(ctx *exec.Context, spec *statsArgs) (int, error) {
 		return 0, exec.Errorf("Invalid parameters")
 	}
 	// The position is parsed only after that.
-	pos, err := statsCoord(spec.pos, ctx.Source.Pos)
+	pos, err := statsCoord(spec.pos, ctx.Source.RelativeBase())
 	if err != nil {
 		return 0, err
 	}

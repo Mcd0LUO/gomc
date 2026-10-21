@@ -52,6 +52,21 @@ func (s *Source) WithPos(pos world.Vec) *Source {
 	return cp
 }
 
+// RelativeBase returns the position a relative coordinate is measured
+// from.
+//
+// 1.12.2 reads a relative coordinate against
+// `ICommandListener.getChunkCoordinates()`, and that is always a **block
+// position**: the console is at (0, 0, 0), and the command of an
+// `/execute` at the block the execute position points at.
+//
+// The block position of the source is that position, so the base is the
+// block the command runs at.
+func (s *Source) RelativeBase() world.Vec {
+	p := s.Pos.BlockPos()
+	return world.Vec{X: float64(p.X), Y: float64(p.Y), Z: float64(p.Z)}
+}
+
 // WithEntity returns a copy of the source executed by entity.
 func (s *Source) WithEntity(e *world.Entity) *Source {
 	cp := s.Clone()

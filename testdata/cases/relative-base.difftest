@@ -1,0 +1,20 @@
+# `~` 相对坐标的基准。
+#
+# 1.12.2 读相对坐标用 `CommandAbstract.b(base, text, min, max, flag)`，
+# 而 base 是 `ICommandListener.getChunkCoordinates()`——一个**方块位置**。
+# 控制台的是 (0, 0, 0)，`/execute` 的子命令的是 execute 位置的方块位置。
+#
+# 带小数的偏移会差一格：基准是 7.5 时 7.5+2.6 = 10.1 落在第 10 格，
+# 基准是方块位置 7 时 7+2.6 = 9.6 落在第 9 格。
+#
+# 和探针用例 44-relative-base 一一对应。
+name: relative base
+
+setup:
+  gomcplayer Steve 0 4 0
+
+run:
+  tp Steve 7.5 4 4.5
+  execute @a ~ ~ ~ setblock ~2.6 ~ ~ dirt
+  testforblock 9 4 4 dirt
+  testforblock 10 4 4 dirt

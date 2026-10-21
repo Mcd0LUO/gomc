@@ -28,7 +28,7 @@ func (c *summonCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	}
 	pos := ast.Coord{}
 	if p.More() {
-		parsed, err := p.CoordWith(ast.Coord{}, coordSummon)
+		parsed, err := p.CoordWith(coordSummon)
 		if err != nil {
 			return nil, err
 		}
@@ -324,7 +324,7 @@ func (c *tpCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	if err != nil {
 		return nil, err
 	}
-	pos, err := p.CoordWith(ast.Coord{}, coordTp)
+	pos, err := p.CoordWith(coordTp)
 	if err != nil {
 		return nil, err
 	}

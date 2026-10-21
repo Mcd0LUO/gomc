@@ -431,11 +431,7 @@ func (r *SelectorResolver) referenceVec(src *exec.Source, sel *ast.Selector) wor
 // 1.12.2 uses the source's block position, with the `x`/`y`/`z` arguments
 // overriding it as plain integers.
 func (r *SelectorResolver) referenceBlock(src *exec.Source, sel *ast.Selector) world.Vec {
-	pos := world.Vec{
-		X: math.Floor(src.Pos.X),
-		Y: math.Floor(src.Pos.Y),
-		Z: math.Floor(src.Pos.Z),
-	}
+	pos := src.RelativeBase()
 	if sel == nil {
 		return pos
 	}

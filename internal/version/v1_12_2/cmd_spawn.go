@@ -34,7 +34,7 @@ func (c *setWorldSpawnCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 		// empty here.
 		return []ast.Arg{nil}, nil
 	case 3:
-		pos, err := p.CoordWith(ast.Coord{}, coordBlockPosCentered)
+		pos, err := p.CoordWith(coordBlockPosCentered)
 		if err != nil {
 			return nil, err
 		}
@@ -59,7 +59,7 @@ func (c *setWorldSpawnCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		}
 		pos = spawnChunkPos(ctx.Source.Entity)
 	} else {
-		pos = resolveRelative(*posArg, ctx.Source.Pos).BlockPos()
+		pos = resolveRelative(*posArg, ctx.Source.RelativeBase()).BlockPos()
 	}
 	ctx.World.Spawn = pos
 	ctx.Engine.Feedback = append(ctx.Engine.Feedback,
@@ -105,7 +105,7 @@ func (c *spawnPointCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 		if err != nil {
 			return nil, err
 		}
-		pos, err := p.CoordWith(ast.Coord{}, coordBlockPosCentered)
+		pos, err := p.CoordWith(coordBlockPosCentered)
 		if err != nil {
 			return nil, err
 		}
@@ -166,7 +166,7 @@ func (c *spawnPointCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		// stands.
 		pos = spawnChunkPos(p)
 	} else {
-		pos = resolveRelative(*posArg, ctx.Source.Pos).BlockPos()
+		pos = resolveRelative(*posArg, ctx.Source.RelativeBase()).BlockPos()
 	}
 	ctx.World.PlayerSpawns[p.PlayerName] = pos
 	// The message names the player whose spawn point was set, not the

@@ -388,6 +388,20 @@
 
   探针用例 `43-spawnpoint-args` 在真服上录了基线，对拍 **9/9 逐字一致**。
 
+- **`~` 相对坐标的基准改成**方块位置**。1.12.2 读相对坐标用的是
+  `ICommandListener.getChunkCoordinates()`，那是一个**方块位置**；gomc 之前
+  用的是执行者的**精确位置**。带小数的偏移因此会差一格：
+  - x=7.5 时 `~2.6`，真服落在第 9 格（7+2.6 = 9.6），gomc 落在第 10 格
+    （7.5+2.6 = 10.1）；
+  - `/execute` 里的 `~` 量的是 execute 位置的方块位置。
+  **边界的检查也是「基准 + 偏移」**：`~ ~300 ~` 在基准 y=4 的地方报的是
+  `The number you have entered (304.00) is too big, it must be at most 256`，
+  不是 300.00。
+
+  探针用例 `44-relative-base` 和 `45-relative-bounds` 在真服上录了基线；
+  回归由 `internal/version/v1_12_2/coords_test.go` 钉住。
+  规格记在 SPEC 第 12.1 节。
+
 ### 内部结构
 
 - **1.12.2 特有的规则搬回版本包**。`internal/parser` 和 `internal/exec` 是
@@ -419,11 +433,11 @@
 - **`ast.Kind` 这套接口是死的**：22 处实现、0 处消费，真正分派靠类型断言；留着
   只会让人以为可以按 kind 写分派。
 - **命令的用法行**已经全部改成查语言文件那张表（见上面的「修复」）。
-- **`~` 相对坐标的基准**：真服用的是执行者的**方块位置**
-  （`ICommandListener.getChunkCoordinates()`），gomc 用的是**精确位置**。
-  玩家跳在半空、或者相对坐标带小数时会差一格。修它要给 `exec.Source` 加
-  一个字段（分得出「玩家直接执行」和「execute 子命令」），细节记在
-  [`docs/SPEC-1.12.2.md`](docs/SPEC-1.12.2.md) 第 12.1 节。
+- **`~` 相对坐标的基准**：已经改成方块位置（见上面的「修复」）。还差玩家的
+  那一档（Y 基准多 0.5），gomc 现在没有「玩家直接执行命令」这个情形。
+- **`/execute` 的输出多打一份**：Paper 把子命令的输出也给目标一份
+  （`[Steve: Block placed]`），vanilla 只有控制台那一份。gomc 建模的是
+  vanilla 的行为，所以 execute 的那一步不能逐字对拍——细节见 SPEC 第 12.2 节。
 
 ## [0.1.0] - 2026-10-20
 

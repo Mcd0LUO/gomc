@@ -1,0 +1,15 @@
+UUID of player Steve is 5627dd98-e6be-3c21-b8a8-e92344183641
+Steve[/127.0.0.1:16114] logged in with entity id 1 at ([probe]7.5, 4.0, -3.5)
+[Server] V01
+Teleported Steve to 7.5, 4.0, 4.5
+[Server] V02
+[Steve: Block placed]
+Block placed
+[Server] V03
+Successfully found the block at 9, 4, 4
+[Server] V04
+The block at 10, 4, 4 is Air (expected: Dirt)
+[Server] V05
+[Server] V06
+Steve lost connection: Server closed
+Steve left the game

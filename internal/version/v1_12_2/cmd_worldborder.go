@@ -120,7 +120,7 @@ func (c *worldBorderCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		}
 		// 1.12.2 centres the border on the middle of a block, so a
 		// whole coordinate is moved by half a block.
-		base := ctx.Source.Pos.BlockPos()
+		base := ctx.Source.RelativeBase().BlockPos()
 		x, err := centerCoord(rest[0], float64(base.X)+0.5)
 		if err != nil {
 			return 0, err

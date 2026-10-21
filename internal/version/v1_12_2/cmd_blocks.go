@@ -40,7 +40,7 @@ func (c *cloneCmd) Usage() string { return usageLine("clone") }
 func (c *cloneCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	corners := make([]*ast.Coord, 0, 3)
 	for i := 0; i < 3; i++ {
-		pos, err := p.CoordWith(ast.Coord{}, coordBlockPos)
+		pos, err := p.CoordWith(coordBlockPos)
 		if err != nil {
 			return nil, err
 		}
@@ -115,9 +115,9 @@ func (c *cloneCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 // Run implements exec.Handler.
 func (c *cloneCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	srcMin, srcMax := orderCorners(
-		resolveRelative(*args[0].(*ast.Coord), ctx.Source.Pos).BlockPos(),
-		resolveRelative(*args[1].(*ast.Coord), ctx.Source.Pos).BlockPos())
-	dst := resolveRelative(*args[2].(*ast.Coord), ctx.Source.Pos).BlockPos()
+		resolveRelative(*args[0].(*ast.Coord), ctx.Source.RelativeBase()).BlockPos(),
+		resolveRelative(*args[1].(*ast.Coord), ctx.Source.RelativeBase()).BlockPos())
+	dst := resolveRelative(*args[2].(*ast.Coord), ctx.Source.RelativeBase()).BlockPos()
 	mask := args[3].(*ast.StringArg).Value
 	clone := args[4].(*ast.StringArg).Value
 	filter := args[5].(*ast.BlockRef)
@@ -229,7 +229,7 @@ func (c *testForBlocksCmd) Usage() string { return usageLine("compare") }
 func (c *testForBlocksCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	corners := make([]*ast.Coord, 0, 3)
 	for i := 0; i < 3; i++ {
-		pos, err := p.CoordWith(ast.Coord{}, coordBlockPos)
+		pos, err := p.CoordWith(coordBlockPos)
 		if err != nil {
 			return nil, err
 		}
@@ -257,9 +257,9 @@ func (c *testForBlocksCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 // Run implements exec.Handler.
 func (c *testForBlocksCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	srcMin, srcMax := orderCorners(
-		resolveRelative(*args[0].(*ast.Coord), ctx.Source.Pos).BlockPos(),
-		resolveRelative(*args[1].(*ast.Coord), ctx.Source.Pos).BlockPos())
-	dst := resolveRelative(*args[2].(*ast.Coord), ctx.Source.Pos).BlockPos()
+		resolveRelative(*args[0].(*ast.Coord), ctx.Source.RelativeBase()).BlockPos(),
+		resolveRelative(*args[1].(*ast.Coord), ctx.Source.RelativeBase()).BlockPos())
+	dst := resolveRelative(*args[2].(*ast.Coord), ctx.Source.RelativeBase()).BlockPos()
 	mode := args[3].(*ast.StringArg).Value
 
 	sizeX, sizeY, sizeZ := regionSizes(srcMin, srcMax)
