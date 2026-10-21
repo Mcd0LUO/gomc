@@ -1259,6 +1259,37 @@ Stone Slab`）——它给的是**配方**不是物品。
 |---|---|
 | 实体落地后的精确位置 | 真服有重力，gomc 不模拟（见 2.5） |
 | 函数内命令失败何时报错 | 真实服务端有的报有的不报，gomc 统一报 |
+| `~` 相对坐标的基准是**方块位置** | gomc 用的是执行者的**精确**位置（见 12.1） |
+
+### 12.1 `~` 相对坐标的基准还没对齐
+
+1.12.2 读相对坐标用 `CommandAbstract.b(base, text, min, max, flag)`，而
+**base 是 `ICommandListener.getChunkCoordinates()`**——那是一个
+`BlockPosition`，也就是**取整过的方块位置**：
+
+| 谁在执行 | 真服的基准 |
+|---|---|
+| 控制台 | `BlockPosition.ZERO`，也就是 (0, 0, 0) |
+| 玩家 | `EntityPlayer.getChunkCoordinates()`，也就是 (⌊x⌋, ⌊y+0.5⌋, ⌊z⌋) |
+| `/execute` 的子命令 | `CommandListenerWrapper` 里的 `new BlockPosition(vec3d)`，也就是 execute 位置的**方块位置** |
+| 其它实体 | `Entity.getChunkCoordinates()`，实体的方块位置 |
+
+gomc 现在用的是 `ctx.Source.Pos`——**执行者的精确位置**。两边在下面
+这些情况下会差一格：
+
+- 玩家**跳在半空**（y 不是整数）：真服的 Y 基准是 `⌊y+0.5⌋`，gomc 是 y。
+  `/setblock ~ ~-1 ~` 在 y=4.6 时，真服落在 4、gomc 落在 3。
+- 相对坐标带**小数**：`~0.6` 在 x=7.5 时，真服是 7+0.6 → 7，gomc 是
+  7.5+0.6 → 8。
+- `/execute` 里的 `~`：真服的基准是 execute 位置的方块位置，gomc 用的是
+  实体的精确位置。
+
+**为什么还没改**：gomc 的 `exec.Source` 只有「执行者实体」和「执行位置」
+两个字段，**分不出「玩家直接执行」和「execute 的子命令」**——真服这两种
+情况的基准不一样（玩家的 Y 基准多 0.5，execute 的基准是 execute 位置），
+所以要么给 `Source` 加一个字段，要么把基准的算法下沉到 `exec`。这要动到
+执行引擎的接口，得先能在真服上量出差别（探针需要一个站在半空或者用小数
+相对坐标的机器人）。
 
 ### 实体 UUID 已经建模（2026-10-21 改）
 
