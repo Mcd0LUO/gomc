@@ -194,6 +194,27 @@ func (c *playSoundCmd) Name() string { return "playsound" }
 // Usage implements exec.Handler.
 func (c *playSoundCmd) Usage() string { return usageLine("playsound") }
 
+// soundCategories lists the sound sources 1.12.2 accepts for `/playsound`.
+//
+// The server looks the source up in a map of the categories
+// (`SoundCategory.a`), so the names are matched **exactly** -- `Master` is
+// not `master`.
+//
+// (Measured on a real 1.12.2 server: `playsound minecraft:entity.wolf.growl
+// mast` answers "Source mast is unknown".)
+var soundCategories = map[string]bool{
+	"master":  true,
+	"music":   true,
+	"record":  true,
+	"weather": true,
+	"block":   true,
+	"hostile": true,
+	"neutral": true,
+	"player":  true,
+	"ambient": true,
+	"voice":   true,
+}
+
 // Parse implements exec.Handler.
 func (c *playSoundCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	sound, err := p.String()
@@ -203,6 +224,10 @@ func (c *playSoundCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	source, err := p.String()
 	if err != nil {
 		return nil, err
+	}
+	// 1.12.2 checks the source before it looks for the target.
+	if !soundCategories[source] {
+		return nil, p.Errorf("Source %s is unknown", source)
 	}
 	target, err := parseEntityTarget(p)
 	if err != nil {

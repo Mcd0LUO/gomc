@@ -200,3 +200,36 @@ func TestLintReportsARelativeHeightThatIsOutOfRange(t *testing.T) {
 		t.Errorf("error = %q, want a height that is too small", errs[0])
 	}
 }
+
+// TestPlaySoundChecksTheSource covers the source of `/playsound`.
+//
+// 1.12.2 looks the source up in a map of the sound categories
+// (`SoundCategory.a`), so only the ten names are accepted -- and the
+// lookup is **case sensitive**.
+//
+// (Measured on a real 1.12.2 server: `playsound minecraft:entity.wolf.growl
+// mast` answers "Source mast is unknown", and "MASTER" answers "Source
+// MASTER is unknown".)
+func TestPlaySoundChecksTheSource(t *testing.T) {
+	e := newTestEngine(t)
+	addPlayer(t, e, "Steve")
+	err := runLine(e, "playsound minecraft:entity.wolf.growl mast Steve")
+	if err == nil {
+		t.Fatal("expected an error for an unknown source")
+	}
+	if !strings.Contains(err.Error(), "Source mast is unknown") {
+		t.Errorf("error = %q, want an unknown source", err)
+	}
+	// The names are matched exactly, so "MASTER" is not "master".
+	err = runLine(e, "playsound minecraft:entity.wolf.growl MASTER Steve")
+	if err == nil {
+		t.Fatal("expected an error for a source in the wrong case")
+	}
+	if !strings.Contains(err.Error(), "Source MASTER is unknown") {
+		t.Errorf("error = %q, want an unknown source", err)
+	}
+	// A known source works.
+	if err := runLine(e, "playsound minecraft:entity.wolf.growl master Steve"); err != nil {
+		t.Fatalf("playsound: %v", err)
+	}
+}

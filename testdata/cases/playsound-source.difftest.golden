@@ -1,0 +1,21 @@
+# case: playsound source and effect amplifier
+step 1: gomcplayer Steve 0 4 0
+  count: 1
+  feedback: Successfully created the player Steve
+step 2: playsound minecraft:entity.wolf.growl mast
+  error: Source mast is unknown
+step 3: playsound minecraft:entity.wolf.growl MASTER Steve
+  error: Source MASTER is unknown
+step 4: playsound minecraft:entity.wolf.growl master Steve
+  count: 1
+  feedback: Played sound 'minecraft:entity.wolf.growl' to Steve
+step 5: scoreboard objectives add t dummy
+  count: 1
+  feedback: Added new objective 't' successfully
+step 6: scoreboard players set Steve t < Steve t2
+  error: '<' is not a valid number
+step 7: effect Steve 10 2 true
+  error: 'true' is not a valid number
+step 8: effect Steve 10 2 1 true
+  count: 1
+  feedback: Given Regeneration (ID 10) * 1 to Steve for 2 seconds

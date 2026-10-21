@@ -1220,10 +1220,20 @@ say @a（无匹配） → Selector '@a' found nothing
 | `execute` 的 detect 没过 | `Failed to execute 'detect' as <实体名>` | `commands.execute.failed` |
 | 子命令一次都没成功 | `All invocations failed: '<命令>'` | `commands.execute.allInvocationsFailed` |
 | JSON 坏掉 | `Invalid json: <原因>` | `commands.tellraw.jsonException` |
+| playsound 的源不认识 | `Source mast is unknown` | `commands.playsound.unknownSoundSource` |
 
 选择器没匹配到这条是**分发层**抛的，所以它不只出现在 `execute`：凡是
 `isListStart` 为真的命令（execute、kill、give、effect、tp、title、tell、……）
 表现都一样。玩家名那条则是命令自己抛的。
+
+**`/playsound` 的源是在找目标之前查的**。1.12.2 的 `SoundCategory.a` 是一张
+map，键是十个源的小写名字（master、music、record、weather、block、hostile、
+neutral、player、ambient、voice），查不到就报 `Source %s is unknown`。
+**是查表，所以大小写敏感**：`Master` 不是 `master`。
+
+真服实测（2026-10-21，探针用例 `53-playsound-source`）：
+`playsound minecraft:entity.wolf.growl mast` 报 `Source mast is unknown`，
+`… MASTER Steve` 报 `Source MASTER is unknown`，`… master Steve` 才放行。
 
 引号里包的是**用户写的原文**：
 
