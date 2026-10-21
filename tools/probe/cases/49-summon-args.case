@@ -1,0 +1,29 @@
+# `/summon` 的参数个数决定读什么。
+#
+# 1.12.2 的 `CommandSummon.execute`：
+#
+#   if (args.length >= 4) { 读三个坐标; }        // 实体 + 三个坐标
+#   if (args.length >= 5) { 读 dataTag; }        // 再加一个
+#
+# 所以：
+#   - `summon <实体> <x> <y> <z> {dataTag}`：坐标和 dataTag 都读；
+#   - `summon <实体> {dataTag}`：**只有一个参数**，坐标和 dataTag 都不读，
+#     多出来的参数被**忽略**（实体落在监听者的方块位置上，dataTag 也没
+#     作用到实体上）。
+#
+# gomc 之前是「有剩就当坐标读」，于是 `summon <实体> {dataTag}` 报
+# "'{dataTag}' is not a valid number"。
+
+--- console ---
+say N01
+summon zombie 0 4 0 {NoAI:1b}
+say N02
+testfor @e[type=zombie] {NoAI:1b}
+say N03
+summon cow {NoAI:1b}
+say N04
+testfor @e[type=cow] {NoAI:1b}
+say N05
+summon pig 0 4
+say N06
+say N07

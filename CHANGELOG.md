@@ -308,6 +308,42 @@
 
 ### 修复
 
+- **多条目 Inventory 时 dataTag 匹配失效**（真项目撞出来的）。1.12.2 的匹配器
+  `GameProfileSerializer.a` 对**列表**的规则是「**过滤器的每个元素都要在
+  主体里找到某个匹配**」，两个列表**不要求等长**；gomc 之前要求等长而且逐位
+  对应，于是「过滤器只写一件物品、物品栏里有好几件」会被判成不匹配，报
+  `The dataTag does not match`。真服实测（探针用例 `48-datatag-inventory`）：
+  同样的命令真服是**匹配**的，gomc 现在也对上了，**7/7 逐字一致**。
+- **物品堆的 `Count` 改成写成字节**：真服用 `setByte("Count", …)`，而 NBT
+  匹配要求类型一致，所以过滤器里的 `Count:1b` 才对得上。gomc 之前写的是
+  Int，`Count:1b` 的过滤器谁也匹配不上。
+- **词法器：方括号组跟着前一个词**。1.12.2 把命令按**空格**切开，所以
+  `vec3[0]` 是**一个**参数（计分板目标名就常用这种写法）；gomc 之前把方括号
+  当成分组，只在 `@e[...]` 那种选择器上才并进前一个词，于是
+  `scoreboard players set @s vec3[0] 10000` 被拆成三个参数，分数那一格读到
+  了「[0]」。真服实测：`Added new objective 'vec3[0]' successfully`。
+- **`detect` 的数据值认 `*`**：`CommandAbstract.b(Block, String)`（数据值谓词）
+  对 `"*"` 和 `"-1"` 都给 `Predicates.alwaysTrue()`，所以
+  `detect ~ ~ ~ air *` 是合法的（`/testforblock` 早就认 `*` 了，detect 还没认）。
+- **`/tp` 的目的地可以是实体**。1.12.2 按**参数个数**分形式：1~2 个参数是
+  「传送到某个实体」，其余是「传送到某个坐标」；目标只在 2、4、6 个参数时才是
+  第一个参数。`tp @s @p[tag=target]` 和 `tp 1 2 3`（传送执行的玩家）以前
+  gomc 都不认。
+- **`/tellraw` 的 JSON 是整行剩余部分**：1.12.2 把目标之后的参数用空格连起来
+  交给 JSON 解析器，所以带空格的 JSON 是一个参数。gomc 之前只读一个 token。
+
+- **`/summon` 按参数个数读参数**。1.12.2 的 `CommandSummon.execute` 只在
+  参数**够 4 个**时读坐标、**够 5 个**时读 dataTag，多出来的参数忽略。所以
+  `summon <实体> {dataTag}`（只有一个参数）**不读** dataTag，实体落在监听者
+  的方块位置上；gomc 之前是「有剩就当坐标读」，报的是
+  `'{dataTag}' is not a valid number`。真服实测（探针用例
+  `49-summon-args`）：同样的命令真服报 "Object successfully summoned"，
+  而 `testfor @e[type=cow] {NoAI:1b}` 说 "Cow did not match the required
+  data structure"（dataTag 被丢了）——gomc 现在也对上了，**5/5 逐字一致**。
+- **dataTag 是整行剩余部分**：1.12.2 把 dataTag 那一格之后的参数用空格连起来
+  交给 NBT 解析器（`CommandAbstract.a(listener, args, n)`），所以带空格的
+  dataTag 是一个参数。gomc 之前只读一个 token。
+
 - **`/fill` 的数据值位置严格了**：方块之后**只要还有参数**，那一个就一定是数据值
   ——读不成数据值就报错，**不会**被当成模式。1.12.2 的
   `CommandBase.a(Block, String)` 有三种写法：十进制数字（0..15）、`default`

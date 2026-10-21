@@ -1,0 +1,20 @@
+UUID of player Steve is 5627dd98-e6be-3c21-b8a8-e92344183641
+Steve[/127.0.0.1:26306] logged in with entity id 1 at ([probe]10.5, 4.0, -2.5)
+[Server] M01
+Added new objective 'kills' successfully
+[Server] M02
+Given [Stone] * 1 to Steve
+[Server] M03
+Given [Dirt] * 1 to Steve
+[Server] M04
+Set score of kills for player Steve to 1
+[Server] M05
+The dataTag does not match for Steve
+[Server] M06
+Set score of kills for player Steve to 3
+[Server] M07
+The dataTag does not match for Steve
+[Server] M08
+[Server] M09
+Steve lost connection: Server closed
+Steve left the game

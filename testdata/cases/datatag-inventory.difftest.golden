@@ -1,0 +1,23 @@
+# case: data tag and inventory
+step 1: gomcplayer Steve 0 4 0
+  count: 1
+  feedback: Successfully created the player Steve
+step 2: scoreboard objectives add kills dummy
+  count: 1
+  feedback: Added new objective 'kills' successfully
+step 3: give Steve minecraft:stone 1
+  count: 1
+  feedback: Given [Stone] * 1 to Steve
+step 4: give Steve minecraft:dirt 1
+  count: 1
+  feedback: Given [Dirt] * 1 to Steve
+step 5: scoreboard players set Steve kills 1 {Inventory:[{id:"minecraft:stone",Count:1b}]}
+  count: 1
+  feedback: Set score of kills for player Steve to 1
+step 6: scoreboard players set Steve kills 2 {Inventory:[{id:"minecraft:gold",Count:1b}]}
+  error: The dataTag does not match for Steve
+step 7: scoreboard players set Steve kills 3 {Inventory:[{id:"minecraft:stone",Count:1b},{id:"minecraft:dirt",Count:1b}]}
+  count: 1
+  feedback: Set score of kills for player Steve to 3
+step 8: scoreboard players set Steve kills 4 {Inventory:[{id:"minecraft:stone",Count:1b},{id:"minecraft:gold",Count:1b}]}
+  error: The dataTag does not match for Steve

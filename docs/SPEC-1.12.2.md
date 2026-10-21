@@ -420,6 +420,16 @@ say @e[type=armor_stand,c=1]    → A
 - **tag list 对没有 tag 的实体不打标题**。真服的
   `CommandScoreboard.java:735-741` 只在 tag 集合非空时才发标题和列表，
   命令报的计数是**tag 的个数**。
+- **`/summon` 按参数个数读参数**。1.12.2 的 `CommandSummon.execute`：
+  ```
+  if (args.length >= 4) { 读三个坐标; }   // 实体 + 三个坐标
+  if (args.length >= 5) { 读 dataTag; }   // 再加一个
+  ```
+  所以 `summon <实体> {dataTag}`（**只有一个参数**）坐标和 dataTag **都不读**：
+  实体落在监听者的方块位置上，dataTag 也没作用到实体上，多出来的参数被
+  **忽略**。真服实测：`summon cow {NoAI:1b}` 报 "Object successfully
+  summoned"，而 `testfor @e[type=cow] {NoAI:1b}` 报 "Cow did not match the
+  required data structure"（dataTag 被丢了）。
 - **`/summon item` 需要一个非空的物品堆**。1.12.2 的实体工厂只接受带着
   非空物品堆的物品实体，空堆的实体建出来就死，所以 summon 直接失败：
 
@@ -1829,6 +1839,27 @@ NBT 解析器。gomc 之前在词法阶段就拒绝整行（`unbalanced {`），
 **顺序**：目标先于 dataTag。真服上 `testfor @e[type=armor_stand {Tags:` 先报
 `Entity '@e[type=armor_stand' cannot be found`，因为选择器本身就写坏了，
 dataTag 根本没被看到。
+
+## 16.1 dataTag 的匹配规则 [验][读]
+
+1.12.2 用 `GameProfileSerializer.a(NBTBase filter, NBTBase subject, boolean)`
+（计分板的 dataTag 和 `/testfor` 都用它）：
+
+| 过滤器 | 规则 |
+|---|---|
+| 复合（compound） | 过滤器的**每个键**都要在主体里存在、而且值对得上；主体多出来的键不算 |
+| 列表（list） | **过滤器的每个元素都要在主体里找到某个匹配**；两个列表**不要求等长** |
+| 空列表 | 只匹配空列表 |
+| 数字 | 必须**类型一致**（`NBTBase.equals` 把类型算进值里） |
+| 空复合 | 匹配一切 |
+
+**列表那条是 gomc 之前错的地方**：gomc 要求两个列表等长而且逐位对应，于是
+「过滤器只写一件物品、物品栏里有好几件」会被判成不匹配。真服上它是**匹配**
+的（探针用例 `48-datatag-inventory` 实测）。
+
+顺带一条：物品堆的 `Count` 在真服的 NBT 里是**字节**（`setByte("Count", …)`），
+而匹配要求类型一致，所以过滤器里的 `Count:1b` 才对得上 `Count:1` 之外的写法。
+gomc 之前写的是 Int，过滤器写 `Count:1b` 就对不上了。
 
 ---
 

@@ -1,0 +1,24 @@
+# 计分板目标名里的方括号，和 detect 的数据值 `*`。
+#
+# 1.12.2 把命令按**空格**切开，所以 `vec3[0]` 是**一个**参数（目标名），
+# 不是两个。gomc 的词法器之前把方括号当成分组，只在 `@e[...]` 那种选择器
+# 上才并进前一个词——于是 `scoreboard players set @s vec3[0] 10000` 被拆成
+# 三个参数，分数那一格读到了「[0]」。
+#
+# `detect` 的数据值可以是 `*`：`CommandAbstract.b(Block, String)`（数据值
+# 谓词）对 `"*"` 和 `"-1"` 都给 `Predicates.alwaysTrue()`，所以
+# `detect ~ ~ ~ air *` 是合法的（`/testforblock` 早就认 `*` 了，detect 还没认）。
+#
+# 和探针用例 47-brackets-and-star 一一对应。
+name: brackets and star
+
+setup:
+  gomcplayer Steve 0 4 0
+
+run:
+  scoreboard objectives add vec3[0] dummy
+  scoreboard players set Steve vec3[0] 10000
+  scoreboard players list Steve
+  summon armor_stand 0 4 0
+  execute @e[type=armor_stand] ~ ~ ~ detect ~ ~ ~ air * say detected
+  execute @e[type=armor_stand] ~ ~ ~ detect ~ ~ ~ air 0 say detected-zero

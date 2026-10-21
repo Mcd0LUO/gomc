@@ -192,7 +192,7 @@ func (c *giveCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	for _, e := range entities {
 		stack := nbt.NewCompound()
 		stack.Set("id", nbt.String(item.Name))
-		stack.Set("Count", nbt.Int(int32(count)))
+		stack.Set("Count", nbt.Byte(byte(count)))
 		// 1.12.2 writes the damage of the stack only when it is not
 		// zero, and the damage of a stack that was not asked for is
 		// zero.

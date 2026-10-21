@@ -1,0 +1,23 @@
+# 多条目 Inventory 时的 dataTag 匹配。
+#
+# 1.12.2 的匹配器 `GameProfileSerializer.a(NBTBase, NBTBase, boolean)` 对
+# **列表**的规则是：**过滤器的每个元素都要在主体里找到某个匹配**，两个列表
+# **不要求等长**。
+#
+# 所以「过滤器只写一件物品、物品栏里有好几件」是**能匹配上的**——真服实测
+# 就是这样（见探针用例 48-datatag-inventory）。
+#
+# 和探针用例 48-datatag-inventory 一一对应。
+name: data tag and inventory
+
+setup:
+  gomcplayer Steve 0 4 0
+
+run:
+  scoreboard objectives add kills dummy
+  give Steve minecraft:stone 1
+  give Steve minecraft:dirt 1
+  scoreboard players set Steve kills 1 {Inventory:[{id:"minecraft:stone",Count:1b}]}
+  scoreboard players set Steve kills 2 {Inventory:[{id:"minecraft:gold",Count:1b}]}
+  scoreboard players set Steve kills 3 {Inventory:[{id:"minecraft:stone",Count:1b},{id:"minecraft:dirt",Count:1b}]}
+  scoreboard players set Steve kills 4 {Inventory:[{id:"minecraft:stone",Count:1b},{id:"minecraft:gold",Count:1b}]}

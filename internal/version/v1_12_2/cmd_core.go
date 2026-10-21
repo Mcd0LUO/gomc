@@ -102,11 +102,14 @@ func (c *tellRawCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	if err != nil {
 		return nil, err
 	}
-	msg, err := p.JSON()
-	if err != nil {
-		return nil, err
+	// 1.12.2 takes the JSON as **the rest of the line**: the arguments
+	// after the target are joined with spaces and handed to the JSON
+	// parser, so a JSON with spaces in it is one argument.
+	text := p.Rest()
+	if strings.TrimSpace(text) == "" {
+		return nil, p.Errorf("Usage: %s", usageLine("tellraw"))
 	}
-	return []ast.Arg{target, msg}, nil
+	return []ast.Arg{target, &ast.JSONArg{Value: text}}, nil
 }
 
 // Run implements exec.Handler.

@@ -24,8 +24,13 @@ type executeArgs struct {
 	detectPos ast.Coord
 	// detectBlock is the expected block name.
 	detectBlock string
-	// detectData is the expected data value, or -1 for any.
-	detectData int
+	// detectData is the expected data value of the block.
+	//
+	// 1.12.2 reads it with `CommandAbstract.b(Block, String)` -- the
+	// predicate of a block -- so `*` and `-1` match every data value, a
+	// number is compared with the data value of the block, and anything
+	// else is a state string the block has to know.
+	detectData *blockDataArg
 	// sub is the command to run.
 	sub string
 }
@@ -87,7 +92,7 @@ func (c *executeCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	if err != nil {
 		return nil, err
 	}
-	a := &executeArgs{target: target, pos: *pos, detectData: -1}
+	a := &executeArgs{target: target, pos: *pos, detectData: &blockDataArg{Text: "", Any: true}}
 	if p.OptionalLiteral("detect") {
 		// The detect coordinates are relative to the *execution* position,
 		// which is only known at run time (it depends on the target
@@ -111,13 +116,14 @@ func (c *executeCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 		}
 		a.detectBlock = block
 		// The data value is required in 1.12.2: the detect block is five
-		// arguments, the last one the data value. A value of -1 means
-		// "any data value".
-		n, err := p.Int()
-		if err != nil {
-			return nil, err
+		// arguments, the last one the data value. It is read with the
+		// same predicate the other commands that ask about a block use,
+		// so `*` and `-1` mean "any data value" here too.
+		t, ok := p.Next()
+		if !ok {
+			return nil, p.Errorf("expected a data value but reached end of command")
 		}
-		a.detectData = n
+		a.detectData = parseBlockDataArg(fillBlockName(block), t.Text)
 	}
 	sub := p.Rest()
 	if strings.TrimSpace(sub) == "" {
@@ -213,7 +219,7 @@ func checkDetect(w *world.World, a *executeArgs, pos world.Vec) (bool, error) {
 	if !strings.EqualFold(block.Name, a.detectBlock) {
 		return false, nil
 	}
-	if a.detectData >= 0 && block.Data != a.detectData {
+	if !a.detectData.Any && block.Data != a.detectData.Data {
 		return false, nil
 	}
 	return true, nil

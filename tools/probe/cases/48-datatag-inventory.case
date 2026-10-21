@@ -1,0 +1,32 @@
+# 多条目 Inventory 时的 dataTag 匹配。
+#
+# 1.12.2 的匹配器 `GameProfileSerializer.a(NBTBase, NBTBase, boolean)` 对
+# **列表**的规则是：**过滤器的每个元素都要在主体里找到某个匹配**，两个列表
+# **不要求等长**。gomc 之前要求等长而且逐位对应，于是「Inventory 只有一个
+# 条目」能过，「多条目」就报 "The dataTag does not match"。
+#
+# 顺便验一件事：物品堆的 `Count` 在真服的 NBT 里是**字节**
+# （`setByte("Count", ...)`），而匹配要求类型一致，所以过滤器里的
+# `Count:1b` 才对得上。
+#
+# 玩家的 NBT 里的物品栏键是 `Inventory`。
+#
+# bot: Steve
+
+--- console ---
+say M01
+scoreboard objectives add kills dummy
+say M02
+give Steve minecraft:stone 1
+say M03
+give Steve minecraft:dirt 1
+say M04
+scoreboard players set Steve kills 1 {Inventory:[{id:"minecraft:stone",Count:1b}]}
+say M05
+scoreboard players set Steve kills 2 {Inventory:[{id:"minecraft:gold",Count:1b}]}
+say M06
+scoreboard players set Steve kills 3 {Inventory:[{id:"minecraft:stone",Count:1b},{id:"minecraft:dirt",Count:1b}]}
+say M07
+scoreboard players set Steve kills 4 {Inventory:[{id:"minecraft:stone",Count:1b},{id:"minecraft:gold",Count:1b}]}
+say M08
+say M09

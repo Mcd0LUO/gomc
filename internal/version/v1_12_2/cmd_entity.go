@@ -26,11 +26,12 @@ func (c *summonCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 	if err != nil {
 		return nil, err
 	}
-	// The position is left empty when the command does not give one:
-	// 1.12.2 then puts the entity where the listener is, and that is
-	// only known when the command runs.
+	// 1.12.2 reads the position only when there are at least three
+	// coordinates after the entity, and the dataTag only when there is a
+	// fourth argument. The arguments in between are ignored.
+	rest := p.Count()
 	var pos *ast.Coord
-	if p.More() {
+	if rest >= 3 {
 		parsed, err := p.CoordWith(coordSummon)
 		if err != nil {
 			return nil, err
@@ -39,7 +40,7 @@ func (c *summonCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
 			RelativeX: parsed.RelativeX, RelativeY: parsed.RelativeY, RelativeZ: parsed.RelativeZ}
 	}
 	text := ""
-	if p.More() {
+	if rest >= 4 {
 		// The dataTag is parsed when the command runs: 1.12.2 builds the
 		// entity first and only then looks at the dataTag.
 		text, err = dataTagText(p)
@@ -332,30 +333,107 @@ func (c *tpCmd) Name() string { return c.name }
 // Usage implements exec.Handler.
 func (c *tpCmd) Usage() string { return usageLine(c.name) }
 
+// tpArgs are the parsed arguments of a `/tp`.
+type tpArgs struct {
+	// target is the entity that is teleported. It is nil when the
+	// command has no target, and the player who runs the command is
+	// teleported then.
+	target ast.Arg
+	// pos is the position to teleport to. It is nil when the
+	// destination is an entity.
+	pos *ast.Coord
+	// dest is the entity that is teleported to.
+	dest ast.Arg
+}
+
+// tpArg is the AST wrapper carrying the parsed arguments.
+type tpArg struct {
+	// Value holds the parsed arguments.
+	Value *tpArgs
+}
+
+// ArgKind implements ast.Arg.
+func (a *tpArg) ArgKind() ast.Kind { return ast.KindList }
+
 // Parse implements exec.Handler.
+//
+// 1.12.2 decides the form of the command by the **number of arguments**:
+// one or two of them mean "to an entity", and the rest mean "to a
+// position". The target is the first argument only when there are two,
+// four or six of them.
+//
+// (Measured on a real 1.12.2 server: `tp @s @p[tag=target]` teleports to
+// the player, and `tp 1 2 3` teleports the player who runs the command.)
 func (c *tpCmd) Parse(p *parser.Parser) ([]ast.Arg, error) {
-	target, err := parseEntityTarget(p)
-	if err != nil {
-		return nil, err
+	n := p.Count()
+	if n < 1 {
+		return nil, p.Errorf("Usage: %s", usageLine(c.name))
+	}
+	a := &tpArgs{}
+	if n == 2 || n == 4 || n == 6 {
+		// The first argument is the target.
+		target, err := parseEntityTarget(p)
+		if err != nil {
+			return nil, err
+		}
+		a.target = target
+	}
+	if n == 1 || n == 2 {
+		// The destination is an entity: the last argument.
+		dest, err := parseEntityTarget(p)
+		if err != nil {
+			return nil, err
+		}
+		a.dest = dest
+		return []ast.Arg{&tpArg{Value: a}}, nil
+	}
+	// The coordinates start after the target, if there is one.
+	if p.Count() < 3 {
+		return nil, p.Errorf("Usage: %s", usageLine(c.name))
 	}
 	pos, err := p.CoordWith(coordTp)
 	if err != nil {
 		return nil, err
 	}
-	return []ast.Arg{
-		target,
-		&ast.Coord{X: pos.X, Y: pos.Y, Z: pos.Z,
-			RelativeX: pos.RelativeX, RelativeY: pos.RelativeY, RelativeZ: pos.RelativeZ},
-	}, nil
+	a.pos = &ast.Coord{X: pos.X, Y: pos.Y, Z: pos.Z,
+		RelativeX: pos.RelativeX, RelativeY: pos.RelativeY, RelativeZ: pos.RelativeZ}
+	return []ast.Arg{&tpArg{Value: a}}, nil
 }
 
 // Run implements exec.Handler.
 func (c *tpCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
-	entities, err := resolveEntityTargets(ctx, args[0])
+	a := args[0].(*tpArg).Value
+	target := a.target
+	if target == nil {
+		// Without a target the player who runs the command is
+		// teleported. 1.12.2 refuses a source that is not a player.
+		if ctx.Source.Entity == nil || !ctx.Source.Entity.IsPlayer {
+			return 0, exec.Errorf("You must specify which player you wish to perform this action on.")
+		}
+		target = &ast.StringArg{Value: ctx.Source.Entity.PlayerName}
+	}
+	entities, err := resolveEntityTargets(ctx, target)
 	if err != nil {
 		return 0, err
 	}
-	posArg := args[1].(*ast.Coord)
+	if a.pos == nil {
+		// The destination is an entity: the target is teleported to it.
+		dests, err := resolveEntityTargets(ctx, a.dest)
+		if err != nil {
+			return 0, err
+		}
+		if len(dests) == 0 {
+			return 0, nil
+		}
+		dest := dests[0]
+		for _, e := range entities {
+			e.Pos = dest.Pos
+			ctx.Engine.Feedback = append(ctx.Engine.Feedback,
+				fmt.Sprintf("Teleported %s to %s", e.DisplayName(), dest.DisplayName()))
+		}
+		return len(entities), nil
+	}
+	posArg := a.pos
 	for _, e := range entities {
 		pos := world.Vec{X: posArg.X, Y: posArg.Y, Z: posArg.Z}
 		if posArg.RelativeX {

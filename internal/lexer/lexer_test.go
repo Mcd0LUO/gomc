@@ -81,6 +81,28 @@ func TestTokenizeKeepsSelectorTogether(t *testing.T) {
 	}
 }
 
+// TestTokenizeKeepsBracketGroupWithTheWord covers a bracket group that
+// follows a word.
+//
+// 1.12.2 splits the command on spaces, so `vec3[0]` is **one** argument --
+// the name of a scoreboard objective, say. The group belongs to the word
+// whenever there is no space in between.
+func TestTokenizeKeepsBracketGroupWithTheWord(t *testing.T) {
+	toks, err := Tokenize("scoreboard players set @s vec3[0] 10000")
+	if err != nil {
+		t.Fatalf("Tokenize: %v", err)
+	}
+	want := []string{"scoreboard", "players", "set", "@s", "vec3[0]", "10000"}
+	if len(toks) != len(want) {
+		t.Fatalf("got %d tokens (%v), want %d", len(toks), tokenTexts(toks), len(want))
+	}
+	for i, w := range want {
+		if toks[i].Text != w {
+			t.Errorf("token %d = %q, want %q", i, toks[i].Text, w)
+		}
+	}
+}
+
 func TestTokenizeKeepsNBTGroupTogether(t *testing.T) {
 	toks, err := Tokenize("summon zombie ~ ~ ~ {Health:20.0f,Tags:[\"a\"]}")
 	if err != nil {

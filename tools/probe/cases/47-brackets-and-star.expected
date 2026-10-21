@@ -1,0 +1,19 @@
+UUID of player Steve is 5627dd98-e6be-3c21-b8a8-e92344183641
+Steve[/127.0.0.1:54652] logged in with entity id 1 at ([probe]-5.5, 4.0, 5.5)
+[Server] L01
+Added new objective 'vec3[0]' successfully
+[Server] L02
+Set score of vec3[0] for player Steve to 10000
+[Server] L03
+Showing 1 tracked objective(s) for Steve:
+- vec3[0]: 10000 (vec3[0])
+[Server] L04
+Object successfully summoned
+[Server] L05
+[Armor Stand] detected
+[Server] L06
+[Armor Stand] detected-zero
+[Server] L07
+[Server] L08
+Steve lost connection: Server closed
+Steve left the game

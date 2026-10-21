@@ -282,7 +282,7 @@ func (c *replaceItemCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	for _, e := range holders {
 		stack := nbt.NewCompound()
 		stack.Set("id", nbt.String(item.Name))
-		stack.Set("Count", nbt.Int(int32(item.Count)))
+		stack.Set("Count", nbt.Byte(byte(item.Count)))
 		list, _ := e.NBTValue("Inventory").(*nbt.List)
 		if list == nil {
 			list = nbt.NewList(nbt.TypeCompound)
@@ -291,14 +291,14 @@ func (c *replaceItemCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		if index < len(values) {
 			stack = values[index].(*nbt.Compound)
 			stack.Set("id", nbt.String(item.Name))
-			stack.Set("Count", nbt.Int(int32(item.Count)))
+			stack.Set("Count", nbt.Byte(byte(item.Count)))
 		} else {
 			for len(values) <= index {
 				list.Append(nbt.NewCompound())
 				values = list.Items()
 			}
 			values[index].(*nbt.Compound).Set("id", nbt.String(item.Name))
-			values[index].(*nbt.Compound).Set("Count", nbt.Int(int32(item.Count)))
+			values[index].(*nbt.Compound).Set("Count", nbt.Byte(byte(item.Count)))
 		}
 		e.NBT.Set("Inventory", list)
 	}

@@ -1,0 +1,23 @@
+# case: brackets and star
+step 1: gomcplayer Steve 0 4 0
+  count: 1
+  feedback: Successfully created the player Steve
+step 2: scoreboard objectives add vec3[0] dummy
+  count: 1
+  feedback: Added new objective 'vec3[0]' successfully
+step 3: scoreboard players set Steve vec3[0] 10000
+  count: 1
+  feedback: Set score of vec3[0] for player Steve to 10000
+step 4: scoreboard players list Steve
+  count: 1
+  feedback: Showing 1 tracked objective(s) for Steve:
+  feedback: - vec3[0]: 10000 (vec3[0])
+step 5: summon armor_stand 0 4 0
+  count: 1
+  feedback: Object successfully summoned
+step 6: execute @e[type=armor_stand] ~ ~ ~ detect ~ ~ ~ air * say detected
+  count: 1
+  feedback: [Armor Stand] detected
+step 7: execute @e[type=armor_stand] ~ ~ ~ detect ~ ~ ~ air 0 say detected-zero
+  count: 1
+  feedback: [Armor Stand] detected-zero

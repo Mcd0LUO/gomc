@@ -1,0 +1,30 @@
+# 两个在真实项目里撞出来的点。
+#
+# **A. 计分板目标名里的方括号**。1.12.2 把命令按**空格**切开，所以
+# `vec3[0]` 是**一个**参数（目标名），不是两个。gomc 的词法器把方括号
+# 当成分组，只在 `@e[...]` 那种选择器上才并进前一个词——于是
+# `scoreboard players set @s vec3[0] 10000` 被拆成了三个参数，分数那一格
+# 读到了 "[0]"。
+#
+# **B. detect 的数据值可以是 `*`**。`CommandAbstract.b(Block, String)`
+# （数据值谓词）对 `"*"` 和 `"-1"` 都给 `Predicates.alwaysTrue()`，所以
+# `detect ~ ~ ~ air *` 是合法的（`/testforblock` 早就认 `*` 了，detect
+# 还没认）。
+#
+# bot: Steve
+
+--- console ---
+say L01
+scoreboard objectives add vec3[0] dummy
+say L02
+scoreboard players set Steve vec3[0] 10000
+say L03
+scoreboard players list Steve
+say L04
+summon armor_stand 0 4 0
+say L05
+execute @e[type=armor_stand] ~ ~ ~ detect ~ ~ ~ air * say detected
+say L06
+execute @e[type=armor_stand] ~ ~ ~ detect ~ ~ ~ air 0 say detected-zero
+say L07
+say L08

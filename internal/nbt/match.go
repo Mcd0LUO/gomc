@@ -2,21 +2,30 @@ package nbt
 
 // Matches reports whether the value `have` satisfies the filter `want`.
 //
-// This implements the 1.12.2 "subset" matching semantics used by selector
-// `nbt=` filters and by `/testfor`:
+// This implements the 1.12.2 matching semantics of
+// `GameProfileSerializer.a(NBTBase, NBTBase, boolean)` -- the "loose"
+// matcher the scoreboard's dataTag and `/testfor` use:
 //
 //   - A compound filter matches when every key in the filter exists in the
 //     subject with a matching value. Extra keys in the subject are allowed.
-//   - A list filter matches when the subject is a list of the same length and
-//     every element matches pairwise.
+//   - A list filter matches when **every element of the filter matches some
+//     element of the subject**. The two lists need **not** have the same
+//     length: a filter of one element matches a list of any length that
+//     holds a matching element. An empty filter matches only an empty
+//     list.
 //   - Numbers match only when they have the **same type**: 1.12.2 compares
 //     the NBT with `NBTBase.equals`, and the type is part of the value. A
 //     stored `20.0f` is therefore not matched by a filter of `20`.
 //   - An empty compound matches everything, because a filter with no keys
 //     has nothing to disagree about.
 func Matches(subject, filter Value) bool {
-	if subject == nil || filter == nil {
-		return subject == nil && filter == nil
+	if filter == nil {
+		// 1.12.2 answers true for an empty filter, whatever the subject
+		// is.
+		return true
+	}
+	if subject == nil {
+		return false
 	}
 	switch f := filter.(type) {
 	case *Compound:
@@ -41,11 +50,22 @@ func Matches(subject, filter Value) bool {
 		if !ok {
 			return false
 		}
-		if f.Len() != s.Len() {
-			return false
+		if f.Len() == 0 {
+			// An empty filter matches only an empty list.
+			return s.Len() == 0
 		}
+		// Every element of the filter has to match **some** element of
+		// the subject. The lists need not have the same length, which is
+		// what makes a filter of one item match an inventory of many.
 		for i := 0; i < f.Len(); i++ {
-			if !Matches(s.At(i), f.At(i)) {
+			matched := false
+			for j := 0; j < s.Len(); j++ {
+				if Matches(s.At(j), f.At(i)) {
+					matched = true
+					break
+				}
+			}
+			if !matched {
 				return false
 			}
 		}

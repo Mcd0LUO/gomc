@@ -1,0 +1,15 @@
+# case: summon arguments
+step 1: summon zombie 0 4 0 {NoAI:1b}
+  count: 1
+  feedback: Object successfully summoned
+step 2: testfor @e[type=zombie] {NoAI:1b}
+  count: 1
+  feedback: Found Zombie
+step 3: summon cow {NoAI:1b}
+  count: 1
+  feedback: Object successfully summoned
+step 4: testfor @e[type=cow] {NoAI:1b}
+  error: Cow did not match the required data structure
+step 5: summon pig 0 4
+  count: 1
+  feedback: Object successfully summoned

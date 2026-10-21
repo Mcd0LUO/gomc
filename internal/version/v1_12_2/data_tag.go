@@ -1,6 +1,8 @@
 package v1_12_2
 
 import (
+	"strings"
+
 	"github.com/Mcd0LUO/gomc/internal/exec"
 	"github.com/Mcd0LUO/gomc/internal/nbt"
 	"github.com/Mcd0LUO/gomc/internal/parser"
@@ -13,15 +15,20 @@ import (
 // *command* and not of the reading of it: the target of the command is
 // resolved first, and only then is the dataTag looked at.
 //
+// The dataTag is the **rest of the line**: the arguments from the
+// dataTag's place on are joined with spaces and handed to the NBT parser
+// (`CommandAbstract.a(listener, args, n)`), so a dataTag with spaces in it
+// is one argument.
+//
 // (Measured on a real 1.12.2 server: `testfor @e[type=armor_stand {Tags:`
 // answers "Entity '@e[type=armor_stand' cannot be found" and not a
 // complaint about the dataTag.)
 func dataTagText(p *parser.Parser) (string, error) {
-	t, ok := p.Next()
-	if !ok {
+	text := p.Rest()
+	if strings.TrimSpace(text) == "" {
 		return "", p.Errorf("expected NBT data but reached end of command")
 	}
-	return t.Text, nil
+	return text, nil
 }
 
 // parseDataTagArg parses the dataTag of a command and reports a dataTag

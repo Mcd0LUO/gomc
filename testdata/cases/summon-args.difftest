@@ -1,0 +1,19 @@
+# `/summon` 的参数个数决定读什么。
+#
+# 1.12.2 的 `CommandSummon.execute`：
+#
+#   if (args.length >= 4) { 读三个坐标; }
+#   if (args.length >= 5) { 读 dataTag; }
+#
+# 所以 `summon <实体> {dataTag}`（只有一个参数）**不读** dataTag，实体落在
+# 监听者的方块位置上，dataTag 也没作用到实体上；多出来的参数被忽略。
+#
+# 和探针用例 49-summon-args 一一对应。
+name: summon arguments
+
+run:
+  summon zombie 0 4 0 {NoAI:1b}
+  testfor @e[type=zombie] {NoAI:1b}
+  summon cow {NoAI:1b}
+  testfor @e[type=cow] {NoAI:1b}
+  summon pig 0 4

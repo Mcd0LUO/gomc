@@ -174,14 +174,13 @@ func Tokenize(src string) ([]Token, error) {
 							i++
 							continue
 						}
-						if ch == '[' && len(src[start:i]) > 0 && src[start] == '@' {
-							// A selector such as `@e[type=zombie]` is a
-							// single argument, so a bracket group
-							// directly following an `@`-prefixed word
-							// belongs to that word.
-							i = next
-							continue
-						}
+						// A group that follows a word without a space
+						// belongs to that word: 1.12.2 splits the command
+						// on spaces, so `vec3[0]` is **one** argument --
+						// the name of a scoreboard objective, say -- and a
+						// selector such as `@e[type=zombie]` is one too.
+						i = next
+						continue
 					}
 					break
 				}
