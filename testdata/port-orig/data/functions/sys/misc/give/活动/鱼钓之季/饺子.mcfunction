@@ -1,1 +1,0 @@
-give @s bread 1 0 {display:{Lore:["§b༖§7活动道具"],Name:"§f┏⌭§b饺子§f⌭┓"},Tags:["鱼钓之季","饺子","undrop"]}

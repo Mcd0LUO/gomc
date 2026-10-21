@@ -1,1 +1,0 @@
-give @s carrot_on_a_stick 1 0 {Unbreakable:1b,HideFlags:4,display:{Lore:["","§b⚚§7菜单","§c⏍§7⛖▁▂▃§a§b『属性』§7▃▂▁§c⏍","§8▣ §e⚔ §aNONE","§8▣ §a§7§7输入/trigger menu set 10086 重温新手教程","§8▣ §7§7服务器交流室:§3817 071 594","§8▣ §7函数提供:§eMcd0_LUO  §7部分建筑搬运来源:§escore_爱疯"],Name:"§f┏⌭§e右键菜单§f⌭┓"},Tags:["menu.trigger"]}

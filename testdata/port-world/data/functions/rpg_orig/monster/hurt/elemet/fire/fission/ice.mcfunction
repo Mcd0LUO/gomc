@@ -1,6 +1,0 @@
-##
- # ice.mcfunction
- # 
- #
- # Created by .
-##

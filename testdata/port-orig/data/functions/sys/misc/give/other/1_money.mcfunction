@@ -1,1 +1,0 @@
-give @s paper 1 0 {display:{Lore:["§6⛂货币"],Name:"§f┏⌭§e1末法点§f⌭┓"},Tags:["货币","末法点","1","undrop"]}

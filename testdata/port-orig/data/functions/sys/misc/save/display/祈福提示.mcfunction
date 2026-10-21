@@ -1,1 +1,0 @@
-summon minecraft:armor_stand ~ ~0.9 ~ {CustomName:"§e§l元§c§l素§b§l祈§3§l福",CustomNameVisible:1b,Invulnerable:1b,NoGravity:1b,Tags:["display","元素祈福","menu.mob"],Invisible:true,Small:true,Marker:true}

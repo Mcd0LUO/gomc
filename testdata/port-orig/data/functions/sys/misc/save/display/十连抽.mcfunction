@@ -1,3 +1,0 @@
-summon minecraft:armor_stand ~ ~0.5 ~ {CustomName:"§e§l右键§a§l十连",CustomNameVisible:1b,Invulnerable:1b,NoGravity:1b,Tags:["display","抽奖实体","十连抽"],Invisible:true,Small:true,Marker:true,ArmorItems:[{},{},{},{id:"minecraft:beacon",Count:1b,Damage:0s}]}
-
-summon minecraft:villager ~ ~-0.3 ~ {Invulnerable:1b,NoAI:1b,Silent:1b,Tags:["抽奖交互","invisible","十连抽"],Offers:{Recipes:[]}}

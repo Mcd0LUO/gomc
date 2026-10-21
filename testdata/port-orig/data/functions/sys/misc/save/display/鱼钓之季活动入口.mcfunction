@@ -1,1 +1,0 @@
-summon minecraft:armor_stand -4.9 13.8 -97.3 {CustomName:"§e§l鱼钓§a§l之季§b§l活动入口",CustomNameVisible:1b,Invulnerable:1b,NoGravity:1b,Tags:["display","鱼钓之季","menu.mob"],Invisible:true,Small:true,Marker:true,ArmorItems:[{},{},{},{id:"minecraft:beacon",Count:1b,Damage:0s}]}

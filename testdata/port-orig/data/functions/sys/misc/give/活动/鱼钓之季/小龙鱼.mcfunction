@@ -1,1 +1,0 @@
-give @s fish 1 2 {display:{Lore:["§b༖§7活动道具"],Name:"§f┏⌭§e小龙鱼§f⌭┓"},Tags:["鱼钓之季","小龙鱼","undrop"]}

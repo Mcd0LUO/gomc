@@ -1,6 +1,0 @@
-##
- # water.mcfunction
- # 
- #
- # Created by .
-##

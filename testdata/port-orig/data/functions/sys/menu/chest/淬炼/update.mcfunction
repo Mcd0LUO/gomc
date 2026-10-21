@@ -1,1 +1,0 @@
-replaceitem block 58 14 -222 slot.container.0 minecraft:nether_star 1 0 {display:{Name:"§f┏⌭§b潜蛟腾跃§f⌭┓淬炼 [需手持]",Lore:["§8▣ §eI级§7淬炼:§7消耗§eI级别潜蛟腾跃§a*2","","§8▣ §7属性 §eMP回复҉ : 8/3s  §cHP✙回复 : 3/3s"]},Tags:["menu","淬炼.潜蛟腾跃"],HideFlags:6,}

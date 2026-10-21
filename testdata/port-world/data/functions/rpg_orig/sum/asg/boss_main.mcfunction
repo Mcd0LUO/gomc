@@ -1,1 +1,0 @@
-function rpg:sum/mob/boss/沧溟黄昏/i0 if @s[tag=沧溟黄昏.简单]

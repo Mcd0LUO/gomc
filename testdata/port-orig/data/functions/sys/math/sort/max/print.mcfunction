@@ -1,3 +1,0 @@
-tellraw @s[tag=searchTeam] ["队长",{"selector":"@a[tag=最高分数]","color":"aqua"}," 队伍ID：",{"score":{"objective":"team.uid","name":"@a[tag=最高分数]"},"color":"red"},{"text":" §b▶点击申请◀","clickEvent":{"action":"suggest_command","value":"/trigger team.join set "}}]
-
-tellraw @a[tag=团本结算] [{"selector":"@a[tag=最高分数]","color":"aqua"},"伤害：",{"score":{"objective":"boss.hurtTotal","name":"@a[tag=最高分数]"},"color":"red"}," 排名：",{"score":{"objective":"sort","name":"@a[tag=最高分数]"},"color":"red"}]

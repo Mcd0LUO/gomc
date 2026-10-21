@@ -1,6 +1,0 @@
-##
- # pass.mcfunction
- # 
- #
- # Created by .
-##

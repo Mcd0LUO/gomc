@@ -1,5 +1,0 @@
-summon minecraft:armor_stand ~ ~2.05 ~ {CustomName:"§7§m§l-=-==-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=-=",CustomNameVisible:1b,Invulnerable:1b,NoGravity:1b,Tags:["display","主城提示"],Invisible:true,Small:true,Marker:true}
-summon minecraft:armor_stand ~ ~1.8 ~ {CustomName:"§e特别鸣谢: §b悟空§r/§b星之柒§r/§bPFS§r/bdc...§7部分功能思路",CustomNameVisible:1b,Invulnerable:1b,NoGravity:1b,Tags:["display","主城提示"],Invisible:true,Small:true,Marker:true}
-summon minecraft:armor_stand ~ ~1.5 ~ {CustomName:"§e特别鸣谢: §d我是fw...§7Bug体质   §d清黎...§7大量玩法思路",CustomNameVisible:1b,Invulnerable:1b,NoGravity:1b,Tags:["display","主城提示"],Invisible:true,Small:true,Marker:true}
-summon minecraft:armor_stand ~ ~1.2 ~ {CustomName:"§e特别鸣谢: §3清乐[6699]...§7部分剧情/建筑搬运",CustomNameVisible:1b,Invulnerable:1b,NoGravity:1b,Tags:["display","主城提示"],Invisible:true,Small:true,Marker:true}
-summon minecraft:armor_stand ~ ~0.95 ~ {CustomName:"§7§m§l-=-==-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=",CustomNameVisible:1b,Invulnerable:1b,NoGravity:1b,Tags:["display","主城提示"],Invisible:true,Small:true,Marker:true}

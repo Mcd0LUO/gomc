@@ -1,7 +1,0 @@
-replaceitem block 66 14 -218 slot.container.0 minecraft:carrot_on_a_stick 1 0 {display:{Name:"§f┏⌭§4火之权§f⌭┓命座提升 [需手持武器]",Lore:["§7I级命座:§e末法点§7*1500  火元素等级>=10","","§8▣ §e⚔§7基础§4火元素§7伤害§7+15 §e通用元素盾伤§7+4","","§7II级命座:§d火之权能§7*1   §d火元素§7等级>=30","","§8▣ §e无法窥探"]},Tags:["menu","命座.火之权"],HideFlags:6,}
-
-replaceitem block 66 14 -218 slot.container.1 minecraft:carrot_on_a_stick 1 0 {display:{Name:"§f┏⌭§b水之权§f⌭┓命座提升 [需手持武器]",Lore:["§7I级命座:§e末法点§7*1500   水元素等级>=10","","§8▣ §e⚔§7基础§b水元素§7伤害+8 §e通用元素盾伤§7+3  §e元素亲和[被动]:每次攻击50%恢复蓝量*2 受其它元素伤害-1%","","§7II级命座:§d水之权能§7*1   §d水元素§7等级>=30","","§8▣ §e无法窥探"]},Tags:["menu","命座.水之权"],HideFlags:6,}
-
-replaceitem block 66 14 -218 slot.container.2 minecraft:carrot_on_a_stick 1 0 {display:{Name:"§f┏⌭§b冰之权§f⌭┓命座提升 [需手持武器]",Lore:["§7I级命座:§e末法点§7*1500   冰元素等级>=10","","§8▣ §e⚔§7基础§b冰元素§7伤害+14 §e通用元素盾伤§7+4","","§7II级命座:§d冰之权能§7*1   §d冰元素§7等级>=30","","§8▣ §e无法窥探"]},Tags:["menu","命座.冰之权"],HideFlags:6,}
-
-replaceitem block 66 14 -218 slot.container.3 minecraft:carrot_on_a_stick 1 0 {display:{Name:"§f┏⌭§b雷之权§f⌭┓命座提升 [需手持武器]",Lore:["§7I级命座:§e末法点§7*1500   雷元素等级>=10","","§8▣ §e⚔§7基础§b雷元素§7伤害+17 §e通用元素盾伤§7+5","","§7II级命座:§d雷之权能§7*1   §d雷元素§7等级>=30","","§8▣ §e无法窥探"]},Tags:["menu","命座.雷之权"],HideFlags:6,}

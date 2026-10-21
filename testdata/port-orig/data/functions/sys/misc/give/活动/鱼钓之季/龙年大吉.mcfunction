@@ -1,1 +1,0 @@
-give @s gold_ingot 1 0 {display:{Lore:["§b༖§7活动道具"],Name:"§f┏⌭§6龙年大吉§f⌭┓"},Tags:["鱼钓之季","龙年大吉","undrop"]}

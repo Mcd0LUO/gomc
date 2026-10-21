@@ -1,1 +1,0 @@
-give @s paper 1 0 {display:{Lore:["§b༖§7材料"],Name:"§f┏⌭§a布鲁碎片§f⌭┓"},Tags:["材料","布鲁碎片"]}

@@ -1,1 +1,0 @@
-give @p minecraft:sign 1 0 {BlockEntityTag:{Text1:"[{\"text\":\"§7[§b补领§b菜单/§e护甲穿戴石§7]\"}]"}}

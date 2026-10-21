@@ -1,5 +1,0 @@
-function rpg:monster/hurt/api/armor_lv/26-30 if @s[score_return_min=26,score_return=30]
-function rpg:monster/hurt/api/armor_lv/31-35 if @s[score_return_min=31,score_return=35]
-function rpg:monster/hurt/api/armor_lv/36-40 if @s[score_return_min=36,score_return=40]
-function rpg:monster/hurt/api/armor_lv/41-45 if @s[score_return_min=41,score_return=45]
-function rpg:monster/hurt/api/armor_lv/46-50 if @s[score_return_min=46,score_return=50]

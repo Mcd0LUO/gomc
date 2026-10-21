@@ -1,1 +1,0 @@
-give @s book 1 0 {display:{Lore:["§b༖§7材料"],Name:"§f┏⌭§e孤落遗章§f⌭┓"},Tags:["材料","孤落遗章","undrop"]}

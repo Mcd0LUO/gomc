@@ -1,2 +1,0 @@
-setblock 81 17 -202 1 0 {metadata:"",mirror:"NONE",ignoreEntities:0b,powered:0b,seed:0L,author:"Mcd0_LUO",rotation:"NONE",posX:0,mode:"LOAD",posY:0,sizeX:3,posZ:2,integrity:1.0f,showair:0b,x:77,name:"暂未开启",y:17,z:-202,id:"minecraft:structure_block",sizeY:3,sizeZ:2,showboundingbox:0b}
-setblock 77 17 -202 {metadata:"",mirror:"NONE",ignoreEntities:0b,powered:0b,seed:0L,author:"Mcd0_LUO",rotation:"NONE",posX:0,mode:"LOAD",posY:0,sizeX:3,posZ:2,integrity:1.0f,showair:0b,x:81,name:"元素协奏曲",y:17,z:-202,id:"minecraft:structure_block",sizeY:3,sizeZ:2,showboundingbox:0b}

@@ -1,5 +1,0 @@
-scoreboard teams join 11 @s[score_return_min=11,score_return=11]
-scoreboard teams join 12 @s[score_return_min=12,score_return=12]
-scoreboard teams join 13 @s[score_return_min=13,score_return=13]
-scoreboard teams join 14 @s[score_return_min=14,score_return=14]
-scoreboard teams join 15 @s[score_return_min=15,score_return=15]

@@ -1,1 +1,0 @@
-give @s iron_nugget 1 0 {display:{Lore:["§b༖§7材料","§8▣ §7集齐§e256§7个可在§e§l[群星之殿]§7兑换§e§l元素战技§b§l【寒星环刃】"],Name:"§f┏⌭§b寒星獠牙§f⌭┓"},Tags:["材料","寒星獠牙","undrop"]}

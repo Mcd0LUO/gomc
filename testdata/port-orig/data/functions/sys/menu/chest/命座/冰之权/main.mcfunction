@@ -1,1 +1,0 @@
-function sys:menu/chest/命座/update

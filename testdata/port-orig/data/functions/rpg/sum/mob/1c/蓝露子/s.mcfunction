@@ -1,1 +1,0 @@
-summon minecraft:armor_stand ~ ~ ~ {CustomName:"§3蓝露子§7出没点",CustomNameVisible:1b,Tags:["sum","sum.llz"],Invulnerable:1b,PersistenceRequired:1b,ArmorItems:[{},{},{},{}],HandItems:[{id:"minecraft:iron_sword",Count:1b,Damage:0s},{}],Invisible:1,Pose:{Head:[0f,0f,0f],Body:[0f,0f,0f],LeftArm:[0f,0f,0f],RightArm:[80f,0f,0f]},Marker:1b,NoBasePlate:1b,ShowArms:1b,NoGravity:1b}

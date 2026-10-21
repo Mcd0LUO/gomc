@@ -1,2 +1,0 @@
-tellraw @s [{"text":"┍───────────────§7称号仓库§r─────────────┑\n│ "}]
-tellraw @s[score_name.承包鱼塘_min=1] [{"text":"§e[承包鱼塘].§7等级:"},{"score":{"objective": "name.承包鱼塘","name": "@s"},"color": "red"},{"text":" §b点击穿戴","clickEvent":{"action":"run_command","value":"/trigger menu.trigger set 6001"}}]

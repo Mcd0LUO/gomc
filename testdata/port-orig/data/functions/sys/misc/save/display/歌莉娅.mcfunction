@@ -1,1 +1,0 @@
-summon minecraft:witch ~ ~-1.25 ~ {CustomName:"§e歌莉娅§7[祈福魔素师]",Tags:["npc","歌莉娅"],PersistenceRequired:1b,CustomNameVisible:1b,NoAI:1b,Invulnerable:1b,ArmorItems:[{},{},{},{id:"minecraft:beacon",Count:1b,Damage:0s}]}

@@ -1,1 +1,0 @@
-execute @a[tag=最低分数] ~ ~ ~ tellraw @a [{"selector":"@s","color":"aqua"},"§e排名:",{"score":{"objective":"sort","name":"@s"},"color":"red"}]
