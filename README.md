@@ -326,6 +326,12 @@ lexer 里有一个专门防死循环的回归测试（`TestTokenizeOffsetsAdvanc
 
 - 只做 1.12.2。1.13+ 的 `execute as/at/run`、`scores={...}`、datapack 布局都不支持，
   因为它们和 1.12.2 的语义是**冲突**的，不是加个开关就能兼容的。
+- **有七处 1.12.2 的能力还没做到**：`/stats` 的「命令返回值 → 记分板」通道、
+  `/tp` 的 `[<yaw> <pitch>]`、`replaceitem` 的完整槽位表、`summon` 的
+  `Pose`/`Rotation`、`/particle` 的尾部 int 参数、trigger 的锁标志、
+  tellraw/title 的 JSON 组件（`score`/`clickEvent`/`translate`）。清单、优先级
+  和**每一条在真实工程里的用例**见
+  [`docs/PATTERNS-1.12.2.md`](docs/PATTERNS-1.12.2.md)。
 - 不模拟实体 AI、寻路、重力、区块生成、渲染和网络协议。
 - **不模拟区块的加载和卸载**。真服只加载出生点周围和玩家周围的区块，
   别的坐标会报 "outside of the world"；gomc 按真服的样子建模（出生点区块

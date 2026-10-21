@@ -1,1 +1,0 @@
-function rpg:attribute/init

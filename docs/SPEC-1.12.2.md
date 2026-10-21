@@ -567,6 +567,28 @@ scoreboard players    <set|add|remove|reset|list|enable|test|operation|tag>
 scoreboard teams      <add|remove|join|leave|empty|list|option>
 ```
 
+**`objectives add` / `teams add` 的四道检查 [读][验]**
+
+1.12.2 的 `CommandScoreboard` 在**建之前**依次查四件事，任何一条不过就
+**根本不会建**：
+
+| 查什么 | 不过时的消息 | 语言键 |
+|---|---|---|
+| 目标类型认不认识 | `Usage: Invalid objective criteria type 'X'` | `commands.scoreboard.objectives.add.wrongType` |
+| 目标/队伍是不是已经有了 | `An objective with the name 'X' already exists` / `A team with the name 'X' already exists` | `…add.alreadyExists` |
+| 名字是不是超过 16 个字符 | `The name 'X' is too long for an objective, it can be at most 16 characters long` | `…add.tooLong` |
+| 显示名是不是超过 32 个字符 | `The display name 'X' is too long for an objective, it can be at most 32 characters long` | `…add.displayTooLong` |
+
+> 第一条是**用法错误**（`ExceptionUsage`），所以带 `Usage: ` 前缀；后三条
+> 不是（`ExceptionInvalidSyntax` / `CommandException`），所以不带。
+
+真服实测（2026-10-21，探针用例 `54-scoreboard-limits`）：重复
+`objectives add t dummy` 报 `An objective with the name 't' already exists`；
+17 个字符的名字报 too long；33 个字符的显示名报 displayTooLong。
+
+> ⚠️ 真实工程里这条会**成片地报错**：有一个包（14047 个函数）的 964 个目标名
+> 里有大量重复 `add`，真服上第二次 add 就失败。
+
 ### 4.3 `players test` [读]
 
 ```
@@ -587,6 +609,22 @@ scoreboard players test <持有者> <目标> <最小值> [<最大值>]
 ```
 scoreboard players tag <目标> <add|remove|list> [标签]
 ```
+
+**还有第四个参数：dataTag**——它是**过滤器**，只有 NBT 匹配上的实体才会被
+打上标签：
+
+```
+scoreboard players tag <目标> <add|remove|list> [标签] [<dataTag>]
+```
+
+这是 **1.13 的 `nbt={...}` 选择器在 1.12.2 的等价物**：`set`/`add`/`remove`
+三个动作都带这个过滤器（语言文件里的用法串写得清清楚楚）。真实工程里靠它
+做「落地检测」（`{OnGround:1b}`）、「手持物检测」
+（`{SelectedItem:{tag:{Tags:["弓"]}}}`）和「按物品内容给实体分类」。
+
+> 同样地，`scoreboard players set <目标> <目标名> <分数> [<dataTag>]` 的
+> dataTag 也是过滤器：**不匹配就根本不写分数**（`commands.scoreboard.players.set.tagMismatch`）。
+> 1.13 删掉了这个参数，于是这个「以实体 NBT 为条件的原子赋值」也没了。
 
 ### 4.5 `list` 的输出 [验]
 
@@ -1225,6 +1263,11 @@ say @a（无匹配） → Selector '@a' found nothing
 | 子命令一次都没成功 | `All invocations failed: '<命令>'` | `commands.execute.allInvocationsFailed` |
 | JSON 坏掉 | `Invalid json: <原因>` | `commands.tellraw.jsonException` |
 | playsound 的源不认识 | `Source mast is unknown` | `commands.playsound.unknownSoundSource` |
+| 目标已经存在 | `An objective with the name 'X' already exists` | `commands.scoreboard.objectives.add.alreadyExists` |
+| 队伍已经存在 | `A team with the name 'X' already exists` | `commands.scoreboard.teams.add.alreadyExists` |
+| 目标名太长 | `The name 'X' is too long for an objective, it can be at most 16 characters long` | `commands.scoreboard.objectives.add.tooLong` |
+| 显示名太长 | `The display name 'X' is too long for an objective, it can be at most 32 characters long` | `commands.scoreboard.objectives.add.displayTooLong` |
+| 目标类型不认识 | `Usage: Invalid objective criteria type 'X'` | `commands.scoreboard.objectives.add.wrongType` |
 
 选择器没匹配到这条是**分发层**抛的，所以它不只出现在 `execute`：凡是
 `isListStart` 为真的命令（execute、kill、give、effect、tp、title、tell、……）
@@ -1777,8 +1820,28 @@ SuccessCount  AffectedBlocks  AffectedEntities  AffectedItems  QueryResult
    才会去看位置对不对、方块能不能统计。
 4. **方块一律存不了统计。** 箱子、漏斗、投掷器、熔炉、酿造台、信标都是同一句
    `Block at X, Y, Z can not track stats`——方块的统计是 1.13 才有的东西。
-5. **持有者和目标只是回显。** 1.12.2 不去解析它们：把一个不存在的玩家名当持有
-   者，它照样说 `Storing ... on Steve`。
+5. **`set` 不是回显，是**注册一条通道**。** 1.12.2 把「持有者 + 目标」记在
+   **那个实体自己的** executor 上（`CommandObjectiveExecutor.a(executor,
+   result, holder, objective)`），而 `clear` 把它抹掉（两个参数传 null）。
+
+   于是这条命令是 **1.12.2 唯一的「命令返回值 → 记分板」通道**：
+
+   ```
+   stats entity @s set QueryResult @s return   ← 绑定：QueryResult → "@s" 的 return 分
+   scoreboard players set @s return 0          ← 条目必须已经存在
+   time query gametime                         ← 产生 QueryResult
+   stats entity @s clear QueryResult @s return ← 解绑
+   ```
+
+   统计量变化时，值被写进那个 objective（`CommandObjectiveExecutor.a(server,
+   listener, result, value)`），而**写之前先看计分板上有没有那个条目**——
+   没有就**放弃写入**（`Scoreboard.b`）。
+
+   > 1.13+ 只能靠 datapack 的 `store`。
+   >
+   > ⚠️ **gomc 目前没建模这条通道**（只回显，不写计分板），所以依赖它的
+   > 函数在 gomc 里是死的——见 [`PATTERNS-1.12.2.md`](PATTERNS-1.12.2.md) 的
+   > 缺口 ①。
 
 | 命令 | 真服输出 |
 |---|---|

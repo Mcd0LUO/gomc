@@ -37,7 +37,7 @@ gomc 目前实现了 **51 条**（以专用服务器的 64 条为基准），另
 | `effect` | `/effect <目标> <效果> [<秒数>] [<等级>] [<隐藏粒子>] OR /effect <目标> clear` | **目标在最前**；`clear` 是第二段，不是第一段；`<效果>` 接受 id 或注册名；秒数默认 30、范围 0..1000000，等级默认 0、范围 0..255 |
 | `enchant` | `/enchant <目标> <附魔> [<等级>]` | 等级缺省为 1 |
 | `entitydata` | `/entitydata <目标> <nbt>` | |
-| `execute` | `/execute <实体> <x> <y> <z> [detect <x2> <y2> <z2> <方块> <数据值>] <命令>` | **1.12.2 旧语法**，没有 `as`/`at`/`run` |
+| `execute` | `/execute <实体> <x> <y> <z> [detect <x2> <y2> <z2> <方块> <数据值>] <命令>` | **1.12.2 旧语法**，没有 `as`/`at`/`run`。**detect 分支要求参数多于 10 个**（`astring.length > 10`）——参数不够时整段 `detect …` 就是「要执行的那条命令」，而 `detect` 不是命令，于是真服报 `All invocations failed: 'detect …'`。detect 的位置还要**区块已加载**（`World.isLoaded`） |
 | `fill` | `/fill <x1> <y1> <z1> <x2> <y2> <z2> <方块> [<数据值>] [<模式> [<dataTag 或替换方块> [<替换数据值>]]]` | 模式在第 9 位；第 10 位是 NBT（放置的方块有方块实体时）**或**要替换的方块；替换数据值在第 11 位，它才支持 `-1` / `*` |
 | `function` | `/function <id> [if\|unless <目标>]` | 1.12.2 特有的条件形式 |
 | `gamemode` | `/gamemode <模式> [<目标>]` | |
@@ -48,32 +48,32 @@ gomc 目前实现了 **51 条**（以专用服务器的 64 条为基准），另
 | `list` | `/list` | |
 | `locate` | `/locate <feature>` | **1.12.2 只有这一个参数**，而且它**完全不知道生物群系**——`<biome\|structure> <name>` 是 1.13 的语法。它只认 8 个结构的名字 |
 | `me` | `/me <动作>` | 消息里的选择器会被解析 |
-| `particle` | `/particle <名称> <x> <y> <z> <dx> <dy> <dz> <速度> [<数量>] [<模式>] [<观察者>]` | **速度是必填的**（源码要求至少 8 段）；模式**不校验**（只有字面量 `force` 特殊，其余当 normal） |
-| `playsound` | `/playsound <音效> <声音源> <目标> [<x> <y> <z>] [<音量>] [<音调>] [<最小音量>]` | **目标在声音源之后** |
+| `particle` | `/particle <名称> <x> <y> <z> <dx> <dy> <dz> <速度> [<数量>] [<模式>] [<观察者>]` | **速度是必填的**（源码要求至少 8 段）；模式**不校验**（只有字面量 `force` 特殊，其余当 normal）。⚠️ 尾部还可以跟**粒子自带的 int 参数**（如 `blockcrack` 的方块数据值），个数由粒子决定，gomc 目前不校验——见 [`PATTERNS-1.12.2.md`](PATTERNS-1.12.2.md) 的缺口 ⑤ |
+| `playsound` | `/playsound <音效> <声音源> <目标> [<x> <y> <z>] [<音量>] [<音调>] [<最小音量>]` | **目标在声音源之后**。声音源要认名字：十个源（master/music/record/weather/block/hostile/neutral/player/ambient/voice），**是查表，所以大小写敏感**，认不出报 `Source %s is unknown` |
 | `reload` | `/reload` | 清空注册表后重载，坏函数只记日志 |
-| `replaceitem` | `/replaceitem <entity\|block> ...` | 实体形式：`entity <目标> <槽位> <物品> [<数量>]` |
+| `replaceitem` | `/replaceitem <entity\|block> ...` | 实体形式：`entity <目标> <槽位> <物品> [<数量>]`。⚠️ 槽位模型**还不全**（真实工程里用到的 `slot.inventory.18`、`slot.enderchest.0..26`、`slot.armor.*` 会报 unknown slot）——见 [`PATTERNS-1.12.2.md`](PATTERNS-1.12.2.md) 的缺口 ③ |
 | `recipe` | `/recipe <give\|take> [player] <name\|*>` | 1.12.2 的第二个参数**总是**玩家，缺第三个参数会崩成"unknown error" |
 | `say` | `/say <消息>` | 消息里的选择器会被解析 |
-| `scoreboard` | `/scoreboard <objectives\|players\|teams> ...` | 三棵子树 |
+| `scoreboard` | `/scoreboard <objectives\|players\|teams> ...` | 三棵子树。`objectives add` / `teams add` 会查四件事：类型、**是否已经存在**、名字（≤16 字符）、显示名（≤32 字符）——**查完才建** |
 | `seed` | `/seed` | |
-| `setblock` | `/setblock <x> <y> <z> <方块> [<数据值>] [<模式>] [<nbt>]` | 模式在第 6 位 |
+| `setblock` | `/setblock <x> <y> <z> <方块> [<数据值>] [<模式>] [<nbt>]` | 模式在第 6 位。**只有 `destroy` 和 `keep` 有意思，其它词一律当 `replace`**（真服不对模式位报错） |
 | `setidletimeout` | `/setidletimeout <分钟>` | |
 | `setworldspawn` | `/setworldspawn [<x> <y> <z>]` | |
 | `spawnpoint` | `/spawnpoint [<目标>] [<x> <y> <z>]` | |
 | `spreadplayers` | `/spreadplayers <x> <z> <spreadDistance> <maxRange> <respectTeams true\|false> <player ...>` | 散布算法照搬 1.12.2 的松弛迭代，随机数用自实现的 splitmix64 保持确定性 |
-| `stats` | `/stats <entity\|block> ...` | **1.12.2 上这条命令是坏的**，gomc 复现的就是它的坏法 |
+| `stats` | `/stats <entity\|block> ...` | **1.12.2 上这条命令是坏的**，gomc 复现的就是它的坏法。⚠️ 但 `stats entity <目标> set <结果名> <持有者> <objective>` 在真服上是**注册一条通道**（统计量变化时写进那个 objective），gomc 目前只回显、**没建模**——见 [`PATTERNS-1.12.2.md`](PATTERNS-1.12.2.md) 的缺口 ① |
 | `stopsound` | `/stopsound <目标> [<声音源>] [<音效>]` | **目标在最前** |
 | `summon` | `/summon <实体> [<x> <y> <z>] [<nbt>]` | |
 | `teleport` | `/teleport <目标> <x> <y> <z>` | |
 | `tell` | `/tell <目标> <消息>` | |
-| `tellraw` | `/tellraw <目标> <原始 JSON>` | |
+| `tellraw` | `/tellraw <目标> <原始 JSON>` | JSON 是**整行剩下的部分**（参数用单个空格拼回去） |
 | `testfor` | `/testfor <目标> [<nbt>]` | NBT 走子集匹配 |
 | `testforblock` | `/testforblock <x> <y> <z> <方块> [<数据值>]` | |
 | `testforblocks` | `/testforblocks <x1> <y1> <z1> <x2> <y2> <z2> <方块> [<数据值>]` | |
 | `time` | `/time <set\|add\|query> <值>` | `set` 认 `day`(1000)/`night`(13000)，`query` 认 `daytime`/`day`/`gametime` |
-| `title` | `/title <目标> <title\|subtitle\|actionbar\|clear\|reset\|times> [<参数>]` | |
+| `title` | `/title <目标> <title\|subtitle\|actionbar\|clear\|reset\|times> [<参数>]` | **动作不按名单校验**：1.12.2 把动作映射到枚举（不区分大小写），**对不上的动作当 `title` 处理**（`EnumTitleAction.a` 的最后一行是 `return TITLE`）。JSON 是**整行剩下的部分** |
 | `toggledownfall` | `/toggledownfall` | |
-| `tp` | `/tp <目标> <x> <y> <z>` | |
+| `tp` | `/tp <目标> <x> <y> <z>` | ⚠️ 1.12.2 还有 `[<yaw> <pitch>]`（**1.13+ 反而没有**），gomc 目前把多出来的参数**丢掉**、传送时也不改朝向——见 [`PATTERNS-1.12.2.md`](PATTERNS-1.12.2.md) 的缺口 ② |
 | `trigger` | `/trigger <目标> <add\|set> <值>` | **模式必填**（`add` / `set`），不能省；`set` 是**赋值**不是累加 |
 | `weather` | `/weather <clear\|rain\|thunder> [<时长>]` | 时长单位是秒 |
 | `worldborder` | `/worldborder <set\|add\|center\|damage\|warning\|get> [...]` | |
@@ -123,6 +123,12 @@ gomc 目前实现了 **51 条**（以专用服务器的 64 条为基准），另
 | CLI 里错误与回显的**先后** | 逐条输出（错一条打一条） | 回显先全打，错误最后一起打 | 函数里的失败要收集起来，CLI 才打得出处 |
 
 对拍时这些差异会体现在 golden 里，属于**已知且可解释**的偏差。
+
+**还有几处是 gomc 还没做到的**（不是有意偏离，是缺口）：`/stats` 的结果
+捕获语义、`/tp` 的 `[<yaw> <pitch>]`、`replaceitem` 的完整槽位表、
+`summon` 的 `Pose`/`Rotation`、`/particle` 的尾部 int 参数、trigger 的锁
+标志、tellraw/title 的 JSON 组件。每一处都附了**真实工程里的用例**，清单和
+优先级见 [`PATTERNS-1.12.2.md`](PATTERNS-1.12.2.md)。
 
 ## 权威清单在哪
 
