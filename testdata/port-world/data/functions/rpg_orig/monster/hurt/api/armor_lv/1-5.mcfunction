@@ -1,0 +1,5 @@
+scoreboard teams join 1 @s[score_return_min=1,score_return=1]
+scoreboard teams join 2 @s[score_return_min=2,score_return=2]
+scoreboard teams join 3 @s[score_return_min=3,score_return=3]
+scoreboard teams join 4 @s[score_return_min=4,score_return=4]
+scoreboard teams join 5 @s[score_return_min=5,score_return=5]

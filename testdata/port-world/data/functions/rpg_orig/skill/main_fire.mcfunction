@@ -1,0 +1,1 @@
+function sys:skill/press/fire/岩狱之路/main if @s[score_skill.id_min=1,score_skill.id=1]

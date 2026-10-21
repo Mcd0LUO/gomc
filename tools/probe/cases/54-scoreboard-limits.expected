@@ -1,0 +1,27 @@
+UUID of player Steve is 5627dd98-e6be-3c21-b8a8-e92344183641
+Steve[/127.0.0.1:53395] logged in with entity id 1 at ([probe]8.5, 4.0, -4.5)
+[Server] R01
+Added new objective 't' successfully
+[Server] R02
+An objective with the name 't' already exists
+[Server] R03
+The name 'abcdefghijklmnopq' is too long for an objective, it can be at most 16 characters long
+[Server] R04
+Added new objective 't2' successfully
+[Server] R05
+The display name '123456789012345678901234567890123' is too long for an objective, it can be at most 32 characters long
+[Server] R06
+The display name '123456789012345678901234567890123' is too long for a team, it can be at most 32 characters long
+[Server] R07
+Usage: Invalid objective criteria type 'notacriteria'
+[Server] R08
+Added new team 'tt' successfully
+[Server] R09
+A team with the name 'tt' already exists
+[Server] R10
+Failed to execute 'detect' as Steve
+[Server] R11
+Failed to execute 'detect' as Steve
+[Server] R12
+Steve lost connection: Server closed
+Steve left the game

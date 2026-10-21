@@ -1,0 +1,1 @@
+summon minecraft:armor_stand ~ ~1 ~ {Invulnerable:1b,NoGravity:1b,Tags:["mob.treasure","treasure.不听教程"],Invisible:true,Marker:true,PersistenceRequired:1b}

@@ -1,0 +1,15 @@
+name: rpg:attribute/cold/debuff_20 called DIRECTLY (bypassing the broken chain)
+
+setup:
+  scoreboard objectives add bar.cold dummy
+  scoreboard objectives add bar.cold.max dummy
+  scoreboard objectives add health dummy
+  scoreboard objectives add num dummy
+  scoreboard players set 0 num 0
+  gomcplayer Steve 0 4 0
+  scoreboard players set Steve bar.cold 20
+  scoreboard players set Steve bar.cold.max 50
+  scoreboard players set Steve health 20
+
+run:
+  execute Steve ~ ~ ~ function rpg:attribute/cold/debuff_20

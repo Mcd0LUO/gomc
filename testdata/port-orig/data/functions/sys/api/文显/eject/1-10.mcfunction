@@ -1,0 +1,10 @@
+entitydata @s[score_return_min=1,score_return=1] {Motion:[-0.26,0.51,0.08],OnGround:0b}
+entitydata @s[score_return_min=2,score_return=2] {Motion:[0.21,0.46,0.04],OnGround:0b}
+entitydata @s[score_return_min=3,score_return=3] {Motion:[0.08,0.59,-0.26],OnGround:0b}
+entitydata @s[score_return_min=4,score_return=4] {Motion:[0.04,0.52,-0.06],OnGround:0b}
+entitydata @s[score_return_min=5,score_return=5] {Motion:[-0.14,0.41,0.03],OnGround:0b}
+entitydata @s[score_return_min=6,score_return=6] {Motion:[0.01,0.56,-0.16],OnGround:0b}
+entitydata @s[score_return_min=7,score_return=7] {Motion:[-0.21,0.54,-0.10],OnGround:0b}
+entitydata @s[score_return_min=8,score_return=8] {Motion:[-0.06,0.40,-0.26],OnGround:0b}
+entitydata @s[score_return_min=9,score_return=9] {Motion:[0.10,0.59,-0.03],OnGround:0b}
+entitydata @s[score_return_min=10,score_return=10] {Motion:[-0.00,0.49,0.02],OnGround:0b}

@@ -1,0 +1,3 @@
+entitydata @s[score_elemet.saveTotal_min=1,score_elemet.saveTotal=1] {CustomName:"§9§l☁"}
+entitydata @s[score_elemet.saveTotal_min=2,score_elemet.saveTotal=2,tag=elemet.strong] {CustomName:"§9§l☁☁"}
+scoreboard players tag @s add ele.saveWater

@@ -1,0 +1,2 @@
+execute @a[score_menu.trigger_min=201,score_menu.trigger=205] ~ ~ ~ function sys:menu/carrot/money/save
+execute @a[score_menu.trigger_min=206,score_menu.trigger=210] ~ ~ ~ function sys:menu/carrot/money/withdraw

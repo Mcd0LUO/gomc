@@ -1,0 +1,41 @@
+# 计分板的目标/队伍：**重复添加要报错**，名字和显示名有长度上限。
+#
+# 1.12.2 的 `CommandScoreboard` 按这个顺序查：
+#   1. 目标名已经存在 -> `An objective with the name 'X' already exists`
+#   2. 名字超过 16 个字符 -> `The name 'X' is too long for an objective, it
+#      be at most 16 characters long`
+#   3. 显示名超过 32 个字符 -> `The display name 'X' is too long ...`
+# 而且**查完才建**——查不过就根本不会建。
+#
+# 队伍那边同理（`A team with the name 'X' already exists`），而目标类型的
+# 名字不认识时是 `Invalid objective criteria type 'X'`。
+#
+# 另外 `/execute … detect` 先看**区块加载了没有**（`World.isLoaded`），
+# 没加载就报 `Failed to execute 'detect' as <实体>`——和方块对不上是同一条。
+#
+# bot: Steve
+
+--- console ---
+say R01
+scoreboard objectives add t dummy
+say R02
+scoreboard objectives add t dummy
+say R03
+scoreboard objectives add abcdefghijklmnopq dummy
+say R04
+scoreboard objectives add t2 dummy 12345678901234567890123456789012
+say R05
+scoreboard objectives add t2b dummy 123456789012345678901234567890123
+say R06
+scoreboard teams add tt2 123456789012345678901234567890123
+say R07
+scoreboard objectives add t3 notacriteria
+say R08
+scoreboard teams add tt
+say R09
+scoreboard teams add tt
+say R10
+execute Steve 900 4 900 detect 900 4 900 stone 0 say hi
+say R11
+execute Steve ~ ~ ~ detect ~ ~ ~ stone 0 say hi
+say R12

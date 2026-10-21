@@ -1,0 +1,1 @@
+setblock ~ ~ ~ structure_block 1 0 {metadata:"",mirror:"NONE",ignoreEntities:0b,powered:1b,seed:0L,author:"Mcd0_LUO",rotation:"NONE",posX:0,mode:"LOAD",posY:1,sizeX:3,posZ:-1,integrity:1.0f,showair:0b,x:79,name:"元素协奏曲",y:6,z:-186,id:"minecraft:structure_block",sizeY:3,sizeZ:2,showboundingbox:0b}

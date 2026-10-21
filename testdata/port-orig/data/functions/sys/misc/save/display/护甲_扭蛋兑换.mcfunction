@@ -1,0 +1,1 @@
+summon minecraft:armor_stand ~ ~0.5 ~ {CustomName:"§e§l护甲/扭蛋§a§l兑换",CustomNameVisible:1b,Invulnerable:1b,NoGravity:1b,Tags:["display","护甲/扭蛋兑换","menu.mob"],Invisible:true,Small:true,Marker:true}

@@ -1,0 +1,1 @@
+give @s pumpkin_pie 1 0 {display:{Lore:["§b༖§7活动道具"],Name:"§f┏⌭§e小龙糕§f⌭┓"},Tags:["鱼钓之季","小龙糕","undrop"]}

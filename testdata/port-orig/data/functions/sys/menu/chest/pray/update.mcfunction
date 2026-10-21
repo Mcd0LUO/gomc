@@ -1,0 +1,4 @@
+replaceitem block 100 10 -143 slot.container.0 minecraft:dye 1 1 {display:{Name:"§4§l火元素§7祈福",Lore:["§7需要:§e火之祈愿§a*1§7或§d万化祈福碎片§a*12","","§7成功概率:§d48%"]},Tags:["menu","火元素祈福","1"]}
+replaceitem block 100 10 -143 slot.container.9 minecraft:dye 1 6 {display:{Name:"§b§l水元素§7祈福",Lore:["§7需要:§e水之祈愿§a*1§7或§d万化祈福碎片§a*12","","§7成功概率:§d52%"]},Tags:["menu","水元素祈福","1"]}
+replaceitem block 100 10 -143 slot.container.18 minecraft:dye 1 12 {display:{Name:"§b§l冰元素§7祈福",Lore:["§7需要:§a冰之祈愿*1","","§7成功概率:§d48%"]},Tags:["menu","冰元素祈福","1"]}
+replaceitem block 101 10 -143 slot.container.0 minecraft:dye 1 11 {display:{Name:"§e§l雷元素§7祈福",Lore:["§7需要:§a雷之祈愿*1","","§7成功概率:§d40%"]},Tags:["menu","雷元素祈福","1"]}

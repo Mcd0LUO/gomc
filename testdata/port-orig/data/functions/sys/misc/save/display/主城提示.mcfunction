@@ -1,0 +1,11 @@
+summon minecraft:armor_stand ~ ~2.7 ~ {CustomName:"§7§m§l-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=-=",CustomNameVisible:1b,Invulnerable:1b,NoGravity:1b,Tags:["display","主城提示"],Invisible:true,Small:true,Marker:true}
+summon minecraft:armor_stand ~ ~2.45 ~ {CustomName:"§b进§d服§c必§e读",CustomNameVisible:1b,Invulnerable:1b,NoGravity:1b,Tags:["display","主城提示"],Invisible:true,Small:true,Marker:true}
+summon minecraft:armor_stand ~ ~2.20 ~ {CustomName:"§e末法§b时代§rv1.0.0 §7欢迎您",CustomNameVisible:1b,Invulnerable:1b,NoGravity:1b,Tags:["display","主城提示"],Invisible:true,Small:true,Marker:true}
+summon minecraft:armor_stand ~ ~1.95 ~ {CustomName:"§e怪物头顶左侧§a百分比§7为§e护盾 §7右侧为§c血条",CustomNameVisible:1b,Invulnerable:1b,NoGravity:1b,Tags:["display","主城提示"],Invisible:true,Small:true,Marker:true}
+summon minecraft:armor_stand ~ ~1.70 ~ {CustomName:"§7右键第三段小技能触发§3元素挂留 §r元素:§c§l༗§9§l☁§b§l☃§e§l⚡",CustomNameVisible:1b,Invulnerable:1b,NoGravity:1b,Tags:["display","主城提示"],Invisible:true,Small:true,Marker:true}
+summon minecraft:armor_stand ~ ~1.45 ~ {CustomName:"§7不同属性§e元素挂留§7会触发§e元素反应",CustomNameVisible:1b,Invulnerable:1b,NoGravity:1b,Tags:["display","主城提示"],Invisible:true,Small:true,Marker:true}
+summon minecraft:armor_stand ~ ~1.20 ~ {CustomName:"§b怪物被克制元素§7攻击额外增加§e10%护盾",CustomNameVisible:1b,Invulnerable:1b,NoGravity:1b,Tags:["display","主城提示"],Invisible:true,Small:true,Marker:true}
+summon minecraft:armor_stand ~ ~0.95 ~ {CustomName:"被§e相同属性§7元素攻击额外增加§e5%护盾",CustomNameVisible:1b,Invulnerable:1b,NoGravity:1b,Tags:["display","主城提示"],Invisible:true,Small:true,Marker:true}
+summon minecraft:armor_stand ~ ~0.7 ~ {CustomName:"§7护盾>=80/40/20  §e基础减伤80%/50%/20%",CustomNameVisible:1b,Invulnerable:1b,NoGravity:1b,Tags:["display","主城提示"],Invisible:true,Small:true,Marker:true}
+summon minecraft:armor_stand ~ ~0.45 ~ {CustomName:"§6指令:Mcd0_LUO",CustomNameVisible:1b,Invulnerable:1b,NoGravity:1b,Tags:["display","主城提示"],Invisible:true,Small:true,Marker:true}
+summon minecraft:armor_stand ~ ~0.20 ~ {CustomName:"§7§m§l-=-==-=-=-=-=-=-=-=-=-=-=-=-=-=-=",CustomNameVisible:1b,Invulnerable:1b,NoGravity:1b,Tags:["display","主城提示"],Invisible:true,Small:true,Marker:true}

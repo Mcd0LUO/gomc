@@ -1,0 +1,1 @@
+summon minecraft:armor_stand ~ ~0.5 ~ {Invulnerable:1b,NoGravity:1b,Tags:["display","endRod"],Invisible:true,Marker:true,PersistenceRequired:1b}

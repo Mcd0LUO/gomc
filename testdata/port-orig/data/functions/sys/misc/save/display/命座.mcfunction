@@ -1,0 +1,1 @@
+summon minecraft:armor_stand ~ ~ ~ {CustomName:"§r┏⌭§e§l星升§c§l之藏§r⌭┓",CustomNameVisible:1b,Invulnerable:1b,NoGravity:1b,Tags:["display","星升之藏","menu.mob"],Invisible:true,Small:true,Marker:true}

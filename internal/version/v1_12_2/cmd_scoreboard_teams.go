@@ -42,7 +42,24 @@ func parseTeams(p *parser.Parser) ([]ast.Arg, error) {
 // parseTeamsAction parses the action of `scoreboard teams`.
 func parseTeamsAction(p *parser.Parser, action string) ([]ast.Arg, error) {
 	switch action {
-	case "add", "remove":
+	case "add":
+		name, err := p.String()
+		if err != nil {
+			return nil, err
+		}
+		// The display name is the rest of the line: 1.12.2 reads it as a
+		// chat component and keeps its plain text.
+		display := ""
+		if p.More() {
+			display = p.Rest()
+		}
+		return []ast.Arg{
+			&ast.StringArg{Value: "teams"},
+			&ast.StringArg{Value: action},
+			&ast.StringArg{Value: name},
+			&ast.StringArg{Value: display},
+		}, nil
+	case "remove":
 		name, err := p.String()
 		if err != nil {
 			return nil, err
@@ -146,10 +163,22 @@ func runTeams(ctx *exec.Context, args []ast.Arg) (int, error) {
 	switch action {
 	case "add":
 		name := args[2].(*ast.StringArg).Value
-		if _, created := sb.AddTeam(name); !created {
-			// 1.12.2 refuses to create a team that exists already.
+		display := args[3].(*ast.StringArg).Value
+		// 1.12.2 checks that the team does not exist already, then the
+		// length of the name, then the length of the display name -- and
+		// only then is the team created.
+		if sb.Team(name) != nil {
 			return 0, exec.Errorf("A team with the name '%s' already exists", name)
 		}
+		if len([]rune(name)) > scoreboardNameLimit {
+			return 0, exec.Errorf("The name '%s' is too long for a team, it can be at most %d characters long",
+				name, scoreboardNameLimit)
+		}
+		if len([]rune(display)) > scoreboardDisplayLimit {
+			return 0, exec.Errorf("The display name '%s' is too long for a team, it can be at most %d characters long",
+				display, scoreboardDisplayLimit)
+		}
+		sb.AddTeam(name)
 		ctx.Engine.Feedback = append(ctx.Engine.Feedback,
 			fmt.Sprintf("Added new team '%s' successfully", name))
 		return 1, nil

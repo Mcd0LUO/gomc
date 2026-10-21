@@ -243,6 +243,12 @@ func resolveRelative(c ast.Coord, base world.Vec) world.Vec {
 // checkDetect evaluates the `detect` precondition.
 func checkDetect(w *world.World, a *executeArgs, pos world.Vec) (bool, error) {
 	dp := resolveRelative(a.detectPos, pos)
+	// 1.12.2 checks that the chunk of the detect position is loaded
+	// **before** it looks at the block there (`World.isLoaded`), and the
+	// failure is the same one as a block that does not match.
+	if !w.IsLoaded(dp.BlockPos()) {
+		return false, nil
+	}
 	block := w.Blocks.Get(dp.BlockPos())
 	if !strings.EqualFold(block.Name, a.detectBlock) {
 		return false, nil

@@ -1,0 +1,1 @@
+give @s bone 1 0 {display:{Lore:["§b༖§7材料"],Name:"§f┏⌭§3淬炼冷却骨§f⌭┓"},Tags:["材料","淬炼冷却骨","undrop"]}

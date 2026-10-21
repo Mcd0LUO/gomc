@@ -1,0 +1,1 @@
+tellraw @s [{"text":"§r[§eTEAM§r]:§7输入队长§aUID§7加入队伍: "},{"text":"§r[§d\"点我输入\"§r]","clickEvent":{"action":"suggest_command","value":"/trigger team.join set "},"hoverEvent":{"action":"show_text","value":"§e按下Tab查看玩家uid"}}]

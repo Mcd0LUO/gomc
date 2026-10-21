@@ -1,0 +1,1 @@
+summon minecraft:armor_stand ~ ~0.5 ~ {CustomName:"§e§l玩家§a§l营地",CustomNameVisible:1b,Invulnerable:1b,NoGravity:1b,Tags:["display","2c玩家营地"],Invisible:true,Marker:true,PersistenceRequired:1b}

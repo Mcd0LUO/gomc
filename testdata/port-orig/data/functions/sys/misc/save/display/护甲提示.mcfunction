@@ -1,0 +1,4 @@
+summon minecraft:armor_stand ~ ~1.5 ~ {CustomName:"§e护甲§c穿戴§a须知!!! §d[必读]",CustomNameVisible:1b,Invulnerable:1b,NoGravity:1b,Tags:["display","护甲穿戴"],Invisible:true,Small:true,Marker:true}
+summon minecraft:armor_stand ~ ~1.2 ~ {CustomName:"§7购买护甲请§d依次§7购买§e头盔§7->§e胸甲§7->§e护腿§7->§e靴子",CustomNameVisible:1b,Invulnerable:1b,NoGravity:1b,Tags:["display","护甲穿戴"],Invisible:true,Small:true,Marker:true}
+summon minecraft:armor_stand ~ ~0.9 ~ {CustomName:"§e穿戴§7护甲后需使用§e穿戴石§b攻击怪物§7重载护甲属性",CustomNameVisible:1b,Invulnerable:1b,NoGravity:1b,Tags:["display","护甲穿戴"],Invisible:true,Small:true,Marker:true}
+summon minecraft:armor_stand ~ ~0.6 ~ {CustomName:"§e请按头盔§7->§e胸甲§7->§e护腿§7->§e靴子§b依次§7重载属性",CustomNameVisible:1b,Invulnerable:1b,NoGravity:1b,Tags:["display","护甲穿戴"],Invisible:true,Small:true,Marker:true}

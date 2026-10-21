@@ -1,0 +1,2 @@
+tellraw @s ["",{"selector":"@a[score_team.key_min=2,score_team.key=2]"},{"text":" ┅§e加入队伍§r┅","clickEvent":{"action":"run_command","value":"/trigger team.join set 2"}}]
+function sys:menu/carrot/team/join/print/3 if @a[score_team.key_min=3]

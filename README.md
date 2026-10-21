@@ -80,6 +80,7 @@ error[Syntax]: 1:31: expected an integer, got "="
 | 文档 | 内容 |
 |---|---|
 | [`docs/SPEC-1.12.2.md`](docs/SPEC-1.12.2.md) | **行为基准**：每条语义都标注了是"读"（反编译）、"验"（真服实测）还是"推"出来的 |
+| [`docs/PATTERNS-1.12.2.md`](docs/PATTERNS-1.12.2.md) | **1.12.2 的工程手法**：从五个真实工程包（26944 个函数 / 50 万行）里蒸馏出来的做法，以及 gomc 还缺什么 |
 | [`docs/COMMANDS.md`](docs/COMMANDS.md) | 命令支持矩阵：1.12.2 专用服务器 64 条（`CommandDispatcher` 注册 65 次，三个分支互斥），已实现 51 条（外加 1 条 gomc 扩展命令），含 1.12.2 真实语法与已知偏差 |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 架构、依赖方向、31 条核心不变量、权威规格的来源与实测流程 |
 | [`docs/DIFFTEST.md`](docs/DIFFTEST.md) | 对拍层使用手册：写用例、跑 golden、和真服对齐 |

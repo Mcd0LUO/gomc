@@ -1,0 +1,1 @@
+summon minecraft:armor_stand ~ ~1 ~ {CustomName:"§b§l副本传送",CustomNameVisible:1b,Invulnerable:1b,NoGravity:1b,Tags:["display","副本传送","menu.mob"],Invisible:true,Small:true,Marker:true}

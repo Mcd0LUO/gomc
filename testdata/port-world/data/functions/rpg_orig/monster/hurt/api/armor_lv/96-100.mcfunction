@@ -1,0 +1,5 @@
+scoreboard teams join 96 @s[score_return_min=96,score_return=96]
+scoreboard teams join 97 @s[score_return_min=97,score_return=97]
+scoreboard teams join 98 @s[score_return_min=98,score_return=98]
+scoreboard teams join 99 @s[score_return_min=99,score_return=99]
+scoreboard teams join 100 @s[score_return_min=100,score_return=100]

@@ -1,0 +1,6 @@
+##
+ # fail.mcfunction
+ # 
+ #
+ # Created by .
+##

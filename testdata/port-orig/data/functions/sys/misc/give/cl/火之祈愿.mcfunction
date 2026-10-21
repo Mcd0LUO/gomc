@@ -1,0 +1,1 @@
+give @s dye 1 1 {display:{Lore:["§b༖§7材料"],Name:"§f┏⌭§4火之祈愿§f⌭┓"},Tags:["材料","火之祈愿","undrop"]}

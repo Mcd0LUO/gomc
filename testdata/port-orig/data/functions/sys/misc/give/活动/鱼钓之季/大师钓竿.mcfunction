@@ -1,0 +1,2 @@
+give @s fishing_rod 1 0 {ench:[{lvl:4s,id:34s},{lvl:2s,id:62s}],HideFlags:1,display:{Lore:["§8▣ §7来自§e池边老翁§f的钓竿,对池中之物有§e更强§7的吸引力","","§8▣ §7属性:耐久IV 饵钓II"],Name:"§f┏⌭§b大师钓竿§f⌭┓"},Tags:["undrop","活动道具","大师钓竿"]}
+playsound entity.experience_orb.pickup master @s ~0 ~0 ~0 1 1.5 0

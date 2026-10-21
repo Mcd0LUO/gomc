@@ -1,0 +1,5 @@
+scoreboard teams join 56 @s[score_return_min=56,score_return=56]
+scoreboard teams join 57 @s[score_return_min=57,score_return=57]
+scoreboard teams join 58 @s[score_return_min=58,score_return=58]
+scoreboard teams join 59 @s[score_return_min=59,score_return=59]
+scoreboard teams join 60 @s[score_return_min=60,score_return=60]

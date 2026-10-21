@@ -9,6 +9,18 @@ import (
 	"github.com/Mcd0LUO/gomc/internal/world"
 )
 
+// scoreboardNameLimit is the longest name a scoreboard objective or team
+// may have.
+//
+// 1.12.2 limits it to 16 characters (`CommandScoreboard`: `s.length() > 16`).
+var scoreboardNameLimit = 16
+
+// scoreboardDisplayLimit is the longest display name a scoreboard
+// objective or team may have.
+//
+// 1.12.2 limits it to 32 characters of plain text.
+var scoreboardDisplayLimit = 32
+
 // parseObjectives parses the `scoreboard objectives` subtree.
 func parseObjectives(p *parser.Parser) ([]ast.Arg, error) {
 	action, err := p.String()
@@ -110,10 +122,29 @@ func runObjectives(ctx *exec.Context, args []ast.Arg) (int, error) {
 	case "add":
 		name := args[2].(*ast.StringArg).Value
 		criteria := world.Criteria(args[3].(*ast.StringArg).Value)
+		// 1.12.2 checks the criteria type first, then whether the
+		// objective exists already, then the length of the name, and
+		// last the length of the display name.
+		//
+		// (Read from the server: `CommandScoreboard.a(...)` -- the
+		// order of the four checks is the order of the code.)
 		if !criteria.Valid() {
-			return 0, exec.Errorf("unknown scoreboard criteria %q", criteria)
+			// 1.12.2 throws this one as a usage error, so the message is
+			// prefixed with "Usage: ".
+			return 0, exec.Errorf("Usage: Invalid objective criteria type '%s'", args[3].(*ast.StringArg).Value)
+		}
+		if sb.Objective(name) != nil {
+			return 0, exec.Errorf("An objective with the name '%s' already exists", name)
+		}
+		if len([]rune(name)) > scoreboardNameLimit {
+			return 0, exec.Errorf("The name '%s' is too long for an objective, it can be at most %d characters long",
+				name, scoreboardNameLimit)
 		}
 		display := args[4].(*ast.StringArg).Value
+		if len([]rune(display)) > scoreboardDisplayLimit {
+			return 0, exec.Errorf("The display name '%s' is too long for an objective, it can be at most %d characters long",
+				display, scoreboardDisplayLimit)
+		}
 		sb.AddObjective(name, criteria, display)
 		ctx.Engine.Feedback = append(ctx.Engine.Feedback,
 			fmt.Sprintf("Added new objective '%s' successfully", name))

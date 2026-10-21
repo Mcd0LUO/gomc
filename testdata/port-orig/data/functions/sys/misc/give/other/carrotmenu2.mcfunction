@@ -1,0 +1,12 @@
+scoreboard players tag @e[type=item] add kill.allow {Tags:["menu_temp"]}
+kill @e[tag=kill.allow,type=item]
+summon minecraft:item ~ ~2.4 ~ {CustomName:"§7▣§e菜单补领§7▣",CustomNameVisible:1b,Invulnerable:0b,PortalCooldown:0,Thrower:"Mcd0_LUO",UpdateBlocked:0b,FallDistance:0.0f,Item:{id:"minecraft:carrot_on_a_stick",Count:1b,tag:{Unbreakable:1b,HideFlags:4,display:{Lore:["","§b⚚§7菜单","§c⏍§7⛖▁▂▃§a§b『属性』§7▃▂▁§c⏍","§8▣ §e⚔ §aNONE","§8▣ §a§7§7输入/trigger menu set 10086 重温新手教程","§8▣ §7§7服务器交流室:§3817 071 594","§8▣ §7函数提供:§eMcd0_LUO  §7部分建筑搬运来源:§escore_爱疯"],Name:"§f┏⌭§e右键菜单§f⌭┓"},Tags:["menu.trigger"]},Damage:0s},PickupDelay:0s,Tags:["menu_temp"]}
+summon minecraft:item ~0.3 ~2.4 ~ {CustomName:"§7▣§e穿戴石[头盔]§7▣",CustomNameVisible:1b,Invulnerable:0b,PortalCooldown:0,Thrower:"Mcd0_LUO",UpdateBlocked:0b,FallDistance:0.0f,Item:{id:"minecraft:flint",Count:1b,tag:{Unbreakable:1b,HideFlags:6,display:{Lore:["","§b⚚§7必备物品[永久]","","§8▣ §7手持穿戴石攻击怪物以§e重载自身元素抵抗"],Name:"§f┏⌭§6防具穿戴石§f[头盔]§f⌭┓"},Tags:["穿戴石","头盔"]},Damage:0s},PickupDelay:0s,Tags:["menu_temp"]}
+
+summon minecraft:item ~ ~2.4 ~0.3 {CustomName:"§7▣§e穿戴石[胸甲]§7▣",CustomNameVisible:1b,Invulnerable:0b,PortalCooldown:0,Thrower:"Mcd0_LUO",UpdateBlocked:0b,FallDistance:0.0f,Item:{id:"minecraft:flint",Count:1b,tag:{Unbreakable:1b,HideFlags:6,display:{Lore:["","§b⚚§7必备物品[永久]","","§8▣ §7手持穿戴石攻击怪物以§e重载自身元素抵抗"],Name:"§f┏⌭§6防具穿戴石§f[胸甲]§f⌭┓"},Tags:["穿戴石","胸甲"]},Damage:0s},PickupDelay:0s,Tags:["menu_temp"]}
+
+summon minecraft:item ~0.3 ~2.4 ~0.3 {CustomName:"§7▣§e穿戴石[护腿]§7▣",CustomNameVisible:1b,Invulnerable:0b,PortalCooldown:0,Thrower:"Mcd0_LUO",UpdateBlocked:0b,FallDistance:0.0f,Item:{id:"minecraft:flint",Count:1b,tag:{Unbreakable:1b,HideFlags:6,display:{Lore:["","§b⚚§7必备物品[永久]","","§8▣ §7手持穿戴石攻击怪物以§e重载自身元素抵抗"],Name:"§f┏⌭§6防具穿戴石§f[护腿]§f⌭┓"},Tags:["穿戴石","护腿"]},Damage:0s},PickupDelay:0s,Tags:["menu_temp"]}
+
+summon minecraft:item ~-0.3 ~2.4 ~ {CustomName:"§7▣§e穿戴石[靴子]§7▣",CustomNameVisible:1b,Invulnerable:0b,PortalCooldown:0,Thrower:"Mcd0_LUO",UpdateBlocked:0b,FallDistance:0.0f,Item:{id:"minecraft:flint",Count:1b,tag:{Unbreakable:1b,HideFlags:6,display:{Lore:["","§b⚚§7必备物品[永久]","","§8▣ §7手持穿戴石攻击怪物以§e重载自身元素抵抗"],Name:"§f┏⌭§6防具穿戴石§f[靴子]§f⌭┓"},Tags:["穿戴石","靴子"]},Damage:0s},PickupDelay:0s,Tags:["menu_temp"]}
+
+particle reddust ~ ~2.4 ~ 0.4 0.3 0.3 0.25 20 normal

@@ -1,0 +1,16 @@
+name: rpg:attribute/cold/main at cold=0
+
+setup:
+  scoreboard objectives add bar.cold dummy
+  scoreboard objectives add bar.cold.max dummy
+  scoreboard objectives add health dummy
+  scoreboard objectives add debuff.armor dummy
+  scoreboard objectives add num dummy
+  scoreboard players set 0 num 0
+  gomcplayer Steve 0 4 0
+  scoreboard players set Steve bar.cold 1
+  scoreboard players set Steve bar.cold.max 50
+  scoreboard players set Steve health 20
+
+run:
+  execute Steve ~ ~ ~ function rpg:attribute/cold/main

@@ -1,0 +1,1 @@
+function sys:skill/press/ice/寒星环刃/main if @s[score_skill.id_min=201,score_skill.id=201]

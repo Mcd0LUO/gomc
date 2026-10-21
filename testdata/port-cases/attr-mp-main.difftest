@@ -1,0 +1,13 @@
+name: rpg:attribute/mp/main
+
+setup:
+  scoreboard objectives add mp.now dummy
+  scoreboard objectives add mp.max dummy
+  scoreboard objectives add mp.MoreRestore dummy
+  gomcplayer Steve 0 4 0
+  scoreboard players set Steve mp.now 10
+  scoreboard players set Steve mp.max 100
+  scoreboard players set Steve mp.MoreRestore 5
+
+run:
+  execute Steve ~ ~ ~ function rpg:attribute/mp/main

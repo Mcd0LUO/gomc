@@ -1,0 +1,1 @@
+scoreboard players operation @s return = @r[type=armor_stand,tag=range.0_9] math

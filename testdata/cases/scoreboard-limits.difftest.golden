@@ -1,0 +1,29 @@
+# case: scoreboard limits
+step 1: gomcplayer Steve 0 4 0
+  count: 1
+  feedback: Successfully created the player Steve
+step 2: scoreboard objectives add t dummy
+  count: 1
+  feedback: Added new objective 't' successfully
+step 3: scoreboard objectives add t dummy
+  error: An objective with the name 't' already exists
+step 4: scoreboard objectives add abcdefghijklmnopq dummy
+  error: The name 'abcdefghijklmnopq' is too long for an objective, it can be at most 16 characters long
+step 5: scoreboard objectives add t2 dummy 12345678901234567890123456789012
+  count: 1
+  feedback: Added new objective 't2' successfully
+step 6: scoreboard objectives add t2b dummy 123456789012345678901234567890123
+  error: The display name '123456789012345678901234567890123' is too long for an objective, it can be at most 32 characters long
+step 7: scoreboard teams add tt2 123456789012345678901234567890123
+  error: The display name '123456789012345678901234567890123' is too long for a team, it can be at most 32 characters long
+step 8: scoreboard objectives add t3 notacriteria
+  error: Usage: Invalid objective criteria type 'notacriteria'
+step 9: scoreboard teams add tt
+  count: 1
+  feedback: Added new team 'tt' successfully
+step 10: scoreboard teams add tt
+  error: A team with the name 'tt' already exists
+step 11: execute Steve 900 4 900 detect 900 4 900 stone 0 say hi
+  error: Failed to execute 'detect' as Steve
+step 12: execute Steve ~ ~ ~ detect ~ ~ ~ stone 0 say hi
+  error: Failed to execute 'detect' as Steve

@@ -1,0 +1,10 @@
+entitydata @s[score_return_min=101,score_return=101] {Motion:[-0.04,0.55,0.24],OnGround:0b}
+entitydata @s[score_return_min=102,score_return=102] {Motion:[-0.02,0.56,-0.26],OnGround:0b}
+entitydata @s[score_return_min=103,score_return=103] {Motion:[0.11,0.47,0.22],OnGround:0b}
+entitydata @s[score_return_min=104,score_return=104] {Motion:[-0.20,0.40,0.28],OnGround:0b}
+entitydata @s[score_return_min=105,score_return=105] {Motion:[-0.26,0.45,0.02],OnGround:0b}
+entitydata @s[score_return_min=106,score_return=106] {Motion:[-0.11,0.52,-0.14],OnGround:0b}
+entitydata @s[score_return_min=107,score_return=107] {Motion:[0.26,0.41,-0.18],OnGround:0b}
+entitydata @s[score_return_min=108,score_return=108] {Motion:[0.18,0.45,0.23],OnGround:0b}
+entitydata @s[score_return_min=109,score_return=109] {Motion:[-0.28,0.44,-0.09],OnGround:0b}
+entitydata @s[score_return_min=110,score_return=110] {Motion:[0.13,0.45,-0.19],OnGround:0b}
