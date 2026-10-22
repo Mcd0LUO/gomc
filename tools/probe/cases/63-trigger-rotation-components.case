@@ -1,0 +1,68 @@
+# 三处能力的真服基准：
+#
+#   1. `/summon` / `/entitydata` 的 `Rotation` 落到实体朝向
+#   2. trigger 的锁（`ScoreboardScore`）
+#   3. tellraw / title 的 JSON 组件
+#
+# 能看到的与看不到的：
+#   - 朝向：`execute @e[ry=...] ~ ~ ~ say` 会打在控制台上。
+#   - trigger 的成功回显是**发给玩家**的（而且只在创造模式发），控制台看不到；
+#     控制台能看到的是 `execute` 的失败汇总。分数本身用 `players list` 看。
+#   - tellraw 的正文也是发给玩家的，控制台看不到；但**组件坏掉**时命令自己
+#     失败，错误会打在控制台上——这是 JSON 组件这一条能验的部分。
+#
+# bot: Steve
+
+--- console ---
+say U01
+scoreboard objectives add t trigger
+say U02
+scoreboard players set Steve t 0
+say U03
+execute Steve ~ ~ ~ trigger t add 3
+say U04
+execute Steve ~ ~ ~ trigger t add 1
+say U05
+scoreboard players list Steve
+say U06
+scoreboard players enable Steve t
+say U07
+execute Steve ~ ~ ~ trigger t set 7
+say U08
+scoreboard players list Steve
+say U09
+summon armor_stand 0 4 0 {Rotation:[90f,45f]}
+say U10
+execute @e[ry=90,rym=90] ~ ~ ~ say turned
+say U11
+entitydata @e[type=armor_stand] {Rotation:[10f,-20f]}
+say U12
+execute @e[ry=10,rym=10] ~ ~ ~ say ten
+say U13
+summon armor_stand 2 4 0 {Rotation:[90,45]}
+say U14
+execute @e[ry=90,rym=90] ~ ~ ~ say intlist
+say U15
+scoreboard objectives add n dummy
+say U16
+scoreboard players set Steve n 42
+say U17
+tellraw Steve {"text":"a","extra":[{"text":"b"}]}
+say U18
+tellraw Steve {"score":{"name":"Steve","objective":"n"}}
+say U19
+tellraw Steve {"score":{"name":"*","objective":"n"}}
+say U20
+tellraw Steve {"score":{"name":"@e[type=zombie]","objective":"n"}}
+say U21
+tellraw Steve {"selector":"@a"}
+say U22
+tellraw Steve {"translate":"chat.type.text","with":[{"text":"Steve"},{"text":"hi"}]}
+say U23
+tellraw Steve {"text":"x","clickEvent":{"action":"bogus","value":"y"}}
+say U24
+title Steve title {"text":"hi"}
+say U25
+title Steve title {"text":"hi","hoverEvent":{"action":"bogus","value":"x"}}
+say U26
+scoreboard players list Steve

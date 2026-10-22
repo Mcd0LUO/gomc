@@ -63,10 +63,10 @@ gomc 目前实现了 **51 条**（以专用服务器的 64 条为基准），另
 | `spreadplayers` | `/spreadplayers <x> <z> <spreadDistance> <maxRange> <respectTeams true\|false> <player ...>` | 散布算法照搬 1.12.2 的松弛迭代，随机数用自实现的 splitmix64 保持确定性 |
 | `stats` | `/stats <entity\|block> ...` | **1.12.2 上这条命令是坏的**，gomc 复现的就是它的坏法（统计项的名字被当成「命令结果类型」映射，映射不到就是 `Invalid parameters`）。但 `stats entity <目标> set <结果名> <持有者> <objective>` 在真服上是**注册一条通道**（统计量变化时写进那个 objective）——**这一轮建模了**：通道绑在实体上，写入的前提是 objective 存在**且**持有者已有条目，持有者按玩家名/UUID 解析 |
 | `stopsound` | `/stopsound <目标> [<声音源>] [<音效>]` | **目标在最前** |
-| `summon` | `/summon <实体> [<x> <y> <z>] [<nbt>]` | |
+| `summon` | `/summon <实体> [<x> <y> <z>] [<nbt>]` | NBT 的 `Rotation` 落到实体朝向（**只认浮点列表**，int/double 列表读成 0/0） |
 | `teleport` | `/teleport <目标> <x> <y> <z>` | |
 | `tell` | `/tell <目标> <消息>` | |
-| `tellraw` | `/tellraw <目标> <原始 JSON>` | JSON 是**整行剩下的部分**（参数用单个空格拼回去） |
+| `tellraw` | `/tellraw <目标> <原始 JSON>` | JSON 是**整行剩下的部分**（参数用单个空格拼回去）；组件会解析：`text`/`translate`/`score`/`selector`/`extra`，`clickEvent`/`hoverEvent` 的动作不认识就整条失败 |
 | `testfor` | `/testfor <目标> [<nbt>]` | NBT 走子集匹配 |
 | `testforblock` | `/testforblock <x> <y> <z> <方块> [<数据值>]` | |
 | `testforblocks` | `/testforblocks <x1> <y1> <z1> <x2> <y2> <z2> <方块> [<数据值>]` | |
@@ -74,7 +74,7 @@ gomc 目前实现了 **51 条**（以专用服务器的 64 条为基准），另
 | `title` | `/title <目标> <title\|subtitle\|actionbar\|clear\|reset\|times> [<参数>]` | **动作不按名单校验**：1.12.2 把动作映射到枚举（不区分大小写），**对不上的动作当 `title` 处理**（`EnumTitleAction.a` 的最后一行是 `return TITLE`）。JSON 是**整行剩下的部分** |
 | `toggledownfall` | `/toggledownfall` | |
 | `tp` | `/tp <目标> <x> <y> <z> [<yaw> <pitch>]` | **1.12.2 有 `[<yaw> <pitch>]`（1.13+ 反而没有）**：绝对角度直接用，`~N` 是当前 + N，`~` 保持不变。yaw 折到 [-180, 180)，pitch **先折返再夹紧**到 [-90, 90]。朝向**落到实体上**，`@e[ry=...]` 能选中它。⚠️ 形式是**按参数个数**分的：4 个或 6 个参数时第一个是**目标** |
-| `trigger` | `/trigger <目标> <add\|set> <值>` | **模式必填**（`add` / `set`），不能省；`set` 是**赋值**不是累加 |
+| `trigger` | `/trigger <目标> <add\|set> <值>` | **模式必填**（`add` / `set`），不能省；`set` 是**赋值**不是累加。成功一次就**上锁**，再触发报 `Trigger %s is not enabled`，要 `scoreboard players enable` 解锁（`enable` 会顺手建条目） |
 | `weather` | `/weather <clear\|rain\|thunder> [<时长>]` | 时长单位是秒 |
 | `worldborder` | `/worldborder <set\|add\|center\|damage\|warning\|get> [...]` | |
 | `xp` | `/xp <数量> [<玩家>]` | 数量带 `L`/`l` 后缀表示经验等级 |
@@ -124,12 +124,11 @@ gomc 目前实现了 **51 条**（以专用服务器的 64 条为基准），另
 
 对拍时这些差异会体现在 golden 里，属于**已知且可解释**的偏差。
 
-**还有几处是 gomc 还没做到的**（不是有意偏离，是缺口）：`summon` 的
-`Pose`/`Rotation`、trigger 的锁标志、tellraw/title 的 JSON 组件。
-每一处都附了**真实工程里的用例**，清单和优先级见
-[`PATTERNS-1.12.2.md`](PATTERNS-1.12.2.md)。
+**原来还有三处没做到，这一轮补完了**：`summon`/`entitydata` 的
+`Rotation`（`Pose` 是盔甲架的肢体角度、对命令不可观察，只留 NBT）、trigger
+的锁标志、tellraw/title 的 JSON 组件。依据见 SPEC 6.10、4.8、8.1。
 
-（这一轮补完了三项：`/stats` 的结果捕获语义、`/tp` 的 `[<yaw> <pitch>]`、
+（更早补完的三项：`/stats` 的结果捕获语义、`/tp` 的 `[<yaw> <pitch>]`、
 `replaceitem` 的完整槽位表。）
 
 ## 权威清单在哪

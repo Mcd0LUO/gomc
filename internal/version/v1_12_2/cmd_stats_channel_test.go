@@ -209,6 +209,64 @@ func TestStatsChannelSuccessCount(t *testing.T) {
 	}
 }
 
+// TestStatsChannelFailureWritesZero covers the failure path of the channel.
+//
+// 1.12.2's dispatcher reports `SUCCESS_COUNT` after its try/catch (and
+// `VanillaCommandWrapper.dispatchVanillaCommand`, the path `/execute`
+// takes, in a `finally`), so a failed command writes 0 instead of
+// leaving the old score in place. A parse mistake is reported the same
+// way: 1.12.2 parses inside `ICommand.execute`, so the dispatcher catches
+// `ExceptionUsage` / `CommandException` and still reports the count.
+func TestStatsChannelFailureWritesZero(t *testing.T) {
+	e := newTestEngine(t)
+	for _, line := range []string{
+		"scoreboard objectives add cnt dummy",
+		"summon armor_stand 0 4 0",
+		"scoreboard players set @e[type=armor_stand] cnt 0",
+		"stats entity @e[type=armor_stand] set SuccessCount @e[type=armor_stand] cnt",
+	} {
+		if err := runLine(e, line); err != nil {
+			t.Fatalf("%s: %v", line, err)
+		}
+	}
+	holder := e.World.EntitySlice()[0].EnsureUUID()
+	score := func() int {
+		n, tracked := e.World.Scoreboard.Score(holder, "cnt")
+		if !tracked {
+			t.Fatal("the holder has no score in the objective")
+		}
+		return n
+	}
+
+	if err := runLine(e, "execute @e[type=armor_stand] ~ ~ ~ setblock 5 4 5 stone"); err != nil {
+		t.Fatalf("the successful command failed: %v", err)
+	}
+	if got := score(); got != 1 {
+		t.Fatalf("the score after a success is %d, want 1", got)
+	}
+
+	// The height is inside the range the parser accepts, so the command
+	// runs and fails.
+	if err := runLine(e, "execute @e[type=armor_stand] ~ ~ ~ setblock 5 256 5 stone"); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if got := score(); got != 0 {
+		t.Errorf("the score after a run failure is %d, want 0", got)
+	}
+
+	if err := runLine(e, "execute @e[type=armor_stand] ~ ~ ~ setblock 5 4 5 stone"); err != nil {
+		t.Fatalf("the successful command failed: %v", err)
+	}
+	// 300 is outside the range of the parser, so this one fails before
+	// it runs.
+	if err := runLine(e, "execute @e[type=armor_stand] ~ ~ ~ setblock 5 300 5 stone"); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if got := score(); got != 0 {
+		t.Errorf("the score after a parse failure is %d, want 0", got)
+	}
+}
+
 // TestStatsChannelIsKeptOnTheEntity covers that the channel belongs to the
 // entity and travels with it.
 func TestStatsChannelIsKeptOnTheEntity(t *testing.T) {

@@ -1,0 +1,39 @@
+# 三处原来没做到的 1.12.2 能力：
+#
+#   1. `/summon` 与 `/entitydata` 的 `Rotation` 落到实体朝向，`@e[ry=...]`
+#      才选得中。1.12.2 读的是 `getList("Rotation", 5)`：**只认浮点列表**，
+#      `Rotation:[90,45]` 是 int 列表，读出来是 0/0。
+#   2. trigger 的锁标志。`/trigger` 成功一次就上锁，再触发报
+#      `Trigger t is not enabled`，要 `/scoreboard players enable` 解锁。
+#      新建的分数是**没上锁**的（`ScoreboardScore` 的构造器只置了广播标志）。
+#   3. tellraw/title 的 JSON 组件。`score` 按持有者查（`name:"*"` 是**收信
+#      玩家**，不是聚合），`selector` 展开成名字，`translate` 查语言表。
+#      `clickEvent`/`hoverEvent` 会被解析，但**动作不校验**——真服实测：
+#      不认识的 action 照样成功。
+#
+# 真服实测：`tools/probe/cases/63-trigger-rotation-components.case`。
+name: trigger lock, entity rotation and chat components
+
+setup:
+  gomcplayer Steve 0 4 0
+  scoreboard objectives add t trigger
+  scoreboard objectives add n dummy
+  scoreboard players set Server t 0
+  scoreboard players set Steve n 42
+
+run:
+  trigger t add 3
+  trigger t add 1
+  scoreboard players enable Server t
+  trigger t set 7
+  summon armor_stand 0 4 0 {Rotation:[90f,45f]}
+  execute @e[ry=90,rym=90] ~ ~ ~ say turned
+  entitydata @e[type=armor_stand] {Rotation:[10f,-20f]}
+  execute @e[ry=10,rym=10] ~ ~ ~ say ten
+  tellraw Steve {"text":"a","extra":[{"text":"b"}]}
+  tellraw Steve {"score":{"name":"Steve","objective":"n"}}
+  tellraw Steve {"selector":"@a"}
+  tellraw Steve {"translate":"chat.type.text","with":[{"text":"Steve"},{"text":"hi"}]}
+  tellraw Steve {"text":"x","clickEvent":{"action":"bogus","value":"y"}}
+  title Steve title {"text":"hi"}
+  title Steve title {"text":"hi","hoverEvent":{"action":"bogus","value":"x"}}

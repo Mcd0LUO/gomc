@@ -1,0 +1,24 @@
+# `/time` 的数值下界与 day 的算法。
+#
+# 1.12.2 的 `set` 和 `add` 都走 `CommandTime.a(text, 0)`，下界是 0：
+# 负数报 tooSmall，不是 Java int 报 not a valid number。
+#
+# `day` 是 `dayTime / 24000`，而 `dayTime` 不取模，所以 `time set 24000`
+# 之后 `query day` 是 1。
+#
+# 只测与 tick 无关的部分：控制台每条命令之间有等待，`daytime` 会被 tick
+# 推着走，数值不稳定。
+
+--- console ---
+say U01
+time set 24000
+say U02
+time query day
+say U03
+time set -5
+say U04
+time add -1
+say U05
+time set 3000000000
+say U06
+time set nope

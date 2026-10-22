@@ -761,6 +761,47 @@ scoreboard teams option <队伍> <选项> <值>
     the scoreboard:` + **一行纯文本**；只有 `players list <持有者>` 才是
     条目格式 `- <显示名>: <分数> (<目标名>)`。
 
+### 4.8 trigger 的锁标志 [读][验]
+
+`/trigger` 不是普通的写分：分数上有一个**锁**，成功触发一次就上锁，再触发
+报 `Trigger t is not enabled`，要 `/scoreboard players enable` 解锁。
+
+（`ScoreboardScore` 的 `g()` 读锁、`a(boolean)` 写锁；`CommandTrigger`
+在写分之后调 `a(true)`，`CommandScoreboard` 的 `enable` 走
+`getPlayerScoreForObjective` 之后调 `a(false)`。）
+
+几条容易搞错的：
+
+- **新建的分数是没上锁的**。`ScoreboardScore` 的构造器只把"要广播"那个
+  标志置 true，锁字段是 Java 默认的 false。所以
+  `scoreboard players set @s t 0` 之后**第一次** `/trigger` 直接就能用，
+  不需要先 `enable`。
+- **`enable` 会建条目**：它调 `getPlayerScoreForObjective`，没有条目就建
+  一个 0 分的，然后解锁。**已有的分数不会被清零**。
+- **没有条目**和**目标不是 trigger** 是**同一条消息**：
+  `Invalid trigger name <目标>`（`commands.trigger.invalidObjective`）。
+  1.12.2 没有单独的"这个持有者没有分数"文案。
+- **检查顺序**：目标存在且是 trigger → 解析数值 → 条目存在 → 没上锁 →
+  模式合法。所以数值写错时报的是数字，而模式写错、触发器又锁着时报的是
+  "没启用"。
+- **成功回显只在创造模式发**：`CommandTrigger` 最后一句是
+  `if (entityPlayer.playerInteractManager.isCreative())`。生存模式的玩家
+  触发成功也看不到那行。
+- **`reset` 连锁一起清掉**：锁挂在分数上，分数没了锁也没了。
+
+真服实测（探针 `63-trigger-rotation-components`，机器人 Steve 在线）：
+
+```
+execute Steve ~ ~ ~ trigger t add 3   -> 成功，控制台什么都不打（生存模式）
+execute Steve ~ ~ ~ trigger t add 1   -> [Steve: Trigger t is not enabled]
+                                         Trigger t is not enabled
+                                         All invocations failed: 'trigger t add 1'
+scoreboard players list Steve         -> - t: 3 (t)
+scoreboard players enable Steve t     -> Enabled trigger t for Steve
+execute Steve ~ ~ ~ trigger t set 7   -> 成功
+scoreboard players list Steve         -> - t: 7 (t)
+```
+
 ---
 
 ## 5. gamerule
@@ -1050,6 +1091,19 @@ particle <名称> <x> <y> <z> <dx> <dy> <dz> <速度> [<数量>] [<模式>] [<�
 `/tp` `/particle` `/playsound` `/spawnpoint` 和 `/summon` 的 X、Z 都是这个模式
 （`/summon` 的 Y 不是）。
 
+**边界查的是加完基准之后的最终坐标，不是字面量。** 相对坐标的基准是
+listener 的位置，而 1.12.2 是在 `ICommand.execute` 里读参数的——函数的一行
+在每次调用时都按当时的位置重新解析一遍。所以函数体里的
+`tp @s ~-1073741.824 ~ ~` 从一个贴着 -30000000 的实体出发时，消息里印的是
+**加完基准之后的数**（`The number you have entered (<base+offset>) is too
+small, it must be at least -30000000`），不是 `-1073741.824`。
+越界之后没有第二道闸：`Entity.setPosition` 不钳制，读的时候漏过去就照写。
+
+gomc 在加载函数时就把行解析好了（那时基准未知），所以解析期**不判**相对
+坐标的边界，由命令在执行期按最终坐标判（`/tp` 在 `checkResolvedCoord` 里
+判，见 `internal/version/v1_12_2/coords.go`）；绝对坐标照旧在解析期判。
+`/tp` 的 Y 在执行期同样按 ±4096 判。
+
 **世界高度之外**（探针用例 `39-summon-position`）：
 
 | 命令 | 真服输出 |
@@ -1277,6 +1331,55 @@ pos    = args.length > 3 ? parseBlockPos(args, 1, true) : player.getChunkCoordin
 探针用例：`tools/probe/cases/56-replaceitem-slots.case`、
 `57-replaceitem-containers.case`、`58-replaceitem-player.case`。
 
+### 6.10 `/summon` 与 `/entitydata` 的 `Rotation` [读][验]
+
+实体把朝向存在 `yaw`/`pitch` 两个字段里，NBT 里对应
+`Rotation:[<yaw>f,<pitch>f]`。`/summon` 造实体时走
+`ChunkRegionLoader.a` → `Entity.f(NBTTagCompound)`，`/entitydata` 合并完
+也调同一个 `f`，所以两条命令都会把 `Rotation` 落到实体上，
+`@e[ry=...]` / `@e[rx=...]` 就能选中它。
+
+`f` 的读法是：
+
+```java
+NBTTagList rot = nbt.getList("Rotation", 5);   // 5 = TAG_Float
+this.yaw   = rot.g(0);
+this.pitch = rot.g(1);
+```
+
+`getList(key, 5)` **只在列表元素是 float 时**才认，否则给一个空表，而空表的
+`g(i)` 是 0。所以：
+
+| 写法 | 结果 |
+|---|---|
+| `{Rotation:[90f,45f]}` | yaw 90、pitch 45 |
+| `{Rotation:[90,45]}`（int 列表） | **0 / 0** |
+| `{Rotation:[90.0d,45.0d]}`（double 列表） | **0 / 0** |
+| 没有 `Rotation` 这个键 | 保持原来的朝向 |
+
+角度**不折返**：`f` 把 float 直接赋给字段，所以 `{Rotation:[1000f,0f]}`
+的 yaw 就是 1000，不是 280。
+
+`Pose` **不是朝向**：它是盔甲架的肢体角度（`EntityArmorStand`），只影响
+渲染，不进 `yaw`/`pitch`，也没有任何命令能观察到它，所以 gomc 只把它当
+普通 NBT。
+
+`Pos` / `Motion` 同理没有落到实体上：gomc 不模拟移动，见 README 的已知边界。
+
+真服实测（探针 `63-trigger-rotation-components`）：
+
+```
+summon armor_stand 0 4 0 {Rotation:[90f,45f]}
+execute @e[ry=90,rym=90] ~ ~ ~ say turned     -> [Armor Stand] turned
+entitydata @e[type=armor_stand] {Rotation:[10f,-20f]}
+execute @e[ry=10,rym=10] ~ ~ ~ say ten        -> [Armor Stand] ten
+summon armor_stand 2 4 0 {Rotation:[90,45]}
+execute @e[ry=90,rym=90] ~ ~ ~ say intlist    -> （什么都不打：int 列表读成 0/0）
+```
+
+`entitydata` 的回显里能看到 `Rotation:[10.0f,-20.0f]`，同时 `Pose:{}` 是
+另一个键——盔甲架的肢体角度确实不在这里。
+
 ---
 
 ## 7. 时间
@@ -1289,13 +1392,47 @@ time add <值>      数字
 time query <daytime|day|gametime>
 ```
 
-- `daytime` = 一天内的时刻（0..23999）。
-- `day` = 创建世界以来经过的天数。
-- `gametime` = 世界总 tick 数。
+- `daytime` = 一天内的时刻（`dayTime % 24000`，0..23999）。
+- `day` = 创建世界以来经过的天数（`dayTime / 24000`）。
+- `gametime` = 世界总 tick 数（`time % Integer.MAX_VALUE`）。
 
 **`daytime` / `noon` / `midnight` 作为 `set` 的值是 1.13 才有的**，
 1.12.2 只认 `day` 和 `night`。实测 `time set 18000` 的回显是
 `Set the time to 18000`。
+
+两个计数器是分开的（`WorldData` 的 `time` 与 `dayTime`）：
+
+- **每 tick 都加的是 `time`**；`dayTime` 只在
+  `doDaylightCycle` 为 true 时加（`WorldServer.doTick`）：
+  ```java
+  this.worldData.setTime(this.worldData.getTime() + 1L);
+  if (this.getGameRules().getBoolean("doDaylightCycle")) {
+      this.worldData.setDayTime(this.worldData.getDayTime() + 1L);
+  }
+  ```
+  所以关掉日光循环，太阳停住而 tick 计数照走。
+- **`dayTime` 不取模 24000**，它一直往上加；只有 `query daytime` 才
+  `% 24000`。这也是 `query day` 能算出天数的原因——取模了它就恒为 0。
+- **`/time set` 只改 `dayTime`**，不动 `time`（`CommandTime.a(server, n)`
+  对每个世界调 `setDayTime`）。
+
+**`set` 和 `add` 的数值下界是 0**。两者都走
+`CommandTime.a(text, 0)` → `CommandAbstract.a(String, int, int)`：
+不是 Java `int` 报 `'%s' is not a valid number`，负数报
+`The number you have entered (-5) is too small, it must be at least 0`。
+注意这条文案里的数字是**整数本身**（参数是 `Integer`），带两位小数的
+`(304.00)` 那种来自坐标读取器——它传的是 `String.format("%.2f", …)`。
+
+真服实测（探针 `64-time`）：
+
+```
+time set 24000        -> Set the time to 24000
+time query day        -> Time is 1
+time set -5           -> The number you have entered (-5) is too small, it must be at least 0
+time add -1           -> The number you have entered (-1) is too small, it must be at least 0
+time set 3000000000   -> '3000000000' is not a valid number
+time set nope         -> 'nope' is not a valid number
+```
 
 ---
 
@@ -1316,6 +1453,37 @@ say @a（无匹配） → Selector '@a' found nothing
 - 名字取的是计分板显示名（自定义名 → 玩家名 → 类型的翻译名）。
 - `/say` **总是**展开；`/me` **只在执行者不是玩家时**展开（玩家发 `/me` 不会
   把选择器展开成名字列表）。
+
+### 8.1 tellraw / title 的 JSON 组件 [读][验]
+
+`/tellraw` 和 `/title` 的 JSON 会被 Gson 反序列化成一棵
+`IChatBaseComponent` 树（`IChatBaseComponent.ChatSerializer`）。**服务器在
+发出之前会把依赖世界的那部分解析掉**（`ChatComponentUtils.filterForDisplay`）：
+
+- **`score`**：`name` 是选择器时**必须恰好匹配一个实体**（否则
+  `Selector '<x>' found nothing`），玩家取名字、其它实体取 UUID；`name`
+  是 `"*"` 时换成**收信玩家**的名字；持有者没有条目时渲染成**空串**。
+- **`selector`**：展开成匹配实体的显示名，用 `, ` / ` and ` 连接；没有匹配
+  时是空串（不报错）。
+- **`translate`**：查语言表，查不到就渲染成键本身；`with` 是它的参数，
+  按 `String.format` 的规则代入。
+- **`text` / `extra`**：文本 + 兄弟节点依次拼接。
+- **`clickEvent` / `hoverEvent`**：会被解析并保留，但**动作不校验**。真服实测：
+  `{"action":"bogus"}` 的 tellraw 和 title 都照样成功——服务端把动作映射成
+  枚举时查不到就给 `null`，客户端拿到也没有可做的。已知的动作名是：
+  - click：`open_url` / `open_file` / `run_command` / `suggest_command` /
+    `change_page`
+  - hover：`show_text` / `show_item` / `show_entity`
+
+`name:"*"` **不是聚合**。1.13 的 `{"score":{"name":"*"}}` 才是"列出该目标
+所有持有者"，1.12.2 只是把它换成收信玩家的名字。
+
+`/title` 那边组件只用来校验：1.12.2 把它发给客户端，gomc 没有客户端，所以
+消息仍然按原始 JSON 存进玩家的 `Title` 状态。
+
+探针用例：`tools/probe/cases/63-trigger-rotation-components.case`
+（`score` 的选择器匹配为空时控制台报 `Selector '@e[type=zombie]' found nothing`；
+动作不认识的那两条照常成功）。
 
 ---
 
@@ -1342,6 +1510,10 @@ say @a（无匹配） → Selector '@a' found nothing
 | `execute` 的 detect 没过 | `Failed to execute 'detect' as <实体名>` | `commands.execute.failed` |
 | 子命令一次都没成功 | `All invocations failed: '<命令>'` | `commands.execute.allInvocationsFailed` |
 | JSON 坏掉 | `Invalid json: <原因>` | `commands.tellraw.jsonException` |
+| trigger 目标不对或持有者没有分数 | `Invalid trigger name t` | `commands.trigger.invalidObjective` |
+| trigger 锁着 | `Trigger t is not enabled` | `commands.trigger.disabled` |
+| trigger 模式不对 | `Invalid trigger mode multiply` | `commands.trigger.invalidMode` |
+| trigger 的执行者不是玩家 | `Only players can use the /trigger command` | `commands.trigger.invalidPlayer` |
 | playsound 的源不认识 | `Source mast is unknown` | `commands.playsound.unknownSoundSource` |
 | 目标已经存在 | `An objective with the name 'X' already exists` | `commands.scoreboard.objectives.add.alreadyExists` |
 | 队伍已经存在 | `A team with the name 'X' already exists` | `commands.scoreboard.teams.add.alreadyExists` |
@@ -1996,6 +2168,25 @@ execute @e[type=armor_stand] ~ ~ ~ time query daytime
 | `/clear`、`/give`、`/enchant`、`/replaceitem` | AffectedItems |
 | `/spreadplayers` | AffectedEntities |
 | **每一条命令** | SuccessCount（分发层统计的） |
+
+**失败也上报，而且上报的是 0。** 分发层（`CommandHandler.a`）把
+`listener.a(SUCCESS_COUNT, n)` 放在 try/catch **之后**；`/execute` 走的
+`VanillaCommandWrapper.dispatchVanillaCommand` 则把它放在 `finally` 里。
+所以一条失败的命令（运行期异常、目标不存在、命令名不认识）都会把
+`SuccessCount` 写成 0，而不是留着旧值。
+
+**参数/语法错误同样上报 0。** 1.12.2 的解析发生在 `ICommand.execute`
+**内部**（`CommandAbstract.a` 抛 `ExceptionUsage` / `CommandException`），
+由分发层捕获后照常走到 `SUCCESS_COUNT = 0`。函数行也一样：它经
+`CommandBlockListenerAbstract.executeSafely` 走同一个分发层。
+
+**失败时不会清零另外四个通道。** `AffectedBlocks` / `AffectedEntities` /
+`AffectedItems` / `QueryResult` 由命令自己在成功路径上报，命令失败时通常
+什么都没写，所以它们**保留旧值**。
+
+> 分发层另有一个与成败无关的怪癖：执行前会把 `AffectedEntities` 写成 1
+> （选择器列表则是列表长度）。gomc 目前没有建模这一条，它也不属于失败
+> 路径的语义。
 
 探针用例：`tools/probe/cases/61-stats-channel.case`、
 `62-stats-channel-write.case`。

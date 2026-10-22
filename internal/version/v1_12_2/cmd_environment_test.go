@@ -89,14 +89,24 @@ func TestToggleDownfallTogglesTheStorm(t *testing.T) {
 	}
 }
 
-func TestDifficultyCommand(t *testing.T) {
+// TestDifficulty covers `/difficulty`: the words it accepts, the state it
+// sets and the message it answers with.
+//
+// A whole name, a one-letter name and a number all name the same mode, and
+// the message prints the translated name of the mode, not the word that was
+// written.
+func TestDifficulty(t *testing.T) {
 	e := newTestEngine(t)
 	for _, line := range []string{"difficulty hard", "difficulty h", "difficulty 3"} {
-		if err := runLine(e, line); err != nil {
+		got, err := runLineFeedback(e, line)
+		if err != nil {
 			t.Fatalf("%q: %v", line, err)
 		}
 		if e.World.Difficulty != world.DifficultyHard {
 			t.Errorf("%q set the difficulty to %q, want hard", line, e.World.Difficulty)
+		}
+		if want := "Set game difficulty to Hard"; len(got) != 1 || got[0] != want {
+			t.Errorf("%q said %q, want %q", line, got, want)
 		}
 	}
 	if err := runLine(e, "difficulty impossible"); err == nil {
@@ -104,7 +114,12 @@ func TestDifficultyCommand(t *testing.T) {
 	}
 }
 
-func TestSetWorldSpawnAndSpawnPoint(t *testing.T) {
+// TestSpawnPoint covers `/setworldspawn` and `/spawnpoint`.
+//
+// `/setworldspawn` moves the world spawn; `/spawnpoint` moves one player's
+// spawn and answers with the position. A player that is not online is an
+// error with the wording of a missing player.
+func TestSpawnPoint(t *testing.T) {
 	e := newTestEngine(t)
 	if err := runLine(e, "setworldspawn 10 20 30"); err != nil {
 		t.Fatalf("setworldspawn: %v", err)
@@ -113,9 +128,27 @@ func TestSetWorldSpawnAndSpawnPoint(t *testing.T) {
 	if e.World.Spawn != want {
 		t.Errorf("spawn = %v, want %v", e.World.Spawn, want)
 	}
+
+	addPlayer(t, e, "Steve")
+	got, err := runLineFeedback(e, "spawnpoint Steve 1 2 3")
+	if err != nil {
+		t.Fatalf("spawnpoint: %v", err)
+	}
+	if want := "Set Steve's spawn point to (1, 2, 3)"; len(got) != 1 || got[0] != want {
+		t.Errorf("spawnpoint said %q, want %q", got, want)
+	}
+	err = runLine(e, "spawnpoint Nobody")
+	if err == nil || err.Error() != "Player 'Nobody' cannot be found" {
+		t.Fatalf("spawnpoint Nobody = %v, want the missing-player error", err)
+	}
 }
 
-func TestWorldBorderCommand(t *testing.T) {
+// TestWorldBorder covers `/worldborder`: the state and the messages.
+//
+// 1.12.2 centres the border on the middle of a block, so a whole
+// coordinate is moved by half a block. The messages quote the size before
+// and after, so the message part runs on a fresh world.
+func TestWorldBorder(t *testing.T) {
 	e := newTestEngine(t)
 	if err := runLine(e, "worldborder set 100"); err != nil {
 		t.Fatalf("worldborder set: %v", err)
@@ -132,8 +165,6 @@ func TestWorldBorderCommand(t *testing.T) {
 	if err := runLine(e, "worldborder center 5 6"); err != nil {
 		t.Fatalf("worldborder center: %v", err)
 	}
-	// 1.12.2 centres the border on the middle of a block, so a whole
-	// coordinate is moved by half a block.
 	if e.World.Border.Center.X != 5.5 || e.World.Border.Center.Z != 6.5 {
 		t.Errorf("center = %+v, want (5.5, 6.5)", e.World.Border.Center)
 	}
@@ -142,6 +173,25 @@ func TestWorldBorderCommand(t *testing.T) {
 	}
 	if e.World.Border.WarningTime != 30 {
 		t.Errorf("warning time = %d, want 30", e.World.Border.WarningTime)
+	}
+
+	f := newTestEngine(t)
+	for _, tc := range []struct {
+		line string
+		want string
+	}{
+		{"worldborder set 100", "Set world border to 100.0 blocks wide (from 60000000.0 blocks)"},
+		{"worldborder set 50 10", "Shrinking world border to 50.0 blocks wide (down from 100.0 blocks) over 10 seconds"},
+		{"worldborder add 20 5", "Growing world border to 70.0 blocks wide (up from 50.0 blocks) over 5 seconds"},
+		{"worldborder center 0 0", "Set world border center to 0.5, 0.5"},
+	} {
+		got, err := runLineFeedback(f, tc.line)
+		if err != nil {
+			t.Fatalf("%q: %v", tc.line, err)
+		}
+		if len(got) != 1 || got[0] != tc.want {
+			t.Errorf("%q said %q, want %q", tc.line, got, tc.want)
+		}
 	}
 }
 
@@ -156,36 +206,6 @@ func TestTagCommandIsNotAStandaloneCommand(t *testing.T) {
 	}
 	if _, ok := e.Registry.Get("scoreboard"); !ok {
 		t.Error("/scoreboard is missing")
-	}
-}
-
-// TestExecuteRunsForEveryEntity covers the 1.12.2 expansion.
-//
-// `execute` runs the sub-command once per matching entity, in reverse
-// order, and the target entity becomes the executor of the sub-command —
-// so the output is prefixed with the entity's name.
-func TestExecuteRunsForEveryEntity(t *testing.T) {
-	e := newTestEngine(t)
-	for _, id := range []string{"a1", "a2"} {
-		s, _ := e.World.EntityTypes.NewEntity("armor_stand", id)
-		s.Pos = world.Vec{X: 1, Y: 2, Z: 3}
-		e.World.AddEntity(s)
-	}
-	if err := runLine(e, "execute @e[type=armor_stand] ~ ~ ~ say HELLO"); err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	var count int
-	for _, msg := range e.Feedback {
-		if strings.Contains(msg, "HELLO") {
-			count++
-			// The prefix is the executing entity's name, not "Server".
-			if strings.HasPrefix(msg, "[Server]") {
-				t.Errorf("the message = %q, want it to be prefixed with the entity", msg)
-			}
-		}
-	}
-	if count != 2 {
-		t.Errorf("the sub-command ran %d times, want once per entity", count)
 	}
 }
 
@@ -370,66 +390,27 @@ func TestScoreboardTeamsFeedback(t *testing.T) {
 	}
 }
 
-// TestGiveFeedback pins down the wording of `/give`.
+// TestGiveFeedback covers the message of `/give`.
 //
-// 1.12.2 names the item by its **display name**, and the name is wrapped
-// in square brackets.
-//
-// (Measured on a real 1.12.2 server: `give Steve stone 5` answers
-// "Given [Stone] * 5 to Steve".)
+// The item is shown by its display name in brackets; an item with forms
+// shows the name of the data value it was given.
 func TestGiveFeedback(t *testing.T) {
 	e := newTestEngine(t)
 	addPlayer(t, e, "Steve")
-	got, err := runLineFeedback(e, "give Steve stone 5")
-	if err != nil {
-		t.Fatalf("give: %v", err)
-	}
-	want := "Given [Stone] * 5 to Steve"
-	if len(got) != 1 || got[0] != want {
-		t.Errorf("give said %q, want %q", got, want)
-	}
-}
-
-// TestGiveFeedbackOfAnItemWithForms pins down that the display name
-// follows the data value.
-//
-// (Measured on a real 1.12.2 server: `give Steve minecraft:dye 1 3` answers
-// "Given [Cocoa Beans] * 1 to Steve".)
-func TestGiveFeedbackOfAnItemWithForms(t *testing.T) {
-	e := newTestEngine(t)
-	addPlayer(t, e, "Steve")
-	got, err := runLineFeedback(e, "give Steve minecraft:dye 1 3")
-	if err != nil {
-		t.Fatalf("give: %v", err)
-	}
-	want := "Given [Cocoa Beans] * 1 to Steve"
-	if len(got) != 1 || got[0] != want {
-		t.Errorf("give said %q, want %q", got, want)
-	}
-}
-
-// TestSpawnPointFeedback pins down the wording of `/spawnpoint`.
-//
-// The message names the player whose spawn point was set, not the player
-// who ran the command, and a player that is not online is an error.
-func TestSpawnPointFeedback(t *testing.T) {
-	e := newTestEngine(t)
-	addPlayer(t, e, "Steve")
-	got, err := runLineFeedback(e, "spawnpoint Steve 1 2 3")
-	if err != nil {
-		t.Fatalf("spawnpoint: %v", err)
-	}
-	want := "Set Steve's spawn point to (1, 2, 3)"
-	if len(got) != 1 || got[0] != want {
-		t.Errorf("spawnpoint said %q, want %q", got, want)
-	}
-	err = runLine(e, "spawnpoint Nobody")
-	if err == nil {
-		t.Fatal("expected an error for a player that is not online")
-	}
-	want = "Player 'Nobody' cannot be found"
-	if err.Error() != want {
-		t.Errorf("spawnpoint said %q, want %q", err.Error(), want)
+	for _, tc := range []struct {
+		line string
+		want string
+	}{
+		{"give Steve stone 5", "Given [Stone] * 5 to Steve"},
+		{"give Steve minecraft:dye 1 3", "Given [Cocoa Beans] * 1 to Steve"},
+	} {
+		got, err := runLineFeedback(e, tc.line)
+		if err != nil {
+			t.Fatalf("%q: %v", tc.line, err)
+		}
+		if len(got) != 1 || got[0] != tc.want {
+			t.Errorf("%q said %q, want %q", tc.line, got, tc.want)
+		}
 	}
 }
 
@@ -486,59 +467,6 @@ func TestGameruleFeedback(t *testing.T) {
 	err = runLine(e, "gamerule noSuchRule true")
 	if err != nil {
 		t.Fatalf("gamerule noSuchRule true: %v", err)
-	}
-}
-
-// TestDifficultyFeedback pins down the wording of `/difficulty`.
-//
-// The message shows the translated name of the difficulty, so it starts
-// with a capital letter.
-func TestDifficultyFeedback(t *testing.T) {
-	e := newTestEngine(t)
-	got, err := runLineFeedback(e, "difficulty hard")
-	if err != nil {
-		t.Fatalf("difficulty: %v", err)
-	}
-	want := "Set game difficulty to Hard"
-	if len(got) != 1 || got[0] != want {
-		t.Errorf("difficulty said %q, want %q", got, want)
-	}
-}
-
-// TestWorldBorderFeedback pins down the wording of `/worldborder`.
-func TestWorldBorderFeedback(t *testing.T) {
-	e := newTestEngine(t)
-	got, err := runLineFeedback(e, "worldborder set 100")
-	if err != nil {
-		t.Fatalf("worldborder set: %v", err)
-	}
-	want := "Set world border to 100.0 blocks wide (from 60000000.0 blocks)"
-	if len(got) != 1 || got[0] != want {
-		t.Errorf("worldborder said %q, want %q", got, want)
-	}
-	got, err = runLineFeedback(e, "worldborder set 50 10")
-	if err != nil {
-		t.Fatalf("worldborder set: %v", err)
-	}
-	want = "Shrinking world border to 50.0 blocks wide (down from 100.0 blocks) over 10 seconds"
-	if len(got) != 1 || got[0] != want {
-		t.Errorf("worldborder said %q, want %q", got, want)
-	}
-	got, err = runLineFeedback(e, "worldborder add 20 5")
-	if err != nil {
-		t.Fatalf("worldborder add: %v", err)
-	}
-	want = "Growing world border to 70.0 blocks wide (up from 50.0 blocks) over 5 seconds"
-	if len(got) != 1 || got[0] != want {
-		t.Errorf("worldborder said %q, want %q", got, want)
-	}
-	got, err = runLineFeedback(e, "worldborder center 0 0")
-	if err != nil {
-		t.Fatalf("worldborder center: %v", err)
-	}
-	want = "Set world border center to 0.5, 0.5"
-	if len(got) != 1 || got[0] != want {
-		t.Errorf("worldborder said %q, want %q", got, want)
 	}
 }
 

@@ -1,0 +1,33 @@
+# `/stats` 的 SuccessCount 通道：失败要把分数刷成 0。
+#
+# 1.12.2 的分发层在 try/catch **之后**上报 `SUCCESS_COUNT`
+# （`CommandHandler.a`；`/execute` 走的 `dispatchVanillaCommand` 在
+# `finally` 里），所以失败的命令上报的是 0，而不是「什么都不报」。
+#
+# 参数/语法错误也一样：解析在 `ICommand.execute` 内部，抛出的
+# `ExceptionUsage` / `CommandException` 由分发层捕获，照常上报 0。
+#
+# 探针实体先在世界原点召唤再 `tp` 到边界附近——直接 summon 到未加载
+# 区块会被拒绝。
+name: stats channel failure
+
+setup:
+  scoreboard objectives add t dummy
+  summon armor_stand 0 64 0 {Tags:["q"],Marker:1b}
+  tp @e[tag=q] -29999000 64 0
+  scoreboard players set @e[tag=q] t 0
+  stats entity @e[tag=q] set SuccessCount @e[tag=q] t
+
+run:
+  # 成功一次：t 变成 1。
+  execute @e[tag=q] ~ ~ ~ tp @s ~1 ~ ~
+  scoreboard players test @e[tag=q] t 1 1
+  # 越界失败（解析期）：t 必须被刷成 0。
+  execute @e[tag=q] ~ ~ ~ tp @s ~-2000000 ~ ~
+  scoreboard players test @e[tag=q] t 0 0
+  # 再成功一次，确认通道还能写。
+  execute @e[tag=q] ~ ~ ~ tp @s ~1 ~ ~
+  scoreboard players test @e[tag=q] t 1 1
+  # 运行期失败（方块放不下）：t 同样必须被刷成 0。
+  execute @e[tag=q] ~ ~ ~ setblock ~ 256 ~ stone
+  scoreboard players test @e[tag=q] t 0 0

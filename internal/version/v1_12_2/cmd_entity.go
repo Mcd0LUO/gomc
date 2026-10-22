@@ -109,6 +109,10 @@ func (c *summonCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		}
 		mergeNBT(e.NBT, data)
 	}
+	// The entity factory reads the tag into the entity (`Entity.f`), so a
+	// `Rotation` in it turns the entity. `/summon` then puts the position
+	// from the command on it and keeps the rotation the tag gave.
+	applyNBTTransform(e)
 	if def := ctx.World.EntityTypes.Get(canonical); def != nil && def.NeedsItemStack {
 		// 1.12.2's entity factory only accepts an item entity that
 		// carries a non-empty item stack of an item the server knows.
@@ -259,7 +263,12 @@ func (c *entityDataCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		return 0, err
 	}
 	for _, e := range entities {
+		// 1.12.2 saves the entity first, merges the tag into that save
+		// and reads the result back (`Entity.f`), so the merge starts
+		// from the rotation the entity has now.
+		syncRotationToNBT(e)
 		mergeNBT(e.NBT, data)
+		applyNBTTransform(e)
 		// 1.12.2 echoes the whole entity data back.
 		ctx.Engine.Feedback = append(ctx.Engine.Feedback,
 			"Entity data updated to: "+e.NBT.String())
@@ -450,6 +459,21 @@ func (c *tpCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		return len(entities), nil
 	}
 	posArg := a.pos
+	// The final positions are worked out and checked before anything
+	// moves: 1.12.2 reads the coordinates once, at the top of
+	// `CommandTeleport.execute`, so a coordinate that is out of bounds
+	// fails the command before any target is teleported.
+	//
+	// The check has to happen here, on the resolved position, and not
+	// only in the parser: a function's lines are parsed when the
+	// function is loaded, when the position it will run at is not known
+	// yet, so the parse-time check can only look at the literal. See
+	// checkResolvedCoord.
+	type tpMove struct {
+		e   *world.Entity
+		pos world.Vec
+	}
+	moves := make([]tpMove, 0, len(entities))
 	for _, e := range entities {
 		pos := world.Vec{X: posArg.X, Y: posArg.Y, Z: posArg.Z}
 		if posArg.RelativeX {
@@ -461,15 +485,21 @@ func (c *tpCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		if posArg.RelativeZ {
 			pos.Z = e.Pos.Z + pos.Z
 		}
-		e.Pos = pos
+		if err := checkResolvedCoord(coordTp, pos.X, pos.Y, pos.Z); err != nil {
+			return 0, err
+		}
+		moves = append(moves, tpMove{e: e, pos: pos})
+	}
+	for _, m := range moves {
+		m.e.Pos = m.pos
 		// The yaw and the pitch turn the entity. 1.12.2 puts them on
 		// the entity as well -- and that is the only way an entity ever
 		// gets a rotation, so a selector that filters on the rotation
 		// (`@e[ry=...])` can find it afterwards.
-		applyTPRotation(e, a.rot)
+		applyTPRotation(m.e, a.rot)
 		ctx.Engine.Feedback = append(ctx.Engine.Feedback,
 			fmt.Sprintf("Teleported %s to %.1f, %.1f, %.1f",
-				e.DisplayName(), pos.X, pos.Y, pos.Z))
+				m.e.DisplayName(), m.pos.X, m.pos.Y, m.pos.Z))
 	}
 	return len(entities), nil
 }

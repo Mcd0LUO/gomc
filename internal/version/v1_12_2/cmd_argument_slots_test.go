@@ -161,14 +161,20 @@ func TestExecuteDetectNeedsEnoughArguments(t *testing.T) {
 	}
 }
 
-// TestLintMeasuresRelativeCoordinatesFromTheGround covers the base the
-// linter uses for a relative coordinate.
+// TestLintLeavesRelativeCoordinatesToTheCommand covers what the linter
+// does with a relative coordinate of a function line.
 //
-// 1.12.2 measures a relative coordinate against the position of whoever
-// runs the function, and the linter does not know that. It measures from
-// the ground instead: `~-1` is one block below the ground (y=4 → 3) and not
-// below the world, so the linter does not report it.
-func TestLintMeasuresRelativeCoordinatesFromTheGround(t *testing.T) {
+// 1.12.2 parses the arguments of a command inside `ICommand.execute`, so a
+// function's line is parsed again for every call, with the listener of
+// that call, and the bounds of a relative coordinate are checked on
+// `base + offset`. gomc parses a function's lines once, when the file is
+// loaded, and the base is not known then, so the bounds are left to the
+// command: the linter does not judge a relative coordinate.
+//
+// (Measured: a real server accepts `blockdata ~ ~-1 ~` in a function that
+// is called from the ground. A check at load time, from the origin, would
+// refuse it.)
+func TestLintLeavesRelativeCoordinatesToTheCommand(t *testing.T) {
 	root := t.TempDir()
 	writeFunction(t, root, "demo", "rel", "blockdata ~ ~-1 ~ {id:\"minecraft:mob_spawner\"}\n")
 	e := newTestEngine(t)
@@ -181,23 +187,41 @@ func TestLintMeasuresRelativeCoordinatesFromTheGround(t *testing.T) {
 	}
 }
 
-// TestLintReportsARelativeHeightThatIsOutOfRange covers the other side of
-// the same rule: a relative height that is out of range even from the
-// ground is a mistake.
-func TestLintReportsARelativeHeightThatIsOutOfRange(t *testing.T) {
+// TestFunctionLineChecksARelativeCoordinateWhenItRuns covers where the
+// bounds of a relative coordinate of a function line are checked: in the
+// command, on the position the function is called from.
+//
+// The literal is inside the bounds, so a check of the literal alone would
+// let it through; the resolved coordinate is not, and `/tp` has to refuse
+// it.
+func TestFunctionLineChecksARelativeCoordinateWhenItRuns(t *testing.T) {
 	root := t.TempDir()
-	writeFunction(t, root, "demo", "rel", "blockdata ~ ~-300 ~ {id:\"minecraft:mob_spawner\"}\n")
+	writeFunction(t, root, "demo", "rel", "tp @s ~-2000000 ~ ~\n")
 	e := newTestEngine(t)
 	e.SetRoot(root)
 	if errs := e.LoadFunctions(); len(errs) > 0 {
 		t.Fatalf("LoadFunctions: %v", errs)
 	}
-	errs := e.LintFunctions()
-	if len(errs) == 0 {
-		t.Fatal("expected the linter to report the height")
+	if err := runLine(e, "summon armor_stand 0 64 0"); err != nil {
+		t.Fatalf("summon: %v", err)
 	}
-	if !strings.Contains(errs[0].Error(), "too small") {
-		t.Errorf("error = %q, want a height that is too small", errs[0])
+	if err := runLine(e, "tp @e[type=armor_stand] -29999000 64 0"); err != nil {
+		t.Fatalf("tp: %v", err)
+	}
+	if err := runLine(e, "execute @e[type=armor_stand] ~ ~ ~ function demo:rel"); err != nil {
+		t.Fatalf("function: %v", err)
+	}
+	errs := e.TakeErrors()
+	if len(errs) != 1 {
+		t.Fatalf("errors = %v, want the teleport to fail", errs)
+	}
+	if !strings.Contains(errs[0].Error(), "is too small, it must be at least -30000000") {
+		t.Errorf("error = %q, want the resolved X to be out of bounds", errs[0])
+	}
+	for _, ent := range e.World.EntityList() {
+		if ent.Type == "armor_stand" && ent.Pos.X != -29998999.5 {
+			t.Errorf("the armor stand is at %v, want it to stay where it was", ent.Pos)
+		}
 	}
 }
 

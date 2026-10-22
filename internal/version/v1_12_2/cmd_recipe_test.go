@@ -380,45 +380,35 @@ func itoa(n int) string {
 	return string(out)
 }
 
-// TestRecipeCustomRecipeIsHandedOut checks that a recipe of the world
-// directory is handed out under the name of the item it produces.
+// TestRecipeCustomRecipeNames covers the name of a custom recipe.
 //
-// (Measured on a real Paper 1.12.2: a recipe whose result is
-// "minecraft:diamond_block" is answered with "Block of Diamond".)
-func TestRecipeCustomRecipeIsHandedOut(t *testing.T) {
-	e := recipeWorld(t, map[string]string{
-		"my_recipe.json": customRecipeBody("minecraft:diamond_block", 1),
-	})
-	recipePlayer(t, e, "Steve")
-
-	msgs, err := recipeRun(e, "recipe give Steve my_recipe")
-	if err != nil {
-		t.Fatalf("recipe give: %v", err)
-	}
-	want := "Successfully given Steve the recipe for Block of Diamond"
-	if len(msgs) != 1 || msgs[0] != want {
-		t.Errorf("the command said %q, want %q", msgs, want)
-	}
-}
-
-// TestRecipeCustomRecipeOfAPlainItem checks the name of a recipe whose
-// result is an item and not a block.
+// 1.12.2 names the recipe after the item it makes, and the item name comes
+// from the item and its data value: `minecraft:beef` is "Raw Beef" (an
+// item, not a block), and `minecraft:diamond_block` has no forms and is
+// "Block of Diamond".
 //
-// (Measured on a real Paper 1.12.2: a recipe whose result is
-// "minecraft:beef" is answered with "Raw Beef".)
-func TestRecipeCustomRecipeOfAPlainItem(t *testing.T) {
-	e := recipeWorld(t, map[string]string{
-		"my_recipe.json": customRecipeBody("minecraft:beef", 1),
-	})
-	recipePlayer(t, e, "Steve")
+// (Measured on a real Paper 1.12.2: both names are the ones it answers.)
+func TestRecipeCustomRecipeNames(t *testing.T) {
+	for _, tc := range []struct {
+		item string
+		want string
+	}{
+		{"minecraft:beef", "Raw Beef"},
+		{"minecraft:diamond_block", "Block of Diamond"},
+	} {
+		e := recipeWorld(t, map[string]string{
+			"my_recipe.json": customRecipeBody(tc.item, 1),
+		})
+		recipePlayer(t, e, "Steve")
 
-	msgs, err := recipeRun(e, "recipe give Steve my_recipe")
-	if err != nil {
-		t.Fatalf("recipe give: %v", err)
-	}
-	want := "Successfully given Steve the recipe for Raw Beef"
-	if len(msgs) != 1 || msgs[0] != want {
-		t.Errorf("the command said %q, want %q", msgs, want)
+		msgs, err := recipeRun(e, "recipe give Steve my_recipe")
+		if err != nil {
+			t.Fatalf("%s: %v", tc.item, err)
+		}
+		want := "Successfully given Steve the recipe for " + tc.want
+		if len(msgs) != 1 || msgs[0] != want {
+			t.Errorf("%s: the command said %q, want %q", tc.item, msgs, want)
+		}
 	}
 }
 
@@ -530,76 +520,35 @@ func TestRecipeCustomRecipeOfABrokenFile(t *testing.T) {
 	}
 }
 
-// TestRecipeCustomRecipeOfAnUnknownTypeStopsTheRest checks that a file
-// of a type the server does not know takes the recipes that come after
-// it with it.
+// TestABadRecipeFileMakesEveryRecipeUnknown covers a file the loader cannot
+// read.
 //
-// (Measured on a real Paper 1.12.2: the server logs "Invalid or
-// unsupported recipe type 'minecraft:crafting_shaped'", and the recipes
-// that come after the file answer "<name> is an unknown recipe".)
-func TestRecipeCustomRecipeOfAnUnknownTypeStopsTheRest(t *testing.T) {
-	e := recipeWorld(t, map[string]string{
-		"aaa_bad.json":  `{"type": "minecraft:crafting_shaped", "pattern": ["#"], "key": {"#": {"item": "minecraft:stick"}}, "result": {"item": "minecraft:emerald"}}`,
-		"bbb_good.json": customRecipeBody("minecraft:diamond_block", 1),
-	})
-	recipePlayer(t, e, "Steve")
+// 1.12.2 loads the custom recipes as one set: a file it cannot build takes
+// the whole set down, so a **good** recipe that comes after the bad one is
+// unknown too. The three ways a file can be bad -- an unknown type, an
+// unknown item, a data value without an item that has forms -- all end the
+// same way.
+func TestABadRecipeFileMakesEveryRecipeUnknown(t *testing.T) {
+	for _, tc := range []struct {
+		why  string
+		body string
+	}{
+		{"an unknown type", `{"type": "minecraft:crafting_shaped", "pattern": ["#"], "key": {"#": {"item": "minecraft:stick"}}, "result": {"item": "minecraft:emerald"}}`},
+		{"an unknown item", customRecipeBody("minecraft:not_a_real_item", 1)},
+		{"a data value without forms", `{"type": "crafting_shaped", "pattern": ["#"], "key": {"#": {"item": "minecraft:stick"}}, "result": {"item": "minecraft:dye"}}`},
+	} {
+		e := recipeWorld(t, map[string]string{
+			"aaa_bad.json":  tc.body,
+			"bbb_good.json": customRecipeBody("minecraft:diamond_block", 1),
+		})
+		recipePlayer(t, e, "Steve")
 
-	if got := recipeError(t, e, "recipe give Steve aaa_bad"); got !=
-		"aaa_bad is an unknown recipe" {
-		t.Errorf("the error was %q, want the wording of an unknown recipe", got)
-	}
-	if got := recipeError(t, e, "recipe give Steve bbb_good"); got !=
-		"bbb_good is an unknown recipe" {
-		t.Errorf("the error was %q, want the wording of an unknown recipe", got)
-	}
-}
-
-// TestRecipeCustomRecipeOfAnUnknownItemStopsTheRest checks that a file
-// whose result is an item 1.12.2 does not know takes the recipes that
-// come after it with it.
-//
-// (Measured on a real Paper 1.12.2: the server logs "Unknown item
-// 'minecraft:not_a_real_item'", and the recipes that come after the
-// file answer "<name> is an unknown recipe".)
-func TestRecipeCustomRecipeOfAnUnknownItemStopsTheRest(t *testing.T) {
-	e := recipeWorld(t, map[string]string{
-		"aaa_bad.json":  customRecipeBody("minecraft:not_a_real_item", 1),
-		"bbb_good.json": customRecipeBody("minecraft:diamond_block", 1),
-	})
-	recipePlayer(t, e, "Steve")
-
-	if got := recipeError(t, e, "recipe give Steve aaa_bad"); got !=
-		"aaa_bad is an unknown recipe" {
-		t.Errorf("the error was %q, want the wording of an unknown recipe", got)
-	}
-	if got := recipeError(t, e, "recipe give Steve bbb_good"); got !=
-		"bbb_good is an unknown recipe" {
-		t.Errorf("the error was %q, want the wording of an unknown recipe", got)
-	}
-}
-
-// TestRecipeCustomRecipeWithoutADataValueStopsTheRest checks that a
-// file whose result is an item that has more than one form and that
-// does not say which form it is takes the recipes that come after it
-// with it.
-//
-// (Measured on a real Paper 1.12.2: the server logs "Missing data for
-// item 'minecraft:dye'", and the recipes that come after the file answer
-// "<name> is an unknown recipe".)
-func TestRecipeCustomRecipeWithoutADataValueStopsTheRest(t *testing.T) {
-	e := recipeWorld(t, map[string]string{
-		"aaa_bad.json":  `{"type": "crafting_shaped", "pattern": ["#"], "key": {"#": {"item": "minecraft:stick"}}, "result": {"item": "minecraft:dye"}}`,
-		"bbb_good.json": customRecipeBody("minecraft:diamond_block", 1),
-	})
-	recipePlayer(t, e, "Steve")
-
-	if got := recipeError(t, e, "recipe give Steve aaa_bad"); got !=
-		"aaa_bad is an unknown recipe" {
-		t.Errorf("the error was %q, want the wording of an unknown recipe", got)
-	}
-	if got := recipeError(t, e, "recipe give Steve bbb_good"); got !=
-		"bbb_good is an unknown recipe" {
-		t.Errorf("the error was %q, want the wording of an unknown recipe", got)
+		for _, name := range []string{"aaa_bad", "bbb_good"} {
+			want := name + " is an unknown recipe"
+			if got := recipeError(t, e, "recipe give Steve "+name); got != want {
+				t.Errorf("%s: %s said %q, want %q", tc.why, name, got, want)
+			}
+		}
 	}
 }
 
@@ -690,25 +639,6 @@ func TestRecipeCustomRecipeOfADataValue(t *testing.T) {
 		if len(msgs) != 1 || msgs[0] != want {
 			t.Errorf("%s: the command said %q, want %q", tc.file, msgs, want)
 		}
-	}
-}
-
-// TestRecipeCustomRecipeOfAnItemWithoutForms checks that a recipe whose
-// result is an item that has only one form is a recipe even when the
-// file does not say a data value.
-func TestRecipeCustomRecipeOfAnItemWithoutForms(t *testing.T) {
-	e := recipeWorld(t, map[string]string{
-		"my_recipe.json": customRecipeBody("minecraft:diamond_block", 1),
-	})
-	recipePlayer(t, e, "Steve")
-
-	msgs, err := recipeRun(e, "recipe give Steve my_recipe")
-	if err != nil {
-		t.Fatalf("recipe give: %v", err)
-	}
-	want := "Successfully given Steve the recipe for Block of Diamond"
-	if len(msgs) != 1 || msgs[0] != want {
-		t.Errorf("the command said %q, want %q", msgs, want)
 	}
 }
 

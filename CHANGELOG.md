@@ -151,6 +151,29 @@
 
 一批按 1.12.2 真实行为对齐的修正（都来自反编译源码 + 真服实测）：
 
+- **三处原来没做到的 1.12.2 能力**（PATTERNS 缺口 ④⑥⑦）：
+
+  - **`/summon` 与 `/entitydata` 的 `Rotation`** 落到实体朝向，
+    `@e[ry=...]` 才选得中。读法照 `Entity.f` 的
+    `getList("Rotation", 5)`：**只认浮点列表**，`Rotation:[90,45]`（int）
+    读成 0/0，角度也不折返。`Pose` 是盔甲架的肢体角度，命令观察不到，
+    只当普通 NBT（SPEC 6.10）。
+  - **trigger 的锁标志**：新建的分数**没上锁**，`/trigger` 成功后上锁，
+    `players enable` 解锁并顺手建条目；检查顺序、文案、以及"成功回显只在
+    创造模式发"都照 `CommandTrigger`（SPEC 4.8）。
+  - **tellraw/title 的 JSON 组件**：`text` / `translate`+`with` / `score` /
+    `selector` / `extra` 解析并渲染，`clickEvent` / `hoverEvent` 解析并保留
+    （**动作不校验**，真服实测不认识的 action 照样成功）。顺带纠正一处
+    文档错误：`name:"*"` **不是聚合**，它是**收信玩家**的名字（SPEC 8.1）。
+
+- **世界时间的三个偏差**：`dayTime` 不再每 tick 取模 24000——之前
+  `time query day` 恒为 0，而真服的 `dayTime` 一直往上加、只有 `daytime`
+  查询才取模；`doDaylightCycle=false` 现在冻结 `dayTime`，`time`（gametime）
+  照走；`/time set|add` 的负数按真服报
+  `The number you have entered (-5) is too small, it must be at least 0`
+  （之前直接接受），`query gametime` 也对 `Integer.MAX_VALUE` 取模。
+  SPEC 7.1 有完整依据。
+
 - **`/stats` 的命令结果通道**（PATTERNS 缺口 ①）。1.12.2 的
   `stats entity <目标> set <结果名> <持有者> <objective>` **不是**回显，
   它是**注册一条通道**：统计量变化时值被写进那个 objective。

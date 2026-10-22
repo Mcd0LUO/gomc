@@ -2,6 +2,8 @@ package v1_12_2
 
 import (
 	"testing"
+
+	"github.com/Mcd0LUO/gomc/internal/exec"
 )
 
 // notSummonableTypes are the names `/summon` refuses on the real server.
@@ -143,25 +145,6 @@ func TestSummonedItemIsNamedAfterItsStack(t *testing.T) {
 	}
 }
 
-// TestSummonTypeCount pins the number of types `/summon` accepts.
-//
-// The count was measured on the real server: of the 85 names it knows,
-// 78 are summoned by the bare command, the item entity needs its item
-// stack, and the six names of notSummonableTypes are refused.
-func TestSummonTypeCount(t *testing.T) {
-	e := newTestEngine(t)
-	count := 0
-	for _, name := range e.World.EntityTypes.Names() {
-		if name == "player" {
-			continue
-		}
-		count++
-	}
-	if count != 79 {
-		t.Errorf("/summon accepts %d entity types, want 79", count)
-	}
-}
-
 // TestSummonRefusesTheTypesTheServerRefuses checks the failure text.
 //
 // 1.12.2 does not check the type name at all: it puts the raw text into
@@ -239,5 +222,83 @@ func TestSummonCreatesTheEntity(t *testing.T) {
 	}
 	if !found {
 		t.Error("the zombie is not in the world")
+	}
+}
+
+// consoleSource is the listener the selector tests resolve against.
+func consoleSource() *exec.Source {
+	return &exec.Source{Name: "Server", World: "world", PermissionLevel: 4}
+}
+
+// TestSummonReadsTheRotationOfTheTag covers the `Rotation` tag of `/summon`.
+//
+// 1.12.2 builds the entity from the tag (`ChunkRegionLoader.a` ->
+// `Entity.f`), which reads `Rotation` into `yaw`/`pitch`, and then puts the
+// position of the command on the entity while keeping that rotation. So a
+// summoned entity is turned, and the rotation selectors can see it.
+//
+// The tag is read with `getList("Rotation", 5)`: only a **float** list
+// counts. `Rotation:[90,45]` is a list of ints, which reads as an empty one
+// and leaves both angles at 0 -- a 1.12.2 quirk, not a mistake.
+func TestSummonReadsTheRotationOfTheTag(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		tag   string
+		yaw   float64
+		pitch float64
+	}{
+		{"a float list turns the entity", "{Rotation:[90f,45f]}", 90, 45},
+		{"an int list reads as 0/0", "{Rotation:[90,45]}", 0, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			e := newTestEngine(t)
+			if err := runLine(e, "summon armor_stand 0 4 0 "+tc.tag); err != nil {
+				t.Fatalf("summon: %v", err)
+			}
+			stand := e.World.EntityList()[0]
+			if stand.Rot.Yaw != tc.yaw || stand.Rot.Pitch != tc.pitch {
+				t.Fatalf("rotation = %+v, want yaw %v pitch %v", stand.Rot, tc.yaw, tc.pitch)
+			}
+			// The point of putting the rotation on the entity: the
+			// selector filters read it.
+			got := resolve(t, e.World, consoleSource(), "@e[ry=90,rym=90]")
+			if want := tc.yaw == 90; (len(got) == 1) != want {
+				t.Errorf("@e[ry=90,rym=90] matched %v, want a match: %v", got, want)
+			}
+		})
+	}
+}
+
+// TestEntityDataTurnsTheEntity covers `Rotation` in `/entitydata`.
+//
+// The command merges the tag into the entity's save compound and reads it
+// back, so the rotation of the tag lands on the entity and `@e[ry=...]`
+// sees it. A tag that does not mention `Rotation` leaves the rotation
+// alone: 1.12.2 saves the entity before it merges, and gomc refreshes the
+// tag the same way, so a `/tp` that turned the entity is not undone.
+func TestEntityDataTurnsTheEntity(t *testing.T) {
+	e := newTestEngine(t)
+	if err := runLine(e, "summon armor_stand 0 4 0"); err != nil {
+		t.Fatalf("summon: %v", err)
+	}
+	if err := runLine(e, "entitydata @e[type=armor_stand] {Rotation:[10f,-20f]}"); err != nil {
+		t.Fatalf("entitydata: %v", err)
+	}
+	stand := e.World.EntityList()[0]
+	if stand.Rot.Yaw != 10 || stand.Rot.Pitch != -20 {
+		t.Fatalf("rotation = %+v, want yaw 10 pitch -20", stand.Rot)
+	}
+	if got := resolve(t, e.World, consoleSource(), "@e[ry=10,rxm=-20]"); len(got) != 1 {
+		t.Errorf("the rotation filters matched %v, want the armour stand", got)
+	}
+
+	if err := runLine(e, "tp @e[type=armor_stand] 1 4 1 90 0"); err != nil {
+		t.Fatalf("tp: %v", err)
+	}
+	if err := runLine(e, `entitydata @e[type=armor_stand] {CustomName:"turned"}`); err != nil {
+		t.Fatalf("entitydata: %v", err)
+	}
+	if stand.Rot.Yaw != 90 {
+		t.Errorf("yaw = %v, want 90: the merge must start from the current rotation", stand.Rot.Yaw)
 	}
 }

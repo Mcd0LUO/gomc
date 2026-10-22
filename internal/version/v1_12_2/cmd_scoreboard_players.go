@@ -624,6 +624,15 @@ func runPlayers(ctx *exec.Context, args []ast.Arg) (int, error) {
 			return 0, exec.Errorf("Objective %s is not a trigger", trigger)
 		}
 		for _, h := range holders {
+			// `enable` unlocks the trigger, and it creates the score
+			// when the holder has none yet: 1.12.2 calls
+			// `getPlayerScoreForObjective`, which makes the entry with
+			// a score of 0, and then unlocks it. An entry that is
+			// already there keeps its score.
+			if _, tracked := sb.Score(h, trigger); !tracked {
+				sb.SetScore(h, trigger, 0)
+			}
+			sb.SetScoreLocked(h, trigger, false)
 			ctx.Engine.Feedback = append(ctx.Engine.Feedback,
 				fmt.Sprintf("Enabled trigger %s for %s", trigger, h))
 		}

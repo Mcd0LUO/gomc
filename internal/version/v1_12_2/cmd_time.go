@@ -2,12 +2,16 @@ package v1_12_2
 
 import (
 	"fmt"
-	"strconv"
+	"strings"
 
 	"github.com/Mcd0LUO/gomc/internal/ast"
 	"github.com/Mcd0LUO/gomc/internal/exec"
 	"github.com/Mcd0LUO/gomc/internal/parser"
 )
+
+// javaMaxInt is `Integer.MAX_VALUE`, the modulus `time query gametime`
+// uses in 1.12.2.
+const javaMaxInt = 1<<31 - 1
 
 // timeCmd implements `/time`.
 //
@@ -64,9 +68,9 @@ func (c *timeCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		ctx.Engine.Feedback = append(ctx.Engine.Feedback, fmt.Sprintf("Set the time to %d", value))
 		return 1, nil
 	case "add":
-		value, err := strconv.Atoi(raw)
+		value, err := parseTimeCount(raw)
 		if err != nil {
-			return 0, exec.Errorf("expected a number, got %q", raw)
+			return 0, exec.Errorf("%v", err)
 		}
 		w.DayTime += value
 		ctx.Engine.Feedback = append(ctx.Engine.Feedback, fmt.Sprintf("Added %d to the time", value))
@@ -79,7 +83,8 @@ func (c *timeCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 		case "day":
 			value = w.DayTime / 24000
 		case "gametime":
-			value = w.Time
+			// `CommandTime` reports `getTime() % Integer.MAX_VALUE`.
+			value = w.Time % javaMaxInt
 		default:
 			return 0, exec.Errorf("expected daytime, day or gametime, got %q", raw)
 		}
@@ -105,9 +110,23 @@ func parseTimeValue(raw string) (int, error) {
 	case "night":
 		return 13000, nil
 	}
-	n, err := strconv.Atoi(raw)
-	if err != nil {
-		return 0, fmt.Errorf("expected a number, got %q", raw)
+	return parseTimeCount(raw)
+}
+
+// parseTimeCount parses the tick count of `/time set` and `/time add`.
+//
+// Both read it with `CommandTime.a(text, 0)`, which is
+// `CommandAbstract.a(String, int, int)` with a minimum of 0: a number that
+// is not a Java int is `'%s' is not a valid number`, and a negative one is
+// refused as too small. The number in that message is the integer itself --
+// the "%.2f" wording belongs to the coordinate reader, which passes doubles.
+func parseTimeCount(raw string) (int, error) {
+	n, ok := parser.JavaInt(raw)
+	if !ok {
+		return 0, fmt.Errorf("'%s' is not a valid number", strings.TrimSpace(raw))
+	}
+	if n < 0 {
+		return 0, fmt.Errorf("The number you have entered (%d) is too small, it must be at least 0", n)
 	}
 	return n, nil
 }

@@ -1,0 +1,40 @@
+# case: stats channel failure
+step 1: scoreboard objectives add t dummy
+  count: 1
+  feedback: Added new objective 't' successfully
+step 2: summon armor_stand 0 64 0 {Tags:["q"],Marker:1b}
+  count: 1
+  feedback: Object successfully summoned
+step 3: tp @e[tag=q] -29999000 64 0
+  count: 1
+  feedback: Teleported Armor Stand to -29998999.5, 64.0, 0.5
+step 4: scoreboard players set @e[tag=q] t 0
+  count: 1
+  feedback: Set score of t for player 824764ea-3325-46ac-9de7-b5d921b7c9c5 to 0
+step 5: stats entity @e[tag=q] set SuccessCount @e[tag=q] t
+  count: 1
+  feedback: Storing SuccessCount stats in t on @e[tag=q]
+step 6: execute @e[tag=q] ~ ~ ~ tp @s ~1 ~ ~
+  count: 1
+  feedback: Teleported Armor Stand to -29998998.5, 64.0, 0.5
+step 7: scoreboard players test @e[tag=q] t 1 1
+  count: 1
+  feedback: Score 1 is in range 1 to 1
+step 8: execute @e[tag=q] ~ ~ ~ tp @s ~-2000000 ~ ~
+  error: The number you have entered (-31998999.00) is too small, it must be at least -30000000
+  error: All invocations failed: 'tp @s ~-2000000 ~ ~'
+step 9: scoreboard players test @e[tag=q] t 0 0
+  count: 1
+  feedback: Score 0 is in range 0 to 0
+step 10: execute @e[tag=q] ~ ~ ~ tp @s ~1 ~ ~
+  count: 1
+  feedback: Teleported Armor Stand to -29998997.5, 64.0, 0.5
+step 11: scoreboard players test @e[tag=q] t 1 1
+  count: 1
+  feedback: Score 1 is in range 1 to 1
+step 12: execute @e[tag=q] ~ ~ ~ setblock ~ 256 ~ stone
+  error: Cannot place block outside of the world
+  error: All invocations failed: 'setblock ~ 256 ~ stone'
+step 13: scoreboard players test @e[tag=q] t 0 0
+  count: 1
+  feedback: Score 0 is in range 0 to 0

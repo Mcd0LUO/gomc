@@ -1,0 +1,27 @@
+# 函数体里的相对 `tp`：越界要在**执行期**按最终坐标拦下。
+#
+# 1.12.2 在 `CommandTeleport.execute` 里读坐标
+# （`CommandAbstract.b(listener, ...)`），基准是 listener 当时的位置，
+# 检查的是 `base + offset` 的和。函数在加载时就把命令行解析好了，那时
+# 还不知道函数会在哪里跑，所以解析期只能看到字面量；真正决定成败的是
+# 加上基准之后的最终坐标。
+#
+# 两行都在 ±30000000 以内作为字面量合法，加完基准之后越界：
+#   - 第一行 X 变成 -31073741.3，低于 -30000000；
+#   - 第二行 Y 变成 -4936，低于 -4096（`/tp` 的 Y 只到 ±4096）。
+#
+# 失败的命令把 SuccessCount 刷成 0（函数体里的 `scoreboard players test`
+# 读的就是这个通道），实体留在原地。
+name: tp function bounds
+
+setup:
+  scoreboard objectives add t dummy
+  summon armor_stand 0 64 0 {Tags:["q"],Marker:1b}
+  tp @e[tag=q] -29999000 64 0
+  scoreboard players set @e[tag=q] t 0
+  stats entity @e[tag=q] set SuccessCount @e[tag=q] t
+
+run:
+  execute @e[tag=q] ~ ~ ~ function demo:tp_bounds
+  # 实体没有被搬到边界外：还能在 -29998999.5 附近读到它。
+  execute @e[tag=q] ~ ~ ~ tp @s ~1 ~ ~

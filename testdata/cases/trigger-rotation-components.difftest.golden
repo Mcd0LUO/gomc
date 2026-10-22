@@ -1,0 +1,60 @@
+# case: trigger lock, entity rotation and chat components
+step 1: gomcplayer Steve 0 4 0
+  count: 1
+  feedback: Successfully created the player Steve
+step 2: scoreboard objectives add t trigger
+  count: 1
+  feedback: Added new objective 't' successfully
+step 3: scoreboard objectives add n dummy
+  count: 1
+  feedback: Added new objective 'n' successfully
+step 4: scoreboard players set Server t 0
+  count: 1
+  feedback: Set score of t for player Server to 0
+step 5: scoreboard players set Steve n 42
+  count: 1
+  feedback: Set score of n for player Steve to 42
+step 6: trigger t add 3
+  count: 1
+  feedback: Trigger t changed with add 3
+step 7: trigger t add 1
+  error: Trigger t is not enabled
+step 8: scoreboard players enable Server t
+  count: 1
+  feedback: Enabled trigger t for Server
+step 9: trigger t set 7
+  count: 1
+  feedback: Trigger t changed with set 7
+step 10: summon armor_stand 0 4 0 {Rotation:[90f,45f]}
+  count: 1
+  feedback: Object successfully summoned
+step 11: execute @e[ry=90,rym=90] ~ ~ ~ say turned
+  count: 1
+  feedback: [Armor Stand] turned
+step 12: entitydata @e[type=armor_stand] {Rotation:[10f,-20f]}
+  count: 1
+  feedback: Entity data updated to: {Health:20f,Rotation:[10f,-20f]}
+step 13: execute @e[ry=10,rym=10] ~ ~ ~ say ten
+  count: 1
+  feedback: [Armor Stand] ten
+step 14: tellraw Steve {"text":"a","extra":[{"text":"b"}]}
+  count: 1
+  feedback: [Server] ab
+step 15: tellraw Steve {"score":{"name":"Steve","objective":"n"}}
+  count: 1
+  feedback: [Server] 42
+step 16: tellraw Steve {"selector":"@a"}
+  count: 1
+  feedback: [Server] Steve
+step 17: tellraw Steve {"translate":"chat.type.text","with":[{"text":"Steve"},{"text":"hi"}]}
+  count: 1
+  feedback: [Server] <Steve> hi
+step 18: tellraw Steve {"text":"x","clickEvent":{"action":"bogus","value":"y"}}
+  count: 1
+  feedback: [Server] x
+step 19: title Steve title {"text":"hi"}
+  count: 1
+  feedback: Title command successfully executed
+step 20: title Steve title {"text":"hi","hoverEvent":{"action":"bogus","value":"x"}}
+  count: 1
+  feedback: Title command successfully executed

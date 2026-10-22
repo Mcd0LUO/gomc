@@ -58,10 +58,12 @@ func (c *triggerCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	// not a player is refused the way the real server refuses it.
 	holder := ctx.Source.Name
 	player := false
+	var source *world.Entity
 	if ctx.Source.Entity != nil {
 		if !ctx.Source.Entity.IsPlayer {
 			return 0, exec.Errorf("Only players can use the /trigger command")
 		}
+		source = ctx.Source.Entity
 		holder = ctx.Source.Entity.PlayerName
 		if holder == "" {
 			holder = ctx.Source.Entity.DisplayName()
@@ -74,33 +76,44 @@ func (c *triggerCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	if o == nil || o.Criteria != world.CriteriaTrigger {
 		return 0, exec.Errorf("Invalid trigger name %s", objective)
 	}
+	// `CommandTrigger` reads the value before it looks at the score, so a
+	// value that is not a number is reported even when the trigger is
+	// disabled.
 	value, err := parseIntSafe(rawValue)
 	if err != nil {
 		return 0, exec.Errorf("%v", err)
 	}
-	// A trigger has to be enabled for the holder before it fires.
-	// 1.12.2 keeps that state in the scoreboard, where a trigger score
-	// starts locked and `/scoreboard players enable` unlocks it. gomc's
-	// scoreboard has no lock flag and its `players enable` only reports,
-	// so the tracked score is the only state that is left to look at.
-	if player {
-		if _, tracked := sb.Score(holder, objective); !tracked {
-			return 0, exec.Errorf("Trigger %s is not enabled", objective)
-		}
+	// The score has to exist. 1.12.2 reports that with the same message it
+	// uses for an objective that is not a trigger
+	// (`commands.trigger.invalidObjective`), not with a message of its
+	// own.
+	if _, tracked := sb.Score(holder, objective); !tracked {
+		return 0, exec.Errorf("Invalid trigger name %s", objective)
 	}
+	// A trigger locks when it fires: the score stays until
+	// `/scoreboard players enable` unlocks it again.
+	if sb.ScoreLocked(holder, objective) {
+		return 0, exec.Errorf("Trigger %s is not enabled", objective)
+	}
+	// The mode is checked **after** the lock, so a disabled trigger
+	// reports that it is disabled rather than a bad mode.
 	if mode != "add" && mode != "set" {
 		return 0, exec.Errorf("Invalid trigger mode %s", mode)
 	}
-	current, tracked := sb.Score(holder, objective)
-	if !tracked {
-		current = 0
-	}
+	current, _ := sb.Score(holder, objective)
 	next := value
 	if mode == "add" {
 		next = current + value
 	}
 	sb.SetScore(holder, objective, next)
-	ctx.Engine.Feedback = append(ctx.Engine.Feedback,
-		fmt.Sprintf("Trigger %s changed with %s %s", objective, mode, rawValue))
+	sb.SetScoreLocked(holder, objective, true)
+	// 1.12.2 only tells the player the trigger changed when it is in
+	// creative mode (`playerInteractManager.isCreative`). The console is
+	// not a player at all -- gomc lets it act as the holder, so it always
+	// gets the line.
+	if !player || playerGameMode(source) == gameModeCreative {
+		ctx.Engine.Feedback = append(ctx.Engine.Feedback,
+			fmt.Sprintf("Trigger %s changed with %s %s", objective, mode, rawValue))
+	}
 	return 1, nil
 }

@@ -118,6 +118,21 @@ type Parser struct {
 type CoordBase struct {
 	// X, Y and Z are the coordinates of the base.
 	X, Y, Z float64
+	// Known says whether the base is the position the command really
+	// runs at.
+	//
+	// It matters because the bounds of a relative coordinate are the
+	// bounds of `base + offset`, and that sum can only be checked when
+	// the base is known. gomc parses a command line before it runs it,
+	// and a function is parsed once, when it is loaded -- the position
+	// it will run at is not known then. 1.12.2 does not have that gap:
+	// a function's line is parsed inside `ICommand.execute`, with the
+	// listener of the invocation.
+	//
+	// So when the base is not known, the bounds of a relative
+	// coordinate are left to the command, which checks the resolved
+	// coordinate when it runs.
+	Known bool
 }
 
 // New creates a parser over the given tokens.
@@ -394,6 +409,14 @@ func (p *Parser) coordComponent(axis CoordAxis, base float64) (float64, bool, er
 	// runs at, and 1.12.2 checks the bounds of the **sum**: the message
 	// of a coordinate that is out of bounds shows the sum, not the
 	// offset.
+	//
+	// The sum is only known when the base is: a line of a function is
+	// parsed when the function is loaded, long before it is known where
+	// the function will run. The command checks the resolved coordinate
+	// in that case.
+	if rel && !p.base.Known {
+		return f, rel, nil
+	}
 	value := f
 	if rel {
 		value += base

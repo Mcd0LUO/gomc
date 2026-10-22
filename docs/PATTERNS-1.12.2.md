@@ -3,7 +3,7 @@
 这份文档记录**真实工程包**里那些在 1.12.2 的限制下想出来的做法，以及
 gomc 为了能跑它们还缺什么。
 
-素材来自四个真实的世界存档（作者都是国内的 mcfunction 作者），全部用
+素材来自五个真实的世界存档（作者都是国内的 mcfunction 作者），全部用
 `gomc check` 扫过：
 
 | 工程 | 函数数 | 行数 | `gomc check` |
@@ -155,6 +155,11 @@ Y 轴、ZX2-3 的整个箱子菜单点击检测、PFS 的 `stats` 通道）。
 > - 持有者按 `CommandAbstract.f` 解析：先当玩家→玩家名，再当实体→UUID，
 >   都不是就原样。
 >
+> **失败也写 `SuccessCount = 0`。** 分发层在 try/catch 之后（`/execute`
+> 的路径在 `finally` 里）无条件上报 `SUCCESS_COUNT`，所以运行期失败、
+> 参数/语法错误、命令名不认识都会把旧值刷成 0。另外四个通道不会被
+> 清零，失败时**保留旧值**。SPEC 13.5 有完整依据。
+>
 > （真服实测，探针用例 `62-stats-channel-write`。）
 
 ### ② `/tp` 的 `[<yaw> <pitch>]` ★★★ → **已修**
@@ -189,9 +194,18 @@ Y 轴、ZX2-3 的整个箱子菜单点击检测、PFS 的 `stats` 通道）。
 > （真服实测，探针用例 `56-replaceitem-slots`、`57-replaceitem-containers`、
 > `58-replaceitem-player`。）
 
-### ④ `summon` / `entitydata` 的 `Pose` / `Rotation` 不落到实体旋转 ★★
+### ④ `summon` / `entitydata` 的 `Pose` / `Rotation` 不落到实体旋转 ★★ → **已修**
 
 走路动画、朝向全丢。
+
+> **这一轮补完了 `Rotation`**：`/summon` 与 `/entitydata` 合并完 NBT 之后
+> 都按 `Entity.f` 读一遍 `Rotation`，落到实体的 `yaw`/`pitch`，所以
+> `@e[ry=...]` 能选中它。读法是 `getList("Rotation", 5)`——**只认浮点
+> 列表**，`Rotation:[90,45]`（int）和 `[90.0d,45.0d]`（double）都读成
+> 0/0，角度也不折返（SPEC 6.10，探针 `63-trigger-rotation-components`）。
+>
+> `Pose` **不是朝向**：它是盔甲架的肢体角度，只影响渲染，命令观察不到，
+> 所以只当普通 NBT 存着——这一条不是缺口，是原文档把两件事混在了一起。
 
 ### ⑤ `/particle` 的尾部 int 参数不校验 ★★ → **已修**
 
@@ -212,15 +226,30 @@ Y 轴、ZX2-3 的整个箱子菜单点击检测、PFS 的 `stats` 通道）。
 
 悟空有 **224 行**用尾部参数，其中超范围的那些现在会被正确地报出来。
 
-### ⑥ trigger 没有锁标志 ★★
+### ⑥ trigger 没有锁标志 ★★ → **已修**
 
 真服的 trigger objective 触发一次就锁死，必须 `enable` 才能再触发。
 gomc 用「分数是否被跟踪」近似。
 
-### ⑦ tellraw/title 的 JSON 组件没有建模 ★
+> **这一轮补完了**：锁照 `ScoreboardScore` 建模——**新建的分数是没上锁
+> 的**（构造器只置广播标志），`/trigger` 成功后上锁，`players enable`
+> 解锁并顺手建条目。检查顺序、文案、以及"成功回显只在创造模式发"都照
+> `CommandTrigger`（SPEC 4.8，探针 `63-trigger-rotation-components`）。
+
+### ⑦ tellraw/title 的 JSON 组件没有建模 ★ → **已修**
 
 `score`（含 `name:"*"` 聚合）、`clickEvent`、`hoverEvent`、`translate`+`with`、
 `extra` 都没有解析与渲染。菜单的 `clickEvent` 完全不可验证。
+
+> **这一轮补完了**：`text` / `translate`+`with` / `score` / `selector` /
+> `keybind` / `extra` 都解析并渲染成文本，`clickEvent` / `hoverEvent` 也解析
+> 并保留。**动作不校验**——真服实测不认识的 `action` 照样成功，所以 gomc
+> 也不拦（SPEC 8.1，探针 `63-trigger-rotation-components`）。
+>
+> **原文档这一条写错了**：`name:"*"` **不是聚合**。1.12.2 的
+> `ChatComponentUtils.filterForDisplay` 把它换成**收信玩家**的名字；
+> "列出目标的所有持有者"是 1.13 的行为。所以 `{"score":{"name":"*"}}`
+> 在 1.12.2 里是"我自己在这个目标上的分数"。
 
 ### ⑧ `detect` 的「区块已加载」前置条件 ★（**已修**）
 
@@ -245,7 +274,7 @@ exists`；名字 > 16 字符、显示名 > 32 字符各有各的错；目标类�
 | 素材 | 断言什么 |
 |---|---|
 | 末法 `rpg/api/get/GetSelectItemCount.mcfunction` | dataTag 子集匹配的**黄金用例**：写进去的位域要能原样读出来 |
-| 末法 `luo/getter/get_server_time.mcfunction` | `/stats` 通道（**要等缺口 ① 补完**） |
+| 末法 `luo/getter/get_server_time.mcfunction` | `/stats` 通道（缺口 ① 已补完，可以照着写了） |
 | 末法 `luo/math/sort/_low2high.mcfunction` | `<` 的 keep-min 语义 + 选择器当 operation 源 |
 | ZX2-3 `sethome/pos.mcfunction` | 坐标边界的端到端：减半二分要收敛到 `playerX` |
 | ZX2-3 `main/main.mcfunction` | **时序规格**：分频比 = 5/10/20 tick、1/3/5 s（gomc 现在最缺的测试素材类型） |

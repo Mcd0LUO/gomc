@@ -69,6 +69,12 @@ type Scoreboard struct {
 	objectives map[string]*Objective
 	scores     map[string]map[string]int
 	teams      map[string]*Team
+	// locked holds the trigger lock of a score: objective -> holder ->
+	// locked. A trigger objective locks the score when it fires and
+	// `/scoreboard players enable` unlocks it again. A score that is not
+	// in here is unlocked, which is what a new `ScoreboardScore` is
+	// (1.12.2's constructor only sets the "needs an update" flag).
+	locked map[string]map[string]bool
 	// order preserves objective creation order for stable listing.
 	order []string
 	// tracked maps a holder to the objectives it is tracked in. The
@@ -90,6 +96,7 @@ func NewScoreboard() *Scoreboard {
 		objectives: map[string]*Objective{},
 		scores:     map[string]map[string]int{},
 		teams:      map[string]*Team{},
+		locked:     map[string]map[string]bool{},
 		tracked:    map[string][]TrackedObjective{},
 		seq:        map[string]int{},
 	}
@@ -144,6 +151,7 @@ func (s *Scoreboard) RemoveObjective(name string) bool {
 	delete(s.objectives, name)
 	m := s.scores[name]
 	delete(s.scores, name)
+	delete(s.locked, name)
 	delete(s.seq, name)
 	for i, n := range s.order {
 		if n == name {
@@ -194,11 +202,44 @@ func (s *Scoreboard) Score(holder, objective string) (int, bool) {
 	return v, ok
 }
 
+// ScoreLocked reports whether the holder's score in the objective is locked.
+//
+// Only a trigger score is ever locked: it locks when `/trigger` fires it and
+// `/scoreboard players enable` unlocks it. A score that was never locked is
+// unlocked, which is what a fresh `ScoreboardScore` is.
+func (s *Scoreboard) ScoreLocked(holder, objective string) bool {
+	return s.locked[objective][holder]
+}
+
+// SetScoreLocked locks or unlocks a holder's score.
+func (s *Scoreboard) SetScoreLocked(holder, objective string, locked bool) {
+	if !locked {
+		m, ok := s.locked[objective]
+		if !ok {
+			return
+		}
+		delete(m, holder)
+		if len(m) == 0 {
+			delete(s.locked, objective)
+		}
+		return
+	}
+	m, ok := s.locked[objective]
+	if !ok {
+		m = map[string]bool{}
+		s.locked[objective] = m
+	}
+	m[holder] = true
+}
+
 // ResetScore removes a holder's score from an objective. Passing an empty
 // objective removes the holder from every objective.
 func (s *Scoreboard) ResetScore(holder, objective string) {
 	if objective == "" {
 		for _, m := range s.scores {
+			delete(m, holder)
+		}
+		for _, m := range s.locked {
 			delete(m, holder)
 		}
 		delete(s.tracked, holder)
@@ -207,6 +248,7 @@ func (s *Scoreboard) ResetScore(holder, objective string) {
 	if m, ok := s.scores[objective]; ok {
 		delete(m, holder)
 	}
+	s.SetScoreLocked(holder, objective, false)
 	s.untrack(holder, objective)
 }
 

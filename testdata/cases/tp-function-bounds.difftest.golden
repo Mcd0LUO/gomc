@@ -1,0 +1,25 @@
+# case: tp function bounds
+step 1: scoreboard objectives add t dummy
+  count: 1
+  feedback: Added new objective 't' successfully
+step 2: summon armor_stand 0 64 0 {Tags:["q"],Marker:1b}
+  count: 1
+  feedback: Object successfully summoned
+step 3: tp @e[tag=q] -29999000 64 0
+  count: 1
+  feedback: Teleported Armor Stand to -29998999.5, 64.0, 0.5
+step 4: scoreboard players set @e[tag=q] t 0
+  count: 1
+  feedback: Set score of t for player 824764ea-3325-46ac-9de7-b5d921b7c9c5 to 0
+step 5: stats entity @e[tag=q] set SuccessCount @e[tag=q] t
+  count: 1
+  feedback: Storing SuccessCount stats in t on @e[tag=q]
+step 6: execute @e[tag=q] ~ ~ ~ function demo:tp_bounds
+  error: The number you have entered (-31072741.32) is too small, it must be at least -30000000
+  error: The number you have entered (-4936.00) is too small, it must be at least -4096
+  feedback: Score 0 is in range 0 to 0
+  feedback: Score 0 is in range 0 to 0
+  feedback: Executed 4 command(s) from function 'demo:tp_bounds'
+step 7: execute @e[tag=q] ~ ~ ~ tp @s ~1 ~ ~
+  count: 1
+  feedback: Teleported Armor Stand to -29998998.5, 64.0, 0.5

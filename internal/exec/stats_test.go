@@ -2,6 +2,7 @@ package exec_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/Mcd0LUO/gomc/internal/exec"
 	"github.com/Mcd0LUO/gomc/internal/version/v1_12_2"
@@ -29,7 +30,12 @@ func statsSource() *exec.Source {
 	}
 }
 
-// TestStatsCountsTheCommands covers the counting.
+// TestStatsCountsTheCommands covers the counting and the grouping.
+//
+// It does **not** look at the order of the groups: that order is by the
+// time the commands took, and two commands that really ran take different
+// times from run to run. The order is covered by
+// TestStatsOrdersTheGroups, which hands the collector the durations.
 func TestStatsCountsTheCommands(t *testing.T) {
 	e, stats := newStatsEngine(t)
 	for _, line := range []string{
@@ -48,10 +54,40 @@ func TestStatsCountsTheCommands(t *testing.T) {
 	if len(groups) != 2 {
 		t.Fatalf("the stats have %d group(s), want 2", len(groups))
 	}
-	// The groups come back slowest first, and the two commands took the
-	// same time, so the one with more commands comes first.
-	if groups[0].Command != "say" || groups[0].Count != 2 {
-		t.Errorf("the first group is %+v, want \u201csay\u201d twice", groups[0])
+	counts := map[string]int{}
+	for _, g := range groups {
+		counts[g.Command] = g.Count
+	}
+	if counts["say"] != 2 || counts["scoreboard"] != 1 {
+		t.Errorf("the counts are %v, want say twice and scoreboard once", counts)
+	}
+}
+
+// TestStatsOrdersTheGroups covers the order of the report.
+//
+// The groups come back slowest first; a tie goes to the group with more
+// commands, and a tie there goes by name. The durations are given to the
+// collector, so the test does not depend on how fast the machine is.
+func TestStatsOrdersTheGroups(t *testing.T) {
+	stats := &exec.Stats{}
+	stats.Record(exec.CommandStat{Command: "say", Duration: time.Millisecond})
+	stats.Record(exec.CommandStat{Command: "say", Duration: time.Millisecond})
+	stats.Record(exec.CommandStat{Command: "alpha", Duration: 2 * time.Millisecond})
+	stats.Record(exec.CommandStat{Command: "setblock", Duration: 2 * time.Millisecond})
+	stats.Record(exec.CommandStat{Command: "kill", Duration: 5 * time.Millisecond})
+
+	groups := stats.ByCommand()
+	if len(groups) != 4 {
+		t.Fatalf("the stats have %d group(s), want 4", len(groups))
+	}
+	// kill is the slowest. say and setblock and alpha all took 2 ms:
+	// say has more commands than the other two, and setblock sorts
+	// before alpha.
+	want := []string{"kill", "say", "alpha", "setblock"}
+	for i, g := range groups {
+		if g.Command != want[i] {
+			t.Errorf("group %d is %q, want %q", i, g.Command, want[i])
+		}
 	}
 }
 

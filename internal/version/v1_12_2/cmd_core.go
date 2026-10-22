@@ -136,14 +136,19 @@ func (c *tellRawCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	}
 	raw := args[1].(*ast.JSONArg).Value
 	for _, e := range entities {
-		name := e.PlayerName
-		if name == "" {
-			name = e.ID
+		// 1.12.2 resolves the parts of the message that depend on the
+		// world per player (`ChatComponentUtils.filterForDisplay`), so a
+		// `score` with the name "*" is that player's score and a
+		// `selector` is expanded against the world.
+		text, err := renderChatComponent(ctx, raw, e)
+		if err != nil {
+			return 0, err
 		}
-		// 1.12.2 sends the raw message to the target; the console shows
-		// the sender's name in front of it.
+		// The message itself goes to the client, which the console does
+		// not see; gomc prints the text it rendered so a differential
+		// case can compare it.
 		ctx.Engine.Feedback = append(ctx.Engine.Feedback, fmt.Sprintf("[%s] %s",
-			ctx.Source.Name, raw))
+			ctx.Source.Name, text))
 	}
 	return len(entities), nil
 }

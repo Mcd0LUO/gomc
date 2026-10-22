@@ -414,33 +414,22 @@ func (e *Engine) functionLoadError(id, path string, line int, name, source strin
 // It returns a parse error for unknown commands and for malformed
 // arguments, both carrying the source position.
 //
-// A relative coordinate is measured from the origin; use ParseCommandAt
-// for a command that runs somewhere else.
+// The line is parsed as one that runs nowhere in particular, so a
+// relative coordinate has no base and its bounds are left to the command
+// (see parser.CoordBase). Use ParseCommandAt for a command that runs at a
+// known position.
 func (e *Engine) ParseCommand(line string, lineNo int) (*ast.Command, error) {
 	return e.ParseCommandAt(line, lineNo, parser.CoordBase{})
 }
-
-// lintBase is the position a relative coordinate in a function file is
-// measured from when the file is **checked**.
-//
-// 1.12.2 measures it against the position of **whoever runs the function**,
-// and the checker does not know that. The ground level is the best guess: a
-// function is usually called by a player or a command block standing on the
-// ground, and the difference decides the answer -- `~-1` is one block below
-// the ground (y=4 → 3) but below the world when it is measured from the
-// origin (y=0 → -1).
-//
-// (Measured: a real project's `blockdata ~ ~-1 ~ {...}` is refused by the
-// origin and accepted by the ground, and the server accepts it when the
-// function is called from the ground.)
-var lintBase = parser.CoordBase{X: 0, Y: 4, Z: 0}
 
 // ParseCommandAt parses a command line that runs at the given base into
 // an AST command.
 //
 // The base is the block position the command runs at: 1.12.2 measures a
 // relative coordinate against it, and the bounds of the coordinate are
-// checked on the sum of the base and the offset.
+// checked on the sum of the base and the offset. A base that is not known
+// (parser.CoordBase.Known is false) skips the bounds check of a relative
+// coordinate, because the sum is not known yet.
 func (e *Engine) ParseCommandAt(line string, lineNo int, base parser.CoordBase) (*ast.Command, error) {
 	trimmed := strings.TrimSpace(line)
 	if trimmed == "" {
@@ -501,10 +490,58 @@ func (e *Engine) ParseCommandAt(line string, lineNo int, base parser.CoordBase) 
 	}, nil
 }
 
+// newContext builds the context a command runs in.
+//
+// cmd is nil for a line that does not parse, which still has to be
+// reported (see ExecuteLine).
+func (e *Engine) newContext(cmd *ast.Command, src *Source) *Context {
+	ctx := &Context{
+		Source: src,
+		World:  e.World,
+		Engine: e,
+		// A command that does not report a count reports nothing, and
+		// -1 is what says so.
+		AffectedBlocks:   -1,
+		AffectedEntities: -1,
+		AffectedItems:    -1,
+		QueryResult:      -1,
+	}
+	if cmd != nil {
+		ctx.Command = cmd
+		ctx.Args = cmd.Args
+	}
+	return ctx
+}
+
+// reportResult tells the reporter what a command did.
+//
+// The success count is always reported, because 1.12.2's dispatcher
+// reports `SUCCESS_COUNT` at the end of every command line, whether it
+// succeeded or not: `CommandHandler.a` puts the report after its
+// try/catch, and `VanillaCommandWrapper.dispatchVanillaCommand` (the
+// path `/execute` takes) puts it in a `finally` block. A failed command
+// therefore reports 0 instead of leaving the old score in place.
+//
+// The other four channels are not touched here beyond what the command
+// itself put in the context: a failure writes only `SUCCESS_COUNT`, so
+// the blocks/entities/items/query channels keep their old values. That
+// is why the context keeps -1 for a channel the command did not fill in.
+func (e *Engine) reportResult(ctx *Context, successCount int) {
+	reporter := e.Registry.ResultReporter()
+	if reporter == nil {
+		return
+	}
+	reporter.Report(ctx, successCount, ctx.AffectedBlocks, ctx.AffectedEntities, ctx.AffectedItems, ctx.QueryResult)
+}
+
 // Execute runs a parsed command under the given source.
 func (e *Engine) Execute(cmd *ast.Command, src *Source) (int, error) {
+	ctx := e.newContext(cmd, src)
 	handler, ok := e.Registry.Get(cmd.Name)
 	if !ok {
+		// An unknown command is a command line that the dispatcher
+		// still answers, so `SUCCESS_COUNT` is reported as 0.
+		e.reportResult(ctx, 0)
 		return 0, Errorf("unknown command %q", cmd.Name)
 	}
 	// 1.12.2 asks the command whether the source may run it before it
@@ -512,20 +549,10 @@ func (e *Engine) Execute(cmd *ast.Command, src *Source) (int, error) {
 	// A source that is not high enough is refused with
 	// `commands.generic.permission`.
 	if level := e.Registry.RequiredPermission(cmd.Name); level > src.PermissionLevel {
+		// A refused command does not run, and the dispatcher reports
+		// 0 for it all the same.
+		e.reportResult(ctx, 0)
 		return 0, Errorf("You do not have permission to use this command")
-	}
-	ctx := &Context{
-		Source:  src,
-		World:   e.World,
-		Engine:  e,
-		Command: cmd,
-		Args:    cmd.Args,
-		// A command that does not report a count reports nothing, and
-		// -1 is what says so.
-		AffectedBlocks:   -1,
-		AffectedEntities: -1,
-		AffectedItems:    -1,
-		QueryResult:      -1,
 	}
 	// The command is timed, so that a caller can measure a project.
 	start := time.Now()
@@ -537,6 +564,11 @@ func (e *Engine) Execute(cmd *ast.Command, src *Source) (int, error) {
 		if ee, ok := err.(*Error); ok && ee.Usage == "" && !isUsageMessage(ee.Msg) {
 			ee.Usage = handler.Usage()
 		}
+		// A failed command reports a success count of 0, not nothing:
+		// the 1.12.2 dispatcher reports the count on the failure path
+		// too. Only `SUCCESS_COUNT` is written, so the other channels
+		// are left as they were.
+		e.reportResult(ctx, 0)
 		return 0, err
 	}
 	// The outcome of the command is reported, so that a version that has
@@ -545,9 +577,7 @@ func (e *Engine) Execute(cmd *ast.Command, src *Source) (int, error) {
 	// 1.12.2 counts the commands that ran in the `SuccessCount` channel
 	// of `/stats`, and the dispatcher reports the count of the
 	// entities a command affected there as well.
-	if reporter := e.Registry.ResultReporter(); reporter != nil {
-		reporter.Report(ctx, count, ctx.AffectedBlocks, ctx.AffectedEntities, ctx.AffectedItems, ctx.QueryResult)
-	}
+	e.reportResult(ctx, count)
 	return count, nil
 }
 
@@ -572,6 +602,12 @@ func (e *Engine) record(command string, d time.Duration, failed bool) {
 func (e *Engine) ExecuteLine(line string, lineNo int, src *Source) (int, error) {
 	cmd, err := e.ParseCommandAt(line, lineNo, coordBaseOf(src))
 	if err != nil {
+		// 1.12.2 parses the arguments inside `ICommand.execute`, so a
+		// syntax or usage mistake is caught by the dispatcher exactly
+		// like a command that fails while running, and `SUCCESS_COUNT`
+		// is still reported as 0. gomc parses before it dispatches,
+		// but the observable outcome is the same.
+		e.reportResult(e.newContext(nil, src), 0)
 		return 0, err
 	}
 	return e.Execute(cmd, src)
@@ -581,13 +617,14 @@ func (e *Engine) ExecuteLine(line string, lineNo int, src *Source) (int, error) 
 // under the given source.
 //
 // It is the block position of the source, which is what 1.12.2 measures a
-// relative coordinate against.
+// relative coordinate against. The position is the real one, so the bounds
+// of a relative coordinate can be checked here.
 func coordBaseOf(src *Source) parser.CoordBase {
 	if src == nil {
 		return parser.CoordBase{}
 	}
 	b := src.RelativeBase()
-	return parser.CoordBase{X: b.X, Y: b.Y, Z: b.Z}
+	return parser.CoordBase{X: b.X, Y: b.Y, Z: b.Z, Known: true}
 }
 
 // RunFunction executes a loaded function under the given source.
@@ -723,6 +760,11 @@ func (e *Engine) runEntry(item pendingEntry) {
 	if cmd == nil {
 		parsed, err := e.ParseCommand(item.line, item.lineNo)
 		if err != nil {
+			// 1.12.2 runs a function line through
+			// `CommandBlockListenerAbstract.executeSafely`, which ends in
+			// the same dispatcher report, so a line that does not parse
+			// still writes 0 into `SUCCESS_COUNT`.
+			e.reportResult(e.newContext(nil, item.src), 0)
 			e.Errors = append(e.Errors, e.decorate(err, item.lineNo, item.line, item.path))
 			return
 		}
@@ -847,9 +889,11 @@ func splitLines(data string) []string {
 func (e *Engine) lintFunction(fn *Function) []error {
 	var out []error
 	for i, line := range fn.Lines {
-		// The linter does not know who will run the function, so it
-		// measures a relative coordinate from the ground.
-		cmd, err := e.ParseCommandAt(line, fn.LineNumbers[i], lintBase)
+		// The linter does not know who will run the function, so the
+		// base of a relative coordinate is not known either: the bounds
+		// of the coordinate are checked by the command when it runs, on
+		// the position the function is actually called from.
+		cmd, err := e.ParseCommandAt(line, fn.LineNumbers[i], parser.CoordBase{})
 		if err != nil {
 			out = append(out, &FunctionLintError{
 				Path: fn.Path,
@@ -930,9 +974,14 @@ func (e *Engine) RunFunctionByID(id string, src *Source) (int, error) {
 // function. `CustomFunctionData.e` implements exactly that.
 func (e *Engine) Tick(src *Source) (int, error) {
 	e.World.Time++
-	// The time of day advances with the tick counter, and wraps around
-	// at 24000 ticks, which is one Minecraft day.
-	e.World.DayTime = (e.World.DayTime + 1) % 24000
+	// The tick counter always advances, but the time of day only advances
+	// while `doDaylightCycle` is on: 1.12.2's `WorldServer.doTick` adds
+	// one to the tick counter and then adds one to the day time behind
+	// that rule. The day time is not wrapped here -- it keeps counting,
+	// and only `time query daytime` takes it modulo 24000.
+	if e.World.Rules.Bool("doDaylightCycle") {
+		e.World.DayTime++
+	}
 	id := e.World.Rules.String("gameLoopFunction")
 	if id == "" || id == "-" {
 		return 0, nil

@@ -1,6 +1,12 @@
 package v1_12_2
 
-import "github.com/Mcd0LUO/gomc/internal/parser"
+import (
+	"fmt"
+	"strconv"
+
+	"github.com/Mcd0LUO/gomc/internal/exec"
+	"github.com/Mcd0LUO/gomc/internal/parser"
+)
 
 // The bounds 1.12.2 puts on a coordinate.
 //
@@ -89,3 +95,52 @@ var (
 		Z: parser.CoordAxis{Min: coordMinXZ, Max: coordMaxXZ, Center: true},
 	}
 )
+
+// checkResolvedCoord checks a coordinate that has already been resolved
+// against the bounds of spec.
+//
+// 1.12.2 checks a coordinate where it reads it, and `/tp` reads its
+// coordinates **inside** `CommandTeleport.execute` with
+// `CommandAbstract.b(listener, text, min, max, flag)`. The base of a
+// relative coordinate is therefore the listener's position at the moment
+// the command runs, and the number that is checked is `base + offset` --
+// the final coordinate, not the literal. Nothing further down the path
+// checks it: `Entity.setPosition` clamps nothing, so a coordinate that
+// slips past the read is written to the entity as it is.
+//
+// gomc parses a function's lines once, when the function is loaded, and
+// the position the function will run at is not known then
+// (`parser.CoordBase.Known` is false), so the parse-time check only sees
+// the literal. The check here is the one that matches the server for such
+// a line: it runs after the base has been added, and it is what makes a
+// relative `/tp` inside a function that lands outside ±30000000 fail
+// instead of moving the entity there.
+//
+// The bounds are checked X, then Y, then Z, which is the order
+// `CommandTeleport.execute` reads them in, so the axis a message names is
+// the first one that is out of bounds. A coordinate outside the bounds is
+// refused with `commands.generic.num.tooBig` / `tooSmall`, and the number
+// in the message is formatted with "%.2f" -- the same text the parser
+// produces.
+func checkResolvedCoord(spec parser.CoordSpec, x, y, z float64) error {
+	for _, a := range [...]struct {
+		value float64
+		axis  parser.CoordAxis
+	}{{x, spec.X}, {y, spec.Y}, {z, spec.Z}} {
+		if a.value < a.axis.Min {
+			return exec.Errorf("The number you have entered (%s) is too small, it must be at least %s",
+				fmt.Sprintf("%.2f", a.value), coordBoundText(a.axis.Min))
+		}
+		if a.value > a.axis.Max {
+			return exec.Errorf("The number you have entered (%s) is too big, it must be at most %s",
+				fmt.Sprintf("%.2f", a.value), coordBoundText(a.axis.Max))
+		}
+	}
+	return nil
+}
+
+// coordBoundText renders a bound the way the server puts it into its
+// message: the bound is an int there.
+func coordBoundText(v float64) string {
+	return strconv.FormatInt(int64(v), 10)
+}

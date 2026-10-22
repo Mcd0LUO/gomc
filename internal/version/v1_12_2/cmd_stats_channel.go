@@ -209,7 +209,11 @@ func (r *statsReporter) Report(ctx *exec.Context, successCount, affectedBlocks, 
 		// that ran the command.
 		return
 	}
-	if successCount > 0 {
+	// 0 is a value, not "nothing to report": the 1.12.2 dispatcher
+	// writes `SUCCESS_COUNT` for every command line, and a command that
+	// failed writes 0 (`CommandHandler.a` reports after its try/catch;
+	// the `/execute` path does it in a `finally` block).
+	if successCount >= 0 {
 		reportStatsResult(ctx, entity, ResultSuccessCount, successCount)
 	}
 	if affectedBlocks >= 0 {

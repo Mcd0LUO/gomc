@@ -1,0 +1,53 @@
+﻿UUID of player Steve is <uuid>
+Steve[/127.0.0.1:<port>] logged in with entity id <id> at (<pos>)
+[Server] U01
+Added new objective 't' successfully
+[Server] U02
+Set score of t for player Steve to 0
+[Server] U03
+[Server] U04
+[Steve: Trigger t is not enabled]
+Trigger t is not enabled
+All invocations failed: 'trigger t add 1'
+[Server] U05
+Showing 1 tracked objective(s) for Steve:
+- t: 3 (t)
+[Server] U06
+Enabled trigger t for Steve
+[Server] U07
+[Server] U08
+Showing 1 tracked objective(s) for Steve:
+- t: 7 (t)
+[Server] U09
+Object successfully summoned
+[Server] U10
+[Armor Stand] turned
+[Server] U11
+Entity data updated to: {HurtByTimestamp:0,Attributes:[{Base:20.0d,Name:"generic.maxHealth"},{Base:0.0d,Name:"generic.knockbackResistance"},{Base:0.699999988079071d,Name:"generic.movementSpeed"},{Base:0.0d,Name:"generic.armor"},{Base:0.0d,Name:"generic.armorToughness"}],Invulnerable:0b,FallFlying:0b,ShowArms:0b,PortalCooldown:0,AbsorptionAmount:0.0f,FallDistance:<fall>f,DisabledSlots:0,DeathTime:0s,WorldUUIDMost:<n>L,Pose:{},Spigot.ticksLived:<n>,Invisible:0b,Paper.CanTick:1b,Motion:[<motion>],Small:0b,UUIDLeast:<n>L,Health:20.0f,Bukkit.updateLevel:2,Air:300s,OnGround:1b,Dimension:0,Rotation:[<rot>],HandItems:[{},{}],UUIDMost:<n>L,Pos:[0.5d,4.0d,0.5d],Fire:-1s,ArmorItems:[{},{},{},{}],NoBasePlate:0b,HurtTime:0s,WorldUUIDLeast:<n>L,Paper.Origin:[0.5d,4.0d,0.5d]}
+[Server] U12
+[Armor Stand] ten
+[Server] U13
+Object successfully summoned
+[Server] U14
+[Server] U15
+Added new objective 'n' successfully
+[Server] U16
+Set score of n for player Steve to 42
+[Server] U17
+[Server] U18
+[Server] U19
+[Server] U20
+Selector '@e[type=zombie]' found nothing
+[Server] U21
+[Server] U22
+[Server] U23
+[Server] U24
+Title command successfully executed
+[Server] U25
+Title command successfully executed
+[Server] U26
+Showing 2 tracked objective(s) for Steve:
+- t: 7 (t)
+- n: 42 (n)
+Steve lost connection: Server closed
+Steve left the game

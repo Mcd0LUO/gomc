@@ -1,0 +1,12 @@
+﻿[Server] U01
+Set the time to 24000
+[Server] U02
+Time is 1
+[Server] U03
+The number you have entered (-5) is too small, it must be at least 0
+[Server] U04
+The number you have entered (-1) is too small, it must be at least 0
+[Server] U05
+'3000000000' is not a valid number
+[Server] U06
+'nope' is not a valid number

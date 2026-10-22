@@ -145,6 +145,16 @@ func (c *titleCmd) Run(ctx *exec.Context, args []ast.Arg) (int, error) {
 	if err := jsonArgError(args, 2); err != nil {
 		return 0, err
 	}
+	// 1.12.2 deserializes the message into a component before it sends
+	// it, so a message whose component it cannot build fails the command
+	// even though gomc only keeps the text.
+	if len(args) > 2 {
+		if j, ok := args[2].(*ast.JSONArg); ok {
+			if err := chatComponentJSONError(j.Value); err != nil {
+				return 0, err
+			}
+		}
+	}
 	action := args[1].(*ast.StringArg).Value
 
 	for _, e := range players {
