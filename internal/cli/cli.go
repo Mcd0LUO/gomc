@@ -36,6 +36,7 @@ Usage:
   gomc run   <world> <function>         run a function (default: 1 tick)
   gomc tick  <world> [ticks]            advance the world by N ticks
   gomc commands                         list the supported commands
+  gomc bench <world>                    measure a project: what it runs and how long it takes
   gomc version                          print the version
 
   gomc difftest run    <world> <case>   print what a case does
@@ -115,6 +116,47 @@ the way 1.12.2 does. Without the rule, or with a function that does not
 exist, the tick does nothing and says nothing.
 
 Exit code: 0 unless a tick failed.
+`)
+}
+
+// usageBench prints the help of the bench subcommand.
+func usageBench(w io.Writer) {
+	fmt.Fprint(w, `gomc bench - measure a project
+
+Usage:
+  gomc bench <world> [switches]
+
+It loads the functions of the world the way the server loads them, runs
+them, and reports what happened: how many commands there were, which
+commands were used, how long each function took, and what failed.
+
+The numbers are the numbers of gomc, so they say how the project behaves
+under this runtime.
+
+What is run:
+
+  (default)             the gameLoopFunction game rule, for ten ticks.
+                        This is the function a server runs on its own, so
+                        it is the one that shows the real behaviour.
+
+  --function <id>       one function, by its id ("namespace:name").
+  --ticks <n>           n ticks of the game loop function.
+  --all                 every function of the world, one after the other.
+                        The functions are not called from each other, so
+                        this measures each one **on its own** -- and a
+                        function that needs what another one set up
+                        fails. A high failure count here usually means
+                        the project is built out of functions that call
+                        each other, not that the functions are broken.
+
+Switches:
+
+  --as <player>         run as that player instead of the console.
+  --top <n>             how many functions the detailed report shows
+                        (20 by default).
+  --json                print the report as JSON, for scripts.
+
+Exit code: 0 when the measurement ran, 1 when it could not.
 `)
 }
 
@@ -247,6 +289,12 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			return 0
 		}
 		return runCommands(stdout)
+	case "bench":
+		if wantsHelp(args[1:]) {
+			usageBench(stdout)
+			return 0
+		}
+		return runBench(args[1:], stdout, stderr, opts)
 	case "difftest":
 		return runDifftest(args[1:], stdout, stderr, opts)
 	case "version", "--version", "-v":

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/Mcd0LUO/gomc/internal/ast"
 	"github.com/Mcd0LUO/gomc/internal/lexer"
@@ -198,6 +199,16 @@ type Engine struct {
 	// It is `CustomFunctionData.h`: while it is set, a call to
 	// `CustomFunctionData.a` queues the function and reports 0.
 	running bool
+	// currentFunction is the function the engine is in.
+	//
+	// It is what a measurement groups the commands by, and it is empty
+	// when a command runs outside a function.
+	currentFunction string
+	// recorder is told about every command that runs.
+	//
+	// It is how a caller measures a project: the recorder counts the
+	// commands and times them.
+	recorder CommandRecorder
 }
 
 // NewEngine creates an engine.
@@ -516,7 +527,10 @@ func (e *Engine) Execute(cmd *ast.Command, src *Source) (int, error) {
 		AffectedItems:    -1,
 		QueryResult:      -1,
 	}
+	// The command is timed, so that a caller can measure a project.
+	start := time.Now()
 	count, err := handler.Run(ctx, cmd.Args)
+	e.record(cmd.Name, time.Since(start), err != nil)
 	if err != nil {
 		// The command failed while running; the usage of the command is
 		// still worth showing.
@@ -535,6 +549,23 @@ func (e *Engine) Execute(cmd *ast.Command, src *Source) (int, error) {
 		reporter.Report(ctx, count, ctx.AffectedBlocks, ctx.AffectedEntities, ctx.AffectedItems, ctx.QueryResult)
 	}
 	return count, nil
+}
+
+// record tells the recorder of the engine about a command that ran.
+//
+// The function the command belongs to is the one the engine is in, and it
+// is empty when the command ran outside a function.
+func (e *Engine) record(command string, d time.Duration, failed bool) {
+	rec := e.recorder
+	if rec == nil {
+		return
+	}
+	rec.Record(CommandStat{
+		Command:  command,
+		Function: e.currentFunction,
+		Duration: d,
+		Failed:   failed,
+	})
 }
 
 // ExecuteLine parses and runs a single command line.
@@ -609,6 +640,9 @@ func (e *Engine) RunFunction(fn *Function, src *Source) (int, error) {
 		// block.
 		e.queue = nil
 		e.running = false
+		// The chain is over, so the engine is in no function any more. A
+		// command that runs outside a function is not part of one.
+		e.currentFunction = ""
 	}()
 	e.pushFunction(fn, inner)
 	executed := 0
@@ -643,6 +677,7 @@ func (e *Engine) pushFunction(fn *Function, src *Source) {
 			line:   fn.Lines[i],
 			lineNo: fn.LineNumbers[i],
 			path:   fn.Path,
+			fnID:   fn.ID,
 			src:    src,
 			cmd:    fn.cachedCommand(i),
 		})
@@ -665,6 +700,7 @@ func (e *Engine) expandFunction(item pendingEntry, limit int) {
 			line:   item.fn.Lines[i],
 			lineNo: item.fn.LineNumbers[i],
 			path:   item.fn.Path,
+			fnID:   item.fn.ID,
 			src:    item.src,
 			cmd:    item.fn.cachedCommand(i),
 		})
@@ -680,6 +716,9 @@ func (e *Engine) expandFunction(item pendingEntry, limit int) {
 // case for a line that does not parse and for a function that was not
 // built by the loader.
 func (e *Engine) runEntry(item pendingEntry) {
+	// The engine is in the function the entry came from, so a measurement
+	// can group the command by it.
+	e.currentFunction = item.fnID
 	cmd := item.cmd
 	if cmd == nil {
 		parsed, err := e.ParseCommand(item.line, item.lineNo)
@@ -860,6 +899,11 @@ type pendingEntry struct {
 	lineNo int
 	// path is the file the command line came from.
 	path string
+	// fnID is the identifier of the function the entry belongs to.
+	//
+	// It is what a measurement of the run is grouped by, so a command
+	// knows which function it ran in.
+	fnID string
 	// fn is the function to expand. It is nil for a command entry.
 	fn *Function
 	// src is the source the entry runs under.

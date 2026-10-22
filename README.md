@@ -11,6 +11,7 @@ gomc check  <world>                    # 校验世界里的所有函数（含参
 gomc run    <world> <ns:function>      # 执行一个函数
 gomc tick   <world> [ticks]            # 推进 N 个 tick
 gomc commands                          # 列出支持的命令（按域分组，带用法行）
+gomc bench <world>                     # 分析一个工程包：跑了什么、多慢、哪里出错
 gomc difftest run    <world> <case>    # 打印一个用例的执行观察
 gomc difftest check  <world> <case>    # 与 golden 文件比对
 gomc difftest update <world> <case>    # 重写 golden 文件
@@ -34,6 +35,46 @@ gomc run --as Steve <world> <fn>       # 以玩家身份执行（监听者是玩
 **监听者**——1.12.2 量的相对坐标用的是监听者的方块位置，而玩家的那个
 Y 高半格（`EntityPlayer.getChunkCoordinates`）。真服上函数最常见的执行者
 就是玩家，这一档以前在 gomc 里够不着。
+
+## 分析一个工程包
+
+`bench` 把一个工程包**跑起来**，然后报告它跑了什么：
+
+```
+gomc bench <world>                    # 跑 gameLoopFunction 十刻
+gomc bench <world> --all              # 把每个函数**单独**跑一遍（依赖会断）
+gomc bench <world> --function ns:fn   # 只跑一个函数
+gomc bench <world> --ticks 100        # 跑一百刻
+gomc bench <world> --all --repeat 50  # 跑五十遍，每遍都是干净的世界
+gomc bench <world> --all --json       # 机器可读的结果
+```
+
+报告有三层：
+
+- **总的**：多少函数、多少条命令、多少次失败、总共多久；
+- **按函数**：哪个函数最慢（`--top` 控制显示多少行）；
+- **按命令**：哪条命令用得最多、最费时间。
+
+还有一行是**加载时间**——工程包大的时候，加载本身就是一笔可观的开销，
+把它和运行时间分开看，才知道慢在哪里。
+
+**`--all` 和 `--function` 的区别很重要**。`--all` 把每个函数**单独**跑一遍，
+所以一个函数依赖另一个函数设好的东西（一个 objective、一个实体）时，它就会
+失败——失败数会很高，但那是**依赖断了**，不是函数坏了。
+
+要测真实的调用链，用 `--function` 跑入口函数，或者设好 `gameLoopFunction`
+让默认模式跑它。
+
+> 拿悟空梦魂旅（10140 个函数）举例：`--all` 跑出 28 万条命令、**23 万次
+> 失败**（依赖断了）；而单跑 `dreamrpg:renwu/main` 只有 14 条命令、**0 失败**。
+
+**为什么要 `--repeat`**：一条命令比时钟还快，跑一遍的时间基本上都是零。
+重复几遍，时间才累加得出意义来。每遍都用**干净的世界**，所以第二遍不会
+因为「目标已经存在」而失败——不然测的就是失败路径，不是正常运行。
+
+报告里的时间是 **gomc 自己的**时间，说的是这个工程包在 gomc 下跑起来
+是什么样子。它不是真服的时间，但**命令条数、失败数、哪些函数互相调用**
+这些是同一套语义，可以当真。
 
 ## 错误输出
 

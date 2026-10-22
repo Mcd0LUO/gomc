@@ -211,6 +211,30 @@ go run ./tools/blockstates -in tools/blockstates/states.jsonl `
 静态读容易漏；而 `fromLegacyData` 的翻译关系是各个方块自己覆写的，
 只有真跑一遍才准。
 
+## 分析一个工程包
+
+`gomc bench` 把一个存档里的函数跑起来，然后报告它跑了什么。
+它想知道「这个包在运行时是什么样子」的时候用：
+
+```powershell
+gomc bench <world> --all --repeat 50
+```
+
+报告分三层（总的、**按函数**、**按命令**），另外单独列出**加载时间**。
+
+**加一条新命令之后**，可以用它看这条命令在真实工程里被用了多少、占了
+多少时间——比在脑子里估准得多。
+
+底层是引擎的一个钩子：`exec.CommandRecorder`。引擎每跑一条命令就告诉
+它「跑了多久、属于哪个函数、失败没有」，`exec.Stats` 把这些收起来，
+CLI 那边再分组。
+
+> **版本无关**：钩子在 `internal/exec`，但「通道」这些 1.12.2 的概念在
+> `internal/version/v1_12_2`。引擎不知道 1.12.2 的事——这是 DEV.md 里
+> 「依赖严格单向」那条规矩。
+
+---
+
 ## 热路径上的小技巧
 
 - **命令的回显用字符串拼接，别用 `fmt.Sprintf`**。`Sprintf` 要装箱参数、
@@ -232,7 +256,8 @@ go run ./tools/blockstates -in tools/blockstates/states.jsonl `
   以及 `internal/version/v1_12_2/selector_test.go` 和
   `internal/version/v1_12_2/selector_resolve_test.go`。
 - gamerule 清单改了 → 同步 `internal/world/state.go` 和 SPEC 第 5 节。
-- **命令的回显文字改了** → 同步 SPEC 里对应的小节。
+- **命令的行为或开销改了** → 用 `gomc bench <world> --all --repeat 50`
+  在真实工程上量一量，报告里的「按命令」那一栏就是它的新开销。
   真服的文案是语言文件里的原文，gomc 必须一字不差地对齐；
   对齐后重录 golden：
 
